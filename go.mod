@@ -6,9 +6,9 @@ require (
 	github.com/Bios-Marcel/wastebasket/v2 v2.0.3
 	github.com/BurntSushi/toml v1.4.0
 	github.com/charmbracelet/bubbles v0.20.0
-	github.com/charmbracelet/bubbletea v1.3.4
+	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/ansi v0.8.0
+	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/fatih/color v1.19.0
 	github.com/google/uuid v1.6.0
 	github.com/shirou/gopsutil/v4 v4.25.2
