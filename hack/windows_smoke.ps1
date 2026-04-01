@@ -51,7 +51,7 @@ Set-Content -Path (Join-Path $Root "project\package.json") -Value '{}'
 Set-Content -Path (Join-Path $Root "project\node_modules\pkg\package.json") -Value '{}'
 Set-Content -Path (Join-Path $env:APPDATA "Example App\state.bin") -Value 'payload'
 $helperLiteral = '"' + $NativeSentinel.Replace('\', '\\') + '"'
-$helperContent = @"
+$helperContent = @'
 package main
 
 import (
@@ -60,11 +60,12 @@ import (
 )
 
 func main() {
-  target := {0}
+  target := __TARGET__
   _ = os.MkdirAll(filepath.Dir(target), 0o755)
   _ = os.WriteFile(target, []byte("ok\n"), 0o644)
 }
-"@ -f $helperLiteral
+'@
+$helperContent = $helperContent.Replace('__TARGET__', $helperLiteral)
 Set-Content -Path $HelperSource -Value $helperContent
 go build -o (Join-Path $env:LOCALAPPDATA "Programs\Example App\uninstall.exe") $HelperSource
 
