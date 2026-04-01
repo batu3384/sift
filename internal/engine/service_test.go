@@ -58,6 +58,59 @@ func (s stubAdapter) IsAdminPath(path string) bool {
 func (s stubAdapter) IsFileInUse(context.Context, string) bool { return false }
 func (s stubAdapter) IsProcessRunning(...string) bool          { return false }
 
+func testManagedCommandPath() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Windows\System32\cmd.exe`
+	}
+	return "/usr/bin/true"
+}
+
+func testManagedCommandArgs() []string {
+	if runtime.GOOS == "windows" {
+		return []string{"/c", "ver"}
+	}
+	return []string{"--version"}
+}
+
+func testDialogSensitiveCommandPath() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Tools\osascript.exe`
+	}
+	return "/usr/bin/osascript"
+}
+
+func testAdminCommandPath() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Tools\sudo.exe`
+	}
+	return "/usr/bin/sudo"
+}
+
+func testNativeUninstallCommand() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "/Applications/Example Uninstaller.app"
+	case "windows":
+		return "MsiExec.exe /x Example"
+	default:
+		return "/usr/bin/true"
+	}
+}
+
+func testManualExecutablePath() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Users\runneradmin\go\bin\sift.exe`
+	}
+	return "/usr/local/bin/sift"
+}
+
+func testGoExecutablePath() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Go\bin\go.exe`
+	}
+	return "/usr/local/go/bin/go"
+}
+
 func TestCheckReportIncludesDiagnosticsAndAutofixableFindings(t *testing.T) {
 	t.Parallel()
 
@@ -717,7 +770,7 @@ func TestBuildOptimizePlanCreatesActionableAndAdvisoryMaintenanceItems(t *testin
 					Description: "Refresh resolver state.",
 					Risk:        domain.RiskReview,
 					Action:      domain.ActionCommand,
-					CommandPath: "/usr/bin/true",
+					CommandPath: testManagedCommandPath(),
 					Steps:       []string{"DNS cache refreshes immediately"},
 				},
 			},
@@ -756,7 +809,7 @@ func TestBuildOptimizePlanCreatesActionableAndAdvisoryMaintenanceItems(t *testin
 		t.Fatalf("expected advisory item to reflect optimize suggestion source, got %+v", reviewStartup)
 	}
 	flushDNS := itemsByRule["maintenance.flush-dns"]
-	if flushDNS.Action != domain.ActionCommand || flushDNS.CommandPath != "/usr/bin/true" || flushDNS.Status != domain.StatusPlanned {
+	if flushDNS.Action != domain.ActionCommand || flushDNS.CommandPath != testManagedCommandPath() || flushDNS.Status != domain.StatusPlanned {
 		t.Fatalf("expected managed command maintenance finding, got %+v", flushDNS)
 	}
 }
@@ -781,9 +834,9 @@ func TestExecuteWithOptionsRunsManagedCommandItems(t *testing.T) {
 			ID:          uuid.NewString(),
 			Action:      domain.ActionCommand,
 			Status:      domain.StatusPlanned,
-			DisplayPath: "/usr/bin/true",
-			CommandPath: "/usr/bin/true",
-			CommandArgs: []string{"--version"},
+			DisplayPath: testManagedCommandPath(),
+			CommandPath: testManagedCommandPath(),
+			CommandArgs: testManagedCommandArgs(),
 		}},
 	}, ExecuteOptions{})
 	if err != nil {
@@ -792,10 +845,10 @@ func TestExecuteWithOptionsRunsManagedCommandItems(t *testing.T) {
 	if len(result.Items) != 1 || result.Items[0].Status != domain.StatusCompleted {
 		t.Fatalf("expected completed managed command item, got %+v", result.Items)
 	}
-	if runPath != "/usr/bin/true" {
+	if runPath != testManagedCommandPath() {
 		t.Fatalf("expected managed command path to run, got %q", runPath)
 	}
-	if len(runArgs) != 1 || runArgs[0] != "--version" {
+	if strings.Join(runArgs, " ") != strings.Join(testManagedCommandArgs(), " ") {
 		t.Fatalf("unexpected managed command args: %+v", runArgs)
 	}
 }
@@ -812,8 +865,8 @@ func TestExecuteWithOptionsSkipsManagedCommandInDryRun(t *testing.T) {
 			ID:          uuid.NewString(),
 			Action:      domain.ActionCommand,
 			Status:      domain.StatusPlanned,
-			DisplayPath: "/usr/bin/true",
-			CommandPath: "/usr/bin/true",
+			DisplayPath: testManagedCommandPath(),
+			CommandPath: testManagedCommandPath(),
 		}},
 	}, ExecuteOptions{})
 	if err != nil {
@@ -1137,13 +1190,13 @@ func TestRunUpdateManualNightlyPreviewAndApply(t *testing.T) {
 	service := &Service{
 		Adapter: platform.Current(),
 		Executable: func() (string, error) {
-			return "/usr/local/bin/sift", nil
+			return testManualExecutablePath(), nil
 		},
 		LookPath: func(name string) (string, error) {
 			if name != "go" {
 				t.Fatalf("unexpected lookpath name %q", name)
 			}
-			return "/usr/local/go/bin/go", nil
+			return testGoExecutablePath(), nil
 		},
 		RunCommand: func(_ context.Context, path string, args ...string) error {
 			runCount++
@@ -1158,7 +1211,7 @@ func TestRunUpdateManualNightlyPreviewAndApply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if preview.Channel != string(UpdateChannelNightly) || preview.Executable != "/usr/local/go/bin/go" {
+	if preview.Channel != string(UpdateChannelNightly) || preview.Executable != testGoExecutablePath() {
 		t.Fatalf("unexpected nightly preview: %+v", preview)
 	}
 	if runCount != 0 {
@@ -1173,7 +1226,7 @@ func TestRunUpdateManualNightlyPreviewAndApply(t *testing.T) {
 	if !applied.Changed {
 		t.Fatalf("expected applied nightly update to report change, got %+v", applied)
 	}
-	if runCount != 1 || runPath != "/usr/local/go/bin/go" {
+	if runCount != 1 || runPath != testGoExecutablePath() {
 		t.Fatalf("expected go to run once, got count=%d path=%q", runCount, runPath)
 	}
 	if strings.Join(runArgs, " ") != "install github.com/batu3384/sift/cmd/sift@main" {
@@ -1215,19 +1268,34 @@ func TestBuildRemovePlanTargetsSiftOwnedState(t *testing.T) {
 		t.Fatalf("expected remove plan items, got %+v", plan)
 	}
 	foundExecutable := false
+	foundRemoveGuidance := false
 	foundActionable := false
 	for _, item := range plan.Items {
 		if item.RuleID == "remove.executable" && item.Action == domain.ActionTrash && item.Path == executable {
 			foundExecutable = true
 		}
+		if item.RuleID == "remove.binary" && item.Action == domain.ActionAdvisory {
+			foundRemoveGuidance = true
+		}
 		if item.Action == domain.ActionTrash {
 			foundActionable = true
 		}
 	}
-	if !foundExecutable || !foundActionable {
-		t.Fatalf("expected actionable state cleanup plus executable cleanup, got %+v", plan.Items)
+	if !foundActionable {
+		t.Fatalf("expected actionable state cleanup, got %+v", plan.Items)
 	}
-	if !strings.Contains(strings.Join(plan.Warnings, " | "), "executable in the review plan") {
+	if runtime.GOOS == "windows" {
+		if !foundRemoveGuidance {
+			t.Fatalf("expected manual remove guidance on windows, got %+v", plan.Items)
+		}
+	} else if !foundExecutable {
+		t.Fatalf("expected executable cleanup item, got %+v", plan.Items)
+	}
+	if runtime.GOOS == "windows" {
+		if !strings.Contains(strings.Join(plan.Warnings, " | "), "Executable cleanup could not be staged automatically") {
+			t.Fatalf("expected windows executable guidance warning, got %+v", plan.Warnings)
+		}
+	} else if !strings.Contains(strings.Join(plan.Warnings, " | "), "executable in the review plan") {
 		t.Fatalf("expected manual executable warning, got %+v", plan.Warnings)
 	}
 }
@@ -1472,9 +1540,9 @@ func TestExecuteWithProgressEmitsUninstallAndOptimizeSections(t *testing.T) {
 	uninstallPlan := domain.ExecutionPlan{
 		Command: "uninstall",
 		Items: []domain.Finding{
-			{ID: "native", Name: "Example", DisplayPath: "Example", Action: domain.ActionNative, Status: domain.StatusPlanned, NativeCommand: "/usr/bin/true"},
+			{ID: "native", Name: "Example", DisplayPath: "Example", Action: domain.ActionNative, Status: domain.StatusPlanned, NativeCommand: testNativeUninstallCommand()},
 			{ID: "remnant", Path: filepath.Join(root, "example"), DisplayPath: filepath.Join(root, "example"), Action: domain.ActionTrash, Status: domain.StatusPlanned, Fingerprint: domain.Fingerprint{Size: 0, ModTime: time.Time{}}},
-			{ID: "aftercare", DisplayPath: "/usr/bin/true", Action: domain.ActionCommand, Status: domain.StatusPlanned, CommandPath: "/usr/bin/true", TaskPhase: "aftercare"},
+			{ID: "aftercare", DisplayPath: testManagedCommandPath(), Action: domain.ActionCommand, Status: domain.StatusPlanned, CommandPath: testManagedCommandPath(), TaskPhase: "aftercare"},
 		},
 	}
 	// Fix fingerprint for remnant path.
@@ -1510,8 +1578,8 @@ func TestExecuteWithProgressEmitsUninstallAndOptimizeSections(t *testing.T) {
 	optimizePlan := domain.ExecutionPlan{
 		Command: "optimize",
 		Items: []domain.Finding{
-			{ID: "repair", DisplayPath: "/usr/bin/true", Action: domain.ActionCommand, Status: domain.StatusPlanned, CommandPath: "/usr/bin/true", TaskPhase: "repair"},
-			{ID: "refresh", DisplayPath: "/usr/bin/true", Action: domain.ActionCommand, Status: domain.StatusPlanned, CommandPath: "/usr/bin/true", TaskPhase: "refresh"},
+			{ID: "repair", DisplayPath: testManagedCommandPath(), Action: domain.ActionCommand, Status: domain.StatusPlanned, CommandPath: testManagedCommandPath(), TaskPhase: "repair"},
+			{ID: "refresh", DisplayPath: testManagedCommandPath(), Action: domain.ActionCommand, Status: domain.StatusPlanned, CommandPath: testManagedCommandPath(), TaskPhase: "refresh"},
 		},
 	}
 
@@ -1738,7 +1806,7 @@ func TestBuildUninstallPlanIncludesDiscoveredRemnants(t *testing.T) {
 				Name:             "example",
 				DisplayName:      "Example",
 				BundlePath:       bundle,
-				UninstallCommand: "/Applications/Example Uninstaller.app",
+				UninstallCommand: testNativeUninstallCommand(),
 			}},
 		},
 		Config: config.Default(),
@@ -1993,7 +2061,7 @@ func TestBuildBatchUninstallPlanMergesTargetsAndItems(t *testing.T) {
 					Name:             "example",
 					DisplayName:      "Example",
 					BundlePath:       first,
-					UninstallCommand: "/Applications/Example Uninstaller.app",
+					UninstallCommand: testNativeUninstallCommand(),
 				},
 				{
 					Name:        "builder",
@@ -2122,7 +2190,7 @@ func TestExecuteWithOptionsSkipsOsaScriptCommandInCiSafeMode(t *testing.T) {
 			Action:      domain.ActionCommand,
 			Status:      domain.StatusPlanned,
 			DisplayPath: "Remove login items",
-			CommandPath: "/usr/bin/osascript",
+			CommandPath: testDialogSensitiveCommandPath(),
 			CommandArgs: []string{"-e", "return 1"},
 		}},
 	}, ExecuteOptions{})
@@ -2154,9 +2222,9 @@ func TestExecuteWithOptionsSkipsAdminCommandInCiSafeMode(t *testing.T) {
 			ID:            uuid.NewString(),
 			Action:        domain.ActionCommand,
 			Status:        domain.StatusPlanned,
-			DisplayPath:   "/usr/bin/sudo /usr/bin/true",
-			CommandPath:   "/usr/bin/sudo",
-			CommandArgs:   []string{"/usr/bin/true"},
+			DisplayPath:   testAdminCommandPath() + " " + testManagedCommandPath(),
+			CommandPath:   testAdminCommandPath(),
+			CommandArgs:   []string{testManagedCommandPath()},
 			RequiresAdmin: true,
 		}},
 	}, ExecuteOptions{})
@@ -2403,7 +2471,7 @@ func TestBuildUninstallPlanProtectsRunningApps(t *testing.T) {
 				Name:             "example",
 				DisplayName:      "Example",
 				BundlePath:       bundle,
-				UninstallCommand: "/Applications/Example Uninstaller.app",
+				UninstallCommand: testNativeUninstallCommand(),
 			}},
 		},
 		Config: config.Default(),

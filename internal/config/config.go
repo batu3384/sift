@@ -47,9 +47,9 @@ func Default() Config {
 			"developer": {"temp_files", "logs", "safe_system_clutter", "stale_login_items", "developer_caches", "package_manager_caches", "finder_metadata"},
 			"deep":      {"temp_files", "logs", "safe_system_clutter", "recent_items", "stale_login_items", "orphaned_services", "system_update_artifacts", "developer_caches", "package_manager_caches", "browser_data", "installer_leftovers", "app_leftovers", "finder_metadata", "ios_device_backups", "time_machine_cleanup", "cloud_office", "virtualization", "device_backups", "time_machine", "maven_cache", "ipfs_node", "trash", "font_cache", "print_spooler", "xcode", "unity", "unreal", "android", "rust", "node_modules", "python_cache", "go_cache", "fonts", "diagnostics", "media_cache"},
 		},
-		InteractionMode:       "auto",
-		TrashMode:             "trash_first",
-		ConfirmLevel:          "strict",
+		InteractionMode: "auto",
+		TrashMode:       "trash_first",
+		ConfirmLevel:    "strict",
 		Diagnostics: DiagnosticsConfig{
 			Redaction: true,
 		},
@@ -385,7 +385,7 @@ func normalizePath(value string) (string, error) {
 		return "", nil
 	}
 	if trimmed == "~" || strings.HasPrefix(trimmed, "~/") {
-		home, err := os.UserHomeDir()
+		home, err := domain.CurrentHomeDir()
 		if err != nil {
 			return "", err
 		}

@@ -7,8 +7,9 @@ import (
 )
 
 func TestNormalizePath(t *testing.T) {
-	home, _ := os.UserHomeDir()
+	home, _ := CurrentHomeDir()
 	cwd, _ := os.Getwd()
+	absolutePath := filepath.Join(t.TempDir(), "usr", "local")
 
 	tests := []struct {
 		name     string
@@ -21,7 +22,7 @@ func TestNormalizePath(t *testing.T) {
 		{"tilde_slash_subpath", "~/Documents/Project", filepath.Join(home, "Documents/Project")},
 		{"tilde_not_expanded", "~config", filepath.Join(cwd, "~config")},
 		{"tilde_username", "~root", filepath.Join(cwd, "~root")},
-		{"absolute_path", "/usr/local", "/usr/local"},
+		{"absolute_path", absolutePath, absolutePath},
 		{"relative_path", "Documents", filepath.Join(cwd, "Documents")},
 	}
 
@@ -36,7 +37,14 @@ func TestNormalizePath(t *testing.T) {
 }
 
 func TestHasPathPrefix(t *testing.T) {
-	home, _ := os.UserHomeDir()
+	home, _ := CurrentHomeDir()
+	root := t.TempDir()
+	userRoot := filepath.Join(root, "user")
+	otherRoot := filepath.Join(root, "other")
+	rootPrefix := filepath.VolumeName(root) + string(filepath.Separator)
+	if rootPrefix == string(filepath.Separator) && filepath.IsAbs(root) {
+		rootPrefix = string(filepath.Separator)
+	}
 
 	tests := []struct {
 		name     string
@@ -46,11 +54,11 @@ func TestHasPathPrefix(t *testing.T) {
 	}{
 		{"empty_path", "", "/home", false},
 		{"empty_prefix", "/home", "", false},
-		{"exact_match", "/home/user", "/home/user", true},
-		{"direct_child", "/home/user/file", "/home/user", true},
-		{"not_child", "/home/other", "/home/user", false},
-		{"root_prefix", "/home", "/", true},
-		{"home_relative", "Documents", "/home/user/Documents", false},
+		{"exact_match", userRoot, userRoot, true},
+		{"direct_child", filepath.Join(userRoot, "file"), userRoot, true},
+		{"not_child", otherRoot, userRoot, false},
+		{"root_prefix", userRoot, rootPrefix, true},
+		{"home_relative", "Documents", filepath.Join(userRoot, "Documents"), false},
 	}
 
 	for _, tt := range tests {
@@ -72,14 +80,18 @@ func TestHasPathPrefix(t *testing.T) {
 }
 
 func TestIsRootPath(t *testing.T) {
+	root := filepath.VolumeName(os.TempDir()) + string(filepath.Separator)
+	if root == string(filepath.Separator) && filepath.IsAbs(os.TempDir()) {
+		root = string(filepath.Separator)
+	}
 	tests := []struct {
 		name     string
 		path     string
 		expected bool
 	}{
 		{"empty", "", false},
-		{"root_unix", "/", true},
-		{"non_root", "/home", false},
+		{"root_path", root, true},
+		{"non_root", filepath.Join(os.TempDir(), "home"), false},
 	}
 
 	for _, tt := range tests {
@@ -143,7 +155,8 @@ func TestHasControlChars(t *testing.T) {
 }
 
 func TestRedactPath(t *testing.T) {
-	home, _ := os.UserHomeDir()
+	home, _ := CurrentHomeDir()
+	outsideHome := filepath.Join(t.TempDir(), "usr", "local")
 
 	tests := []struct {
 		name     string
@@ -154,14 +167,15 @@ func TestRedactPath(t *testing.T) {
 		{"home_exact", home, "~"},
 		{"home_subpath", filepath.Join(home, "Documents"), "~/Documents"},
 		{"home_subpath_deep", filepath.Join(home, "Documents/Project/File"), "~/Documents/Project/File"},
-		{"outside_home", "/usr/local", "/usr/local"},
+		{"outside_home", outsideHome, outsideHome},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := RedactPath(tt.path)
-			if result != tt.expected {
-				t.Errorf("RedactPath(%q) = %q, want %q", tt.path, result, tt.expected)
+			result := filepath.ToSlash(RedactPath(tt.path))
+			expected := filepath.ToSlash(tt.expected)
+			if result != expected {
+				t.Errorf("RedactPath(%q) = %q, want %q", tt.path, result, expected)
 			}
 		})
 	}

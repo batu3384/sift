@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -2878,14 +2879,15 @@ func TestAppRouterToolsProtectAddRemove(t *testing.T) {
 	if !editing.protect.inputActive {
 		t.Fatal("expected protect input mode to start")
 	}
-	next, _ = editing.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/tmp/keep")})
+	protectedPath := filepath.Join(t.TempDir(), "keep")
+	next, _ = editing.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(protectedPath)})
 	adding, cmd := next.(appModel).Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected add protected path command")
 	}
 	next, _ = adding.(appModel).Update(deliverCmd(t, cmd))
 	afterAdd := next.(appModel)
-	if len(afterAdd.protect.paths) != 1 || afterAdd.protect.paths[0] != "/tmp/keep" {
+	if len(afterAdd.protect.paths) != 1 || afterAdd.protect.paths[0] != protectedPath {
 		t.Fatalf("expected protected path to be added, got %+v", afterAdd.protect.paths)
 	}
 

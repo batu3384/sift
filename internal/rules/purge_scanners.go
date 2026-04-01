@@ -289,7 +289,7 @@ func isShallowPurgeTarget(path string) bool {
 	if parent == path {
 		return true
 	}
-	if home, err := os.UserHomeDir(); err == nil {
+	if home, err := domain.CurrentHomeDir(); err == nil {
 		cleanHome := domain.NormalizePath(home)
 		if domain.HasPathPrefix(path, cleanHome) {
 			rel, err := filepath.Rel(cleanHome, path)

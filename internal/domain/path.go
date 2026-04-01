@@ -8,20 +8,27 @@ import (
 	"unicode"
 )
 
+func CurrentHomeDir() (string, error) {
+	if home := strings.TrimSpace(os.Getenv("HOME")); home != "" {
+		return filepath.Clean(home), nil
+	}
+	return os.UserHomeDir()
+}
+
 func NormalizePath(path string) string {
 	if path == "" {
 		return ""
 	}
 	// Expand ~ to user home directory (only for ~ or ~/ prefix)
 	if path == "~" {
-		home, err := os.UserHomeDir()
+		home, err := CurrentHomeDir()
 		if err == nil {
 			return home
 		}
 		return path
 	}
 	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
+		home, err := CurrentHomeDir()
 		if err == nil {
 			return filepath.Join(home, path[2:])
 		}
@@ -85,7 +92,7 @@ func HasControlChars(path string) bool {
 }
 
 func RedactPath(path string) string {
-	home, err := os.UserHomeDir()
+	home, err := CurrentHomeDir()
 	if err == nil && HasPathPrefix(path, home) {
 		base := filepath.Clean(home)
 		if path == base {
@@ -93,9 +100,9 @@ func RedactPath(path string) string {
 		}
 		trimmed := strings.TrimPrefix(path, base)
 		if strings.HasPrefix(trimmed, string(filepath.Separator)) {
-			return "~" + trimmed
+			return filepath.ToSlash("~" + trimmed)
 		}
-		return filepath.Join("~", trimmed)
+		return filepath.ToSlash(filepath.Join("~", trimmed))
 	}
 	return path
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -411,6 +412,18 @@ func (s *Service) executeManagedCommandItem(ctx context.Context, plan domain.Exe
 	if emit != nil {
 		emit(domain.ProgressPhasePreparing, "check", progressCheckDetail(plan.Command, item))
 	}
+	if platform.TestModeEnabled() && !platform.LiveIntegrationEnabled() {
+		switch {
+		case item.RequiresAdmin || isSudoManagedCommand(item.CommandPath):
+			result.Status = domain.StatusSkipped
+			result.Message = "skipped in ci-safe test mode"
+			return result
+		case isDialogSensitiveManagedCommand(item.CommandPath) && !platform.AllowDialogSensitiveActions():
+			result.Status = domain.StatusSkipped
+			result.Message = "skipped in ci-safe test mode"
+			return result
+		}
+	}
 	decision := evaluatePolicy(plan.Policy, item, false)
 	if !decision.Allowed {
 		result.Status = domain.StatusProtected
@@ -421,16 +434,6 @@ func (s *Service) executeManagedCommandItem(ctx context.Context, plan domain.Exe
 	if plan.DryRun {
 		result.Status = domain.StatusSkipped
 		result.Message = "dry-run"
-		return result
-	}
-	if (item.RequiresAdmin || item.CommandPath == "/usr/bin/sudo") && platform.TestModeEnabled() && !platform.LiveIntegrationEnabled() {
-		result.Status = domain.StatusSkipped
-		result.Message = "skipped in ci-safe test mode"
-		return result
-	}
-	if item.CommandPath == "/usr/bin/osascript" && !platform.AllowDialogSensitiveActions() {
-		result.Status = domain.StatusSkipped
-		result.Message = "skipped in ci-safe test mode"
 		return result
 	}
 	if err := validateManagedCommand(item.CommandPath, item.CommandArgs); err != nil {
@@ -460,6 +463,16 @@ func (s *Service) executeManagedCommandItem(ctx context.Context, plan domain.Exe
 	result.Status = domain.StatusCompleted
 	result.Message = "command completed"
 	return result
+}
+
+func isSudoManagedCommand(path string) bool {
+	base := strings.TrimSuffix(strings.ToLower(filepath.Base(path)), ".exe")
+	return base == "sudo"
+}
+
+func isDialogSensitiveManagedCommand(path string) bool {
+	base := strings.TrimSuffix(strings.ToLower(filepath.Base(path)), ".exe")
+	return base == "osascript"
 }
 
 func progressQueueDetail(command string, item domain.Finding) string {

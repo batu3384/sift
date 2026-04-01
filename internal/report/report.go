@@ -238,15 +238,16 @@ func redactAny(value any) any {
 func redactString(value string) string {
 	value = strings.ReplaceAll(value, `\`, `/`)
 	redacted := domain.RedactPath(value)
-	home, err := os.UserHomeDir()
+	home, err := domain.CurrentHomeDir()
 	if err != nil {
-		return redacted
+		return strings.ReplaceAll(redacted, `\`, `/`)
 	}
 	normalizedHome := strings.ReplaceAll(filepath.Clean(home), `\`, `/`)
 	if normalizedHome == "" {
-		return redacted
+		return strings.ReplaceAll(redacted, `\`, `/`)
 	}
-	return strings.ReplaceAll(redacted, normalizedHome, "~")
+	redacted = strings.ReplaceAll(redacted, normalizedHome, "~")
+	return strings.ReplaceAll(redacted, `\`, `/`)
 }
 
 func writeJSON(writer *zip.Writer, name string, value any) error {

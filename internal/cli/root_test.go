@@ -49,10 +49,17 @@ func executeRootCommandPiped(t *testing.T, args ...string) (string, error) {
 	root.SetOut(writer)
 	root.SetErr(writer)
 	root.SetArgs(args)
+
+	var out bytes.Buffer
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := out.ReadFrom(reader)
+		readDone <- err
+	}()
+
 	runErr := root.Execute()
 	_ = writer.Close()
-	var out bytes.Buffer
-	if _, err := out.ReadFrom(reader); err != nil {
+	if err := <-readDone; err != nil {
 		t.Fatal(err)
 	}
 	return out.String(), runErr

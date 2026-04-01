@@ -45,9 +45,10 @@ func TestMergeProfileRulesPreservesExistingOrderAndAppendsDefaults(t *testing.T)
 func TestNormalizePathsDropsInvalidAndDedupes(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	cachePath := filepath.Join(t.TempDir(), "cache")
 
-	got := normalizePaths([]string{"~/Projects/app", "   ", "~/Projects/app", "/tmp/cache"})
-	want := []string{filepath.Join(home, "Projects", "app"), "/tmp/cache"}
+	got := normalizePaths([]string{"~/Projects/app", "   ", "~/Projects/app", cachePath})
+	want := []string{filepath.Join(home, "Projects", "app"), cachePath}
 	if len(got) != len(want) {
 		t.Fatalf("normalizePaths() = %v, want %v", got, want)
 	}

@@ -3,6 +3,7 @@ package engine
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/batu3384/sift/internal/domain"
@@ -36,8 +37,12 @@ func TestEvaluatePolicyRejectsOutsideAllowedRoots(t *testing.T) {
 
 func TestEvaluatePolicyRejectsCriticalRoot(t *testing.T) {
 	t.Parallel()
+	root := string(filepath.Separator)
+	if runtime.GOOS == "windows" {
+		root = filepath.VolumeName(os.TempDir()) + string(filepath.Separator)
+	}
 	item := domain.Finding{
-		Path:   string(filepath.Separator),
+		Path:   root,
 		Action: domain.ActionTrash,
 	}
 	decision := evaluatePolicy(domain.ProtectionPolicy{BlockSymlinks: true}, item, false)
@@ -68,8 +73,8 @@ func TestEvaluatePolicyAllowsManagedCommand(t *testing.T) {
 	t.Parallel()
 	item := domain.Finding{
 		Action:      domain.ActionCommand,
-		CommandPath: "/usr/bin/true",
-		CommandArgs: []string{"--version"},
+		CommandPath: testManagedCommandPath(),
+		CommandArgs: testManagedCommandArgs(),
 	}
 	decision := evaluatePolicy(domain.ProtectionPolicy{}, item, false)
 	if !decision.Allowed {

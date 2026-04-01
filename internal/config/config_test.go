@@ -115,7 +115,11 @@ func TestSaveAtNormalizesBeforeWriting(t *testing.T) {
 	if string(raw) == "" {
 		t.Fatal("expected config file to be written")
 	}
-	if expected := filepath.Join(home, "Projects", "keep-me"); !strings.Contains(string(raw), expected) {
+	expected, err := normalizePath("~/Projects/keep-me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), expected) {
 		t.Fatalf("expected normalized protected path in config, got %s", string(raw))
 	}
 }

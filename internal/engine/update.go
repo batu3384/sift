@@ -339,7 +339,7 @@ func (s *Service) installMethodAndCommands(channel UpdateChannel, force bool) (s
 			commands = []string{"Nightly builds are not available for Scoop installs", "Switch to a manual install to use nightly builds"}
 		}
 		return "scoop", commands
-	case runtime.GOOS == "windows":
+	case runtime.GOOS == "windows" && strings.Contains(lower, strings.ToLower(string(filepath.Separator)+"windowsapps"+string(filepath.Separator))):
 		commands := []string{"winget upgrade SIFT", "winget uninstall SIFT"}
 		if force {
 			commands[0] = "winget uninstall SIFT && winget install SIFT"

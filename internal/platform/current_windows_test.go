@@ -26,7 +26,6 @@ func TestWindowsResolveTargetsExpandsLocalAppData(t *testing.T) {
 }
 
 func TestWindowsIsAdminPathUsesCaseInsensitivePrefix(t *testing.T) {
-	t.Parallel()
 	t.Setenv("ProgramFiles", `C:\Program Files`)
 	t.Setenv("ProgramFiles(x86)", `C:\Program Files (x86)`)
 	t.Setenv("ProgramData", `C:\ProgramData`)
