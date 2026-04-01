@@ -1,18 +1,23 @@
 # SIFT
 
 SIFT is a cross-platform terminal cleaner for macOS and Windows. It keeps the
-command surface direct and terminal-first while replacing shell-driven
-logic with a typed Go core, a scan-plan-execute pipeline, and a safety-first
-audit trail.
+command surface direct and terminal-first while replacing shell-driven logic
+with a typed Go core, a scan-plan-execute pipeline, explicit permission
+preflight, and a safety-first audit trail.
 
-Running `sift` without a subcommand now opens a single full-screen, route-driven terminal app so you can move between Home, Status, Doctor, Analyze, Review, Progress, and Result screens without tearing down the UI.
+Running `sift` without a subcommand opens a single full-screen, route-driven
+terminal app so you can move between Home, Clean, Uninstall, Analyze, Status,
+Review, Permissions, Progress, and Result screens without tearing down the UI.
 
 ## Highlights
 
 - One Go binary with platform adapters for macOS and Windows
 - Safety-first execution: dry-run by default, trash-first deletion, audit logs
 - Bubble Tea/Lip Gloss TUI for interactive scan and cleanup flows
-- Single alt-screen terminal app with a shared router, branded header, a 5-item home menu, compact help bar, and consistent screens across all interactive flows
+- Single alt-screen terminal app with a shared router, route-local loading, a 5-item home menu, compact help bar, and consistent screens across all interactive flows
+- Task-native preview loading for `clean`, `uninstall`, and staged `analyze` review so selected work is summarized before you commit to review
+- Explicit permission preflight for destructive runs, with admin/dialog/native access summarized before execution starts
+- Sectioned execution progress for clean, uninstall, optimize, and autofix flows
 - Stable JSON output for automation and support workflows
 - Local SQLite state store for scan history and debug bundles
 - Daily NDJSON audit trail for plans, executions, and report exports
@@ -88,11 +93,12 @@ sift touchid
 - `developer`: safe + developer and package-manager caches
 - `deep`: broad cleanup with extra review warnings
 
-Profiles remain part of the CLI and config model. In the interactive TUI, `Clean`
-is now a single top-level workflow and these presets are presented as cleanup
-depth choices instead of raw profile names. The TUI home screen now stays at
-five top-level flows: `Analyze`, `Clean`, `Uninstall`, `Status`, and `Tools`.
-`Protect Paths` lives under `Tools`.
+Profiles remain part of the CLI and config model. In the interactive TUI,
+`Clean` is a single top-level workflow and these presets are presented as
+cleanup depth choices instead of raw profile names. The TUI home screen keeps
+five primary flows: `Clean`, `Uninstall`, `Analyze`, `Status`, and `Optimize`.
+Secondary workflows such as `Check`, `Autofix`, `Protect Paths`, `Purge Scan`,
+and `Doctor` stay under `Tools` via the tools shortcut.
 
 The interactive `Uninstall` screen now includes a searchable installed-app list
 with a visible distinction between apps that expose a native uninstall command
@@ -108,7 +114,7 @@ and apps where SIFT can only offer remnant review.
 - `sift installer`: direct cleanup flow for stale installer packages across common download locations, with zip archives checked for installer payloads before they are flagged.
 - `sift installer` now also covers broader macOS drop zones such as `Documents`, `Public`, `/Users/Shared`, iCloud Downloads, and Telegram Desktop, and it recognizes `.mpkg` and `.xip` alongside the existing installer archive types.
 - `sift installer` also flags stale incomplete downloads (`.download`, `.crdownload`, `.part`) but skips files that are still actively held open by the system.
-- `sift clean`, `sift purge`, `sift uninstall`: plan first, execute only when `--dry-run=false` is explicitly set. In interactive terminals the TUI becomes a real review gate and requires explicit `y` to continue.
+- `sift clean`, `sift purge`, `sift uninstall`: plan first, execute only when `--dry-run=false` is explicitly set. In interactive terminals the TUI becomes a real review gate, shows a permission preflight when access changes are required, and requires explicit `y` to continue.
 - `sift clean --whitelist ...` and `sift optimize --whitelist ...` are command-scoped exclusion managers. They let you block paths from one workflow without globally protecting those paths from every command.
 - `sift purge <path>` only accepts known project artifact directories such as `node_modules`, `dist`, `build`, `target`, `.next`, `venv`, and similar cache/build outputs.
 - `sift purge scan [roots...]` discovers known project artifact directories under one or more search roots and returns a preview-only purge plan.
@@ -121,7 +127,7 @@ and apps where SIFT can only offer remnant review.
 - `sift remove` reviews and deletes only SIFT-owned local state. Binary/package-manager uninstall remains an explicit manual step.
 - `sift touchid` reports Touch ID sudo status, while `sift touchid enable|disable` provides a dry-run preview by default and applies changes only with `--dry-run=false --yes`. On non-macOS platforms it returns an explicit unsupported message.
 - `sift doctor` now reports config/store health plus report cache, audit log, purge discovery defaults, protection policy summary, command-scoped exclusions, a tracked Mole parity matrix summary, and the current upstream baseline compare range.
-- `sift uninstall <app>` includes a native uninstall step when the platform exposes one. It launches only when `--native-uninstall` is set; after launch SIFT stops and asks you to rerun uninstall when the vendor uninstaller has finished, instead of racing remnant deletion in the same run.
+- `sift uninstall <app>` includes a native uninstall step when the platform exposes one. It launches only when `--native-uninstall` is set; after the handoff, SIFT continues in the same reviewed run with remnant cleanup and aftercare guidance instead of forcing a second uninstall pass.
 - `sift uninstall <app>` also checks whether the target app still appears to be running. If it is, SIFT protects the whole uninstall plan and tells you to close the app first.
 - `sift uninstall <app>` now also adds platform-aware aftermath guidance in review/result, including LaunchServices refresh and Homebrew follow-up on macOS when relevant.
 - `sift uninstall <app>` now also offers managed launch-agent unload follow-ups so stale per-user or system daemons can be unloaded from the review flow instead of being left as manual cleanup.
@@ -185,6 +191,7 @@ make vet
 make test
 make smoke
 make smoke-live-macos
+make integration-live-macos
 make smoke-windows
 make completions
 make cross-build
@@ -223,11 +230,13 @@ See `config.example.toml` for the supported shape.
 - `sift protect family add/remove/list` activates broader built-in protection families without requiring hand-managed path lists.
 - `sift protect scope add/remove/list` manages command-scoped exclusions so paths can be blocked from `clean` or `optimize` without becoming globally protected.
 - `sift uninstall` now expands beyond the app bundle into discovered remnant locations using platform-specific support path discovery.
-- Native uninstall execution is explicit: `sift uninstall "<App>" --dry-run=false --native-uninstall` launches the parsed vendor command without a shell, records a follow-up warning plus a suggested rerun command, and leaves remnant cleanup for the next uninstall run. The follow-up rerun still works even if the vendor uninstaller has already removed the app from the installed-app list.
+- Native uninstall execution is explicit: `sift uninstall "<App>" --dry-run=false --native-uninstall` launches the parsed vendor command without a shell, keeps the reviewed execution session alive, and continues with remnant cleanup plus aftercare when the native handoff returns.
 - `sift optimize` now uses the shared review/progress/result flow for real safe maintenance resets plus advisory guidance, instead of acting as a read-only placeholder.
 - `sift doctor` includes a parity matrix summary generated from the tracked Mole feature inventory; remaining `missing` rows stay visible until SIFT reaches parity.
 - `sift remove` builds a reviewable plan for SIFT-owned config, report cache, and audit log paths, then leaves binary uninstall to the printed package-manager guidance.
 - `sift status` shows recent scans, delta versus the previous scan, and the current audit log path.
+- Interactive destructive flows now stage through `Review -> Permissions -> Progress -> Result` only when access changes are required; already-accepted permission profiles skip the extra stop and go straight into execution.
+- `Clean`, `Uninstall`, and staged `Analyze` runs now preload task-native preview plans so selection state, module/target coverage, and reclaim estimates are visible before full review opens.
 - Browser/profile identity roots, password material, VPN/proxy state, mail/account data, IDE settings, and key app identity paths are now protected by built-in policy and can also be elevated via protected families.
 - `sift report` exports a zip bundle with the saved plan, config snapshot, diagnostics, status summary, recent scans, latest execution summary, and recent audit records.
 - Interactive execution now flows through `Review -> Progress -> Result`, so destructive work stays visible while it is running and failed/protected items can be reopened from Result with `x`.

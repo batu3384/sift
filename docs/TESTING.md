@@ -68,12 +68,13 @@ make integration-live-macos
 - analyze output
 - clean plans for safe and deep coverage
 - purge and purge scan behavior
-- uninstall planning and native uninstall follow-up
+- uninstall planning plus same-session native uninstall handoff, remnant cleanup, and aftercare
 - optimize/update/remove/touchid command surfaces
 - status output and suggested commands
 - shell completion generation
 - report bundle export
 - CI-safe guards for login item enumeration/removal and desktop open/reveal
+- permission preflight and command-specific execution flow labels
 
 `make integration-live-macos` validates:
 

@@ -33,17 +33,21 @@ CLI/TUI entrypoint
 
 - `internal/tui` contains the route-driven full-screen app.
 - Routes cover Home, Clean, Tools, Protect, Uninstall, Status, Doctor, Analyze,
-  Review, Progress, and Result screens.
-- The TUI never bypasses the engine. It only requests plans and optionally
-  executes an approved plan.
+  Permissions, Review, Progress, and Result screens.
+- Home keeps the five primary workflows (`Clean`, `Uninstall`, `Analyze`,
+  `Status`, `Optimize`) while secondary maintenance and policy workflows stay
+  under `Tools`.
+- The TUI never bypasses the engine. It requests plans, shows task-native
+  previews, optionally runs permission preflight, and then executes an approved
+  plan.
 
 ### Engine and policy
 
 - `internal/engine.Service` is the center of the workflow.
 - `Scan` collects findings from rule definitions, normalizes them, applies
   protection policy, sorts them, and produces an `ExecutionPlan`.
-- Execution converts reviewed plan items into an `ExecutionResult` and persists
-  outcomes.
+- Execution converts reviewed plan items into an `ExecutionResult`, emits
+  section/phase events for task-native progress, and persists outcomes.
 - Policy evaluation decides whether an item is planned, protected, skipped, or
   requires stronger confirmation.
 
@@ -61,7 +65,8 @@ CLI/TUI entrypoint
 - `internal/platform` isolates OS-specific behavior behind the `Adapter`
   interface.
 - Adapters provide curated roots, diagnostics, installed app discovery,
-  remnant discovery, native uninstall hints, and platform-specific protection.
+  remnant discovery, native uninstall hints, admin session handling, and
+  platform-specific protection.
 - This is what keeps the rest of the application largely platform-agnostic.
 
 ### Persistence and reporting
@@ -96,7 +101,11 @@ Safety constraints are part of the architecture, not a UI convention:
 - destructive JSON and non-interactive runs require explicit confirmation flags
 - protected paths can come from user config, built-in platform policy, or safe
   exception logic
-- native uninstall execution is explicit and isolated from remnant cleanup
+- destructive interactive runs can stop in a dedicated permission preflight
+  route before execution begins
+- admin access is managed through a reusable session warmup + keepalive layer
+- native uninstall execution is explicit and now continues into remnant cleanup
+  and aftercare within the same reviewed run
 - shell-driven deletion patterns are guarded by `hack/security_check.sh`
 
 ## Testing strategy
