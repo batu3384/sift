@@ -61,6 +61,9 @@ func parseNativeCommand(raw string) (nativeCommand, error) {
 	if strings.ContainsAny(value, "|&;<>`\n\r") {
 		return nativeCommand{}, fmt.Errorf("shell metacharacters are not allowed")
 	}
+	if command, ok, err := parseAbsoluteNativeCommand(value); ok || err != nil {
+		return command, err
+	}
 	fields, err := splitCommandLine(value)
 	if err != nil {
 		return nativeCommand{}, err
@@ -99,6 +102,47 @@ func parseNativeCommand(raw string) (nativeCommand, error) {
 		Path: executable,
 		Args: fields[1:],
 	}, nil
+}
+
+func parseAbsoluteNativeCommand(raw string) (nativeCommand, bool, error) {
+	if raw == "" || strings.HasPrefix(raw, `"`) || strings.HasPrefix(raw, `'`) {
+		return nativeCommand{}, false, nil
+	}
+	if !filepath.IsAbs(raw) && !hasWindowsDrivePrefix(raw) {
+		return nativeCommand{}, false, nil
+	}
+	splitPoints := []int{len(raw)}
+	for idx, r := range raw {
+		if unicode.IsSpace(r) {
+			splitPoints = append(splitPoints, idx)
+		}
+	}
+	for _, idx := range splitPoints {
+		executable := strings.TrimSpace(raw[:idx])
+		if executable == "" {
+			continue
+		}
+		if !filepath.IsAbs(executable) && !hasWindowsDrivePrefix(executable) {
+			continue
+		}
+		info, err := os.Stat(executable)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		if err := validateNativeExecutable(executable); err != nil {
+			return nativeCommand{}, true, err
+		}
+		argText := strings.TrimSpace(raw[idx:])
+		if argText == "" {
+			return nativeCommand{Path: executable}, true, nil
+		}
+		args, err := splitCommandLine(argText)
+		if err != nil {
+			return nativeCommand{}, true, err
+		}
+		return nativeCommand{Path: executable, Args: args}, true, nil
+	}
+	return nativeCommand{}, false, nil
 }
 
 func splitCommandLine(raw string) ([]string, error) {

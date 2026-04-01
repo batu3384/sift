@@ -1,6 +1,10 @@
 package engine
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestSplitCommandLinePreservesQuotedWindowsPaths(t *testing.T) {
 	t.Parallel()
@@ -43,6 +47,28 @@ func TestParseNativeCommandAllowsTrustedWindowsInstaller(t *testing.T) {
 		t.Fatalf("unexpected command path %q", command.Path)
 	}
 	if len(command.Args) != 1 || command.Args[0] != "/X{ABC-123}" {
+		t.Fatalf("unexpected command args %+v", command.Args)
+	}
+}
+
+func TestParseNativeCommandAllowsUnquotedAbsoluteExecutableWithSpaces(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	executable := filepath.Join(root, "Example App", "uninstall.exe")
+	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executable, []byte("stub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	command, err := parseNativeCommand(executable + " /S")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if command.Path != executable {
+		t.Fatalf("unexpected command path %q", command.Path)
+	}
+	if len(command.Args) != 1 || command.Args[0] != "/S" {
 		t.Fatalf("unexpected command args %+v", command.Args)
 	}
 }

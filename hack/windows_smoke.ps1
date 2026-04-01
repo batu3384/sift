@@ -189,8 +189,8 @@ if (-not $uninstallExec.result.items) {
 if (-not ($uninstallExec.result.warnings -match 'Native uninstaller launched')) {
   throw "expected native uninstall continuation warning, got $($uninstallExec.result | ConvertTo-Json -Compress)"
 }
-if ($uninstallExec.result.follow_up_commands) {
-  throw "expected no follow-up commands after native uninstall continuation"
+if (-not ($uninstallExec.result.follow_up_commands -match 'Settings > Apps > Startup')) {
+  throw "expected startup aftercare follow-up after native uninstall"
 }
 for ($i = 0; $i -lt 100 -and -not (Test-Path $NativeSentinel); $i++) {
   Start-Sleep -Milliseconds 100
