@@ -13,15 +13,16 @@ if (Test-Path $Root) {
 $paths = @(
   $Root,
   (Join-Path $Root "home"),
-  (Join-Path $Root "LocalAppData"),
-  (Join-Path $Root "Roaming"),
+  (Join-Path $Root "home\AppData"),
+  (Join-Path $Root "home\AppData\Local"),
+  (Join-Path $Root "home\AppData\Roaming"),
   (Join-Path $Root "ProgramData"),
   (Join-Path $Root "Temp"),
   (Join-Path $Root "home\Projects\keep-me"),
   (Join-Path $Root "analyze\cache"),
   (Join-Path $Root "project\node_modules\pkg"),
-  (Join-Path $Root "LocalAppData\Programs\Example App"),
-  (Join-Path $Root "LocalAppData\Google\Chrome\User Data\Default\Code Cache\js"),
+  (Join-Path $Root "home\AppData\Local\Programs\Example App"),
+  (Join-Path $Root "home\AppData\Local\Google\Chrome\User Data\Default\Code Cache\js"),
   (Join-Path $Root "ProgramData\chocolatey\cache\pkg"),
   (Join-Path $Root "home\Downloads"),
   (Join-Path $Root "completions")
@@ -32,8 +33,8 @@ foreach ($path in $paths) {
 
 $env:USERPROFILE = Join-Path $Root "home"
 $env:HOME = $env:USERPROFILE
-$env:LOCALAPPDATA = Join-Path $Root "LocalAppData"
-$env:APPDATA = Join-Path $Root "Roaming"
+$env:LOCALAPPDATA = Join-Path $env:USERPROFILE "AppData\Local"
+$env:APPDATA = Join-Path $env:USERPROFILE "AppData\Roaming"
 $env:ProgramData = Join-Path $Root "ProgramData"
 $env:TEMP = Join-Path $Root "Temp"
 $env:TMP = $env:TEMP
@@ -185,12 +186,8 @@ if (-not ($uninstallExec.result.items | Where-Object { $_.status -eq 'completed'
 if (-not ($uninstallExec.result.warnings -match 'Native uninstaller launched')) {
   throw "expected native uninstall follow-up warning"
 }
-if (-not $uninstallExec.result.follow_up_commands) {
-  throw "expected follow-up commands after native uninstall"
-}
-$followUp = $uninstallExec.result.follow_up_commands[0]
-if ($followUp -notmatch 'sift uninstall "Example App"') {
-  throw "expected suggested follow-up uninstall command"
+if ($uninstallExec.result.follow_up_commands) {
+  throw "expected no follow-up commands after native uninstall continuation"
 }
 for ($i = 0; $i -lt 100 -and -not (Test-Path $NativeSentinel); $i++) {
   Start-Sleep -Milliseconds 100
@@ -205,20 +202,17 @@ $uninstallRerun = $uninstallRerunRaw | ConvertFrom-Json
 if ($uninstallRerun.command -ne 'uninstall') {
   throw "expected uninstall command in rerun plan"
 }
-if (-not ($uninstallRerunRaw -match 'Roaming[\\/]Example App')) {
-  throw "expected remnant-only uninstall rerun after native uninstall"
+if (-not ($uninstallRerunRaw -match 'No installed app or leftover files were found for Example\.')) {
+  throw "expected empty uninstall rerun after native uninstall"
 }
 
 $status = & $Binary status --plain
 $status | Out-File -Encoding utf8 (Join-Path $Root "status.txt")
-if (-not ($status -match 'Audit log:')) {
-  throw "expected status output"
+if (-not ($status -match '^System:')) {
+  throw "expected status system output"
 }
-if (-not ($status -match 'Suggested commands:')) {
-  throw "expected suggested commands in status output"
-}
-if (-not ($status -match 'sift uninstall "Example App"')) {
-  throw "expected follow-up uninstall command in status output"
+if (-not ($status -match '^Operator alerts:')) {
+  throw "expected operator alerts in status output"
 }
 & $Binary completion bash | Out-File -Encoding utf8 (Join-Path $Root "completions\sift.bash")
 & $Binary completion zsh | Out-File -Encoding utf8 (Join-Path $Root "completions\_sift")
