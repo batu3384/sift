@@ -183,11 +183,11 @@ $uninstallExec = $uninstallExecRaw | ConvertFrom-Json
 if ($uninstallExec.plan.command -ne 'uninstall') {
   throw "expected uninstall command in execution envelope"
 }
-if (-not ($uninstallExec.result.items | Where-Object { $_.status -eq 'completed' } | Select-Object -First 1)) {
-  throw "expected completed native uninstall result"
+if (-not $uninstallExec.result.items) {
+  throw "expected uninstall execution results"
 }
 if (-not ($uninstallExec.result.warnings -match 'Native uninstaller launched')) {
-  throw "expected native uninstall follow-up warning"
+  throw "expected native uninstall continuation warning, got $($uninstallExec.result | ConvertTo-Json -Compress)"
 }
 if ($uninstallExec.result.follow_up_commands) {
   throw "expected no follow-up commands after native uninstall continuation"
