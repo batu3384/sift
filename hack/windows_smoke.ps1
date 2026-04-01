@@ -117,16 +117,16 @@ if ($clean.command -ne 'clean') {
   throw "expected clean command in JSON output"
 }
 $deepClean = & $Binary clean --json --profile deep | ConvertFrom-Json
-$chromeCache = $deepClean.items | Where-Object { $_.path -match 'Google[\\/]+Chrome[\\/]+User Data[\\/]+Default[\\/]+Code Cache[\\/]+js' } | Select-Object -First 1
+$chromeCache = $deepClean.items | Where-Object { $_.path -match 'Google[\\/]+Chrome[\\/]+User Data[\\/]+Default[\\/]+Code Cache(?:$|[\\/])' } | Select-Object -First 1
 if (-not $chromeCache) {
-  throw "expected Chrome code cache finding in deep clean output"
+  throw "expected Chrome code cache finding in deep clean output: $($deepClean.items | ConvertTo-Json -Compress)"
 }
 if ($chromeCache.status -ne 'planned') {
   throw "expected planned Chrome code cache finding, got $($chromeCache | ConvertTo-Json -Compress)"
 }
-$chocoCache = $deepClean.items | Where-Object { $_.path -match 'chocolatey[\\/]+cache[\\/]+pkg' } | Select-Object -First 1
+$chocoCache = $deepClean.items | Where-Object { $_.path -match 'chocolatey[\\/]+cache(?:$|[\\/])' } | Select-Object -First 1
 if (-not $chocoCache) {
-  throw "expected chocolatey cache finding in deep clean output"
+  throw "expected chocolatey cache finding in deep clean output: $($deepClean.items | ConvertTo-Json -Compress)"
 }
 if ($chocoCache.status -ne 'planned') {
   throw "expected planned chocolatey cache finding, got $($chocoCache | ConvertTo-Json -Compress)"
