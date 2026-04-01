@@ -128,8 +128,11 @@ $chocoCache = $deepClean.items | Where-Object { $_.path -match 'chocolatey[\\/]+
 if (-not $chocoCache) {
   throw "expected chocolatey cache finding in deep clean output: $($deepClean.items | ConvertTo-Json -Compress)"
 }
-if ($chocoCache.status -ne 'planned') {
-  throw "expected planned chocolatey cache finding, got $($chocoCache | ConvertTo-Json -Compress)"
+if ($chocoCache.status -ne 'protected') {
+  throw "expected protected chocolatey cache finding, got $($chocoCache | ConvertTo-Json -Compress)"
+}
+if (-not $chocoCache.requires_admin -or $chocoCache.policy.reason -ne 'admin_required') {
+  throw "expected admin-required chocolatey cache policy, got $($chocoCache | ConvertTo-Json -Compress)"
 }
 $protectExplainSafe = & $Binary protect explain --json (Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data\Default\Code Cache\js") | ConvertFrom-Json
 if ($protectExplainSafe.state -ne 'safe_exception') {
