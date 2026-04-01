@@ -92,8 +92,8 @@ if (-not ($protectFamilyList -match 'browser_profiles')) {
 }
 & $Binary protect family add browser_profiles | Out-Null
 $protectExplainFamily = & $Binary protect explain --json (Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data\Default\History") | ConvertFrom-Json
-if ($protectExplainFamily.state -ne 'user_protected') {
-  throw "expected user_protected family explanation state"
+if ($protectExplainFamily.state -ne 'safe_exception') {
+  throw "expected safe_exception family explanation state"
 }
 if (-not ($protectExplainFamily.family_matches -contains 'browser_profiles')) {
   throw "expected browser_profiles family match"
