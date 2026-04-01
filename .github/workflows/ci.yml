@@ -47,7 +47,7 @@ jobs:
           .\hack\windows_smoke.ps1 -Binary .\bin\sift.exe
       - name: Upload smoke evidence (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-windows
           path: .tmp/ci-smoke-windows
@@ -77,13 +77,13 @@ jobs:
           ./hack/release_preflight.sh v0.0.0-ci ./.tmp/package-dist ./.tmp/manifests
       - name: Upload package manifests (macOS)
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-manifests
           path: .tmp/manifests
       - name: Upload smoke evidence (macOS)
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-macos
           path: .tmp/ci-smoke-macos

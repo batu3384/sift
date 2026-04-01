@@ -35,22 +35,22 @@ jobs:
           ./hack/generate_package_manifests.sh "${GITHUB_REF_NAME}" ./dist ./dist/manifests
           ./hack/release_preflight.sh "${GITHUB_REF_NAME}" ./dist ./dist/manifests
       - name: Upload Homebrew formula
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: homebrew-formula
           path: dist/manifests/homebrew
       - name: Upload Scoop manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scoop-manifest
           path: dist/manifests/scoop
       - name: Upload Winget manifests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: winget-manifests
           path: dist/manifests/winget
       - name: Upload release manifests bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-manifests
           path: dist/manifests
