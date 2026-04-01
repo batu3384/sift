@@ -1,9 +1,9 @@
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
-
 param(
   [string]$Binary = ".\bin\sift.exe"
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 $Root = Join-Path (Get-Location) ".tmp\ci-smoke-windows"
 if (Test-Path $Root) {
