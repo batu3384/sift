@@ -55,7 +55,7 @@ func HasPathPrefix(path, prefix string) bool {
 	if cleanPath == cleanPrefix {
 		return true
 	}
-	if cleanPrefix == string(filepath.Separator) {
+	if IsRootPath(cleanPrefix) {
 		return strings.HasPrefix(cleanPath, cleanPrefix)
 	}
 	return strings.HasPrefix(cleanPath, cleanPrefix+string(filepath.Separator))

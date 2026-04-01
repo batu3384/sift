@@ -119,7 +119,7 @@ func TestSaveAtNormalizesBeforeWriting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), expected) {
+	if !strings.Contains(string(raw), strings.ReplaceAll(expected, `\`, `\\`)) {
 		t.Fatalf("expected normalized protected path in config, got %s", string(raw))
 	}
 }

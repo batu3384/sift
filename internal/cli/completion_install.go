@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/batu3384/sift/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -78,7 +79,7 @@ func completionTargetForShell(shell, completionDir, shellConfig string) (complet
 	if shell == "" {
 		return completionInstallTarget{}, fmt.Errorf("unsupported shell; pass one of bash, zsh, fish, powershell")
 	}
-	home, err := os.UserHomeDir()
+	home, err := domain.CurrentHomeDir()
 	if err != nil {
 		return completionInstallTarget{}, err
 	}

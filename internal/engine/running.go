@@ -4,7 +4,6 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
-	"sync"
 	"unicode"
 
 	"github.com/shirou/gopsutil/v4/process"
@@ -18,11 +17,10 @@ type runningProcess struct {
 }
 
 var listRunningProcesses = defaultListRunningProcesses
-var runningProcessProbeMu sync.Mutex
 
 func defaultListRunningProcesses(ctx context.Context) ([]runningProcess, error) {
-	runningProcessProbeMu.Lock()
-	defer runningProcessProbeMu.Unlock()
+	processProbeMu.Lock()
+	defer processProbeMu.Unlock()
 
 	procs, err := process.ProcessesWithContext(ctx)
 	if err != nil {

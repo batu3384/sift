@@ -23,7 +23,7 @@ import (
 
 var cpuPercentWithContext = cpu.PercentWithContext
 
-var processSnapshotMu sync.Mutex
+var processProbeMu sync.Mutex
 
 type ProcessSnapshot struct {
 	PID            int32   `json:"pid"`
@@ -232,8 +232,8 @@ func Snapshot(ctx context.Context) (*SystemSnapshot, error) {
 }
 
 func captureTopProcesses(ctx context.Context) ([]ProcessSnapshot, int) {
-	processSnapshotMu.Lock()
-	defer processSnapshotMu.Unlock()
+	processProbeMu.Lock()
+	defer processProbeMu.Unlock()
 
 	procs, err := process.ProcessesWithContext(ctx)
 	if err != nil {
