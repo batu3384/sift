@@ -1,0 +1,53 @@
+project_name: sift
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: sift
+    main: ./cmd/sift
+    binary: sift
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/batuhanyuksel/sift/internal/cli.version={{.Version}}
+
+archives:
+  - id: default
+    builds:
+      - sift
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: git
+
+brews:
+  - repository:
+      owner: batuhanyuksel
+      name: homebrew-tap
+    homepage: https://github.com/batuhanyuksel/sift
+    description: Safety-first terminal cleaner for macOS and Windows
+    install: |
+      bin.install "sift"
+
+scoops:
+  - repository:
+      owner: batuhanyuksel
+      name: scoop-bucket
+    homepage: https://github.com/batuhanyuksel/sift
+    description: Safety-first terminal cleaner for macOS and Windows
+    license: MIT

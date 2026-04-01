@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+SELF_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+
+if [ -x "$SELF_DIR/sift" ]; then
+  exec "$SELF_DIR/sift" "$@"
+fi
+
+if command -v sift >/dev/null 2>&1; then
+  exec sift "$@"
+fi
+
+echo "si: sift binary not found beside the wrapper or on PATH" >&2
+exit 1

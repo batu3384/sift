@@ -1,0 +1,55 @@
+interaction_mode = "auto"
+trash_mode = "trash_first"
+confirm_level = "strict"
+disabled_rules = ["browser_data"]
+protected_paths = [
+  "~/Projects/keep-me",
+  "~/Library/Application Support/CriticalApp",
+]
+protected_families = [
+  "browser_profiles",
+  "password_managers",
+]
+command_excludes = { clean = ["~/Projects/keep-me/build"], optimize = ["~/Library/Caches/Homebrew"] }
+purge_search_paths = [
+  "~/Projects",
+  "~/Code",
+]
+
+# Whitelist paths to exclude from cleaning
+whitelist = [
+  "~/Library/Application Support/MobileSync",
+  "~/Library/Application Support/TimeMachine",
+  "~/.config",
+  "~/.ssh",
+  "~/.gnupg",
+]
+
+# Skip cache cleanup if cleaned within this many days (default: 7)
+skip_cache_days = 7
+
+# Enable trash emptying (default: false)
+empty_trash = false
+
+# Skip Xcode cleanup when Xcode is running (default: true)
+skip_xcode_when_running = true
+
+# Protected web editor domains for Service Worker cleanup
+protected_web_editors = [
+  "capcut.com",
+  "photopea.com",
+  "pixlr.com",
+  "canva.com",
+  "figma.com",
+]
+
+# Enable sudo for system-level cleanup (requires explicit opt-in)
+enable_sudo = false
+
+[diagnostics]
+redaction = true
+
+[profiles]
+safe = ["temp_files", "logs", "safe_system_clutter"]
+developer = ["temp_files", "logs", "safe_system_clutter", "developer_caches", "package_manager_caches"]
+deep = ["temp_files", "logs", "safe_system_clutter", "recent_items", "stale_login_items", "orphaned_services", "system_update_artifacts", "developer_caches", "package_manager_caches", "browser_data", "installer_leftovers", "app_leftovers", "finder_metadata", "ios_device_backups", "time_machine_cleanup", "cloud_office", "virtualization", "device_backups", "time_machine", "maven_cache", "ipfs_node", "trash"]

@@ -1,0 +1,26 @@
+name: update-contributors
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refresh contributors
+        run: |
+          chmod +x ./hack/update_contributors.sh
+          ./hack/update_contributors.sh
+      - name: Commit contributors
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update contributors [skip ci]"
+          file_pattern: CONTRIBUTORS.md

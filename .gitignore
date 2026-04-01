@@ -1,0 +1,16 @@
+bin/
+dist/
+.tmp/
+/sift
+/sift.exe
+/sift_new
+/mole
+.DS_Store
+coverage.out
+*.db
+*.db-journal
+*.zip
+*.log
+.blackbox/
+.claude/
+.blackboxcli/

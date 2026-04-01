@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  security:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Destructive pattern guard
+        run: ./hack/security_check.sh
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Race Test
+        if: runner.os == 'macOS'
+        run: go test -race ./...
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p bin
+          go build -o ./bin/sift ./cmd/sift
+          chmod +x ./hack/macos_smoke.sh
+          ./hack/macos_smoke.sh ./bin/sift
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          go build -o ./bin/sift.exe ./cmd/sift
+          .\hack\windows_smoke.ps1 -Binary .\bin\sift.exe
+      - name: Upload smoke evidence (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-windows
+          path: .tmp/ci-smoke-windows
+      - name: Cross-build targets (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p .tmp/cross
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o .tmp/cross/sift-darwin-amd64 ./cmd/sift
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o .tmp/cross/sift-darwin-arm64 ./cmd/sift
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o .tmp/cross/sift-windows-amd64.exe ./cmd/sift
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -o .tmp/cross/sift-windows-arm64.exe ./cmd/sift
+      - name: Generate package manifests (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x ./hack/generate_package_manifests.sh ./hack/generate_homebrew_formula.sh ./hack/generate_scoop_manifest.sh ./hack/generate_winget_manifest.sh ./hack/release_preflight.sh
+          mkdir -p .tmp/package-dist
+          cp .tmp/cross/sift-darwin-amd64 .tmp/package-dist/sift
+          (cd .tmp/package-dist && tar -czf sift_v0.0.0-ci_darwin_amd64.tar.gz sift)
+          cp .tmp/cross/sift-darwin-arm64 .tmp/package-dist/sift
+          (cd .tmp/package-dist && tar -czf sift_v0.0.0-ci_darwin_arm64.tar.gz sift)
+          cp .tmp/cross/sift-windows-amd64.exe .tmp/package-dist/sift.exe
+          (cd .tmp/package-dist && zip -q sift_v0.0.0-ci_windows_amd64.zip sift.exe)
+          cp .tmp/cross/sift-windows-arm64.exe .tmp/package-dist/sift.exe
+          (cd .tmp/package-dist && zip -q sift_v0.0.0-ci_windows_arm64.zip sift.exe)
+          (cd .tmp/package-dist && shasum -a 256 sift_v0.0.0-ci_darwin_amd64.tar.gz sift_v0.0.0-ci_darwin_arm64.tar.gz sift_v0.0.0-ci_windows_amd64.zip sift_v0.0.0-ci_windows_arm64.zip > checksums.txt)
+          ./hack/generate_package_manifests.sh v0.0.0-ci ./.tmp/package-dist ./.tmp/manifests
+          ./hack/release_preflight.sh v0.0.0-ci ./.tmp/package-dist ./.tmp/manifests
+      - name: Upload package manifests (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-manifests
+          path: .tmp/manifests
+      - name: Upload smoke evidence (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-macos
+          path: .tmp/ci-smoke-macos
+      - name: Cross-build targets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path .tmp/cross | Out-Null
+          $env:CGO_ENABLED = '0'
+          $env:GOOS = 'darwin'
+          $env:GOARCH = 'amd64'
+          go build -o .tmp/cross/sift-darwin-amd64 ./cmd/sift
+          $env:GOARCH = 'arm64'
+          go build -o .tmp/cross/sift-darwin-arm64 ./cmd/sift
