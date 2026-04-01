@@ -298,7 +298,6 @@ func formatFloatSeries(values []float64, limit int) string {
 // ProgressOutput provides CLI progress feedback like Mole
 type ProgressOutput struct {
 	out           *os.File
-	currentRule   string
 	totalBytes    int64
 	showProgress  bool
 	categoryCount int
@@ -338,21 +337,6 @@ func formatProgressBar(current, total, width int) string {
 	filled := int(float64(current) / float64(total) * float64(width))
 	empty := width - filled
 	return strings.Repeat("█", filled) + strings.Repeat("░", empty)
-}
-
-// formatETA calculates and formats ETA
-func formatETA(elapsedSeconds float64, progress float64) string {
-	if progress <= 0 {
-		return "calculating..."
-	}
-	remaining := (elapsedSeconds / progress) * (1 - progress)
-	if remaining < 60 {
-		return fmt.Sprintf("%.0fs left", remaining)
-	}
-	if remaining < 3600 {
-		return fmt.Sprintf("%.0fm left", remaining/60)
-	}
-	return fmt.Sprintf("%.1fh left", remaining/3600)
 }
 
 // Disable turns off progress output

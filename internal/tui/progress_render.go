@@ -63,9 +63,9 @@ func progressStatsWithCategories(progress progressModel, width int) []string {
 
 // CategoryProgress holds progress info for a single category
 type CategoryProgress struct {
-	total    int
+	total     int
 	completed int
-	freed    int64
+	freed     int64
 }
 
 // calculateCategoryProgress calculates progress per category
@@ -537,115 +537,6 @@ func progressStepLine(progress progressModel) string {
 	}
 }
 
-func progressNextLine(progress progressModel) string {
-	switch {
-	case progress.cancelRequested:
-		return "Next     finish the active operation and open partial results"
-	case len(progress.plan.Items) > 0 && len(progress.items) == len(progress.plan.Items):
-		return "Next     open the result view when the batch settles"
-	case progress.current != nil && progress.current.Action == domain.ActionNative:
-		return "Next     wait for the vendor step to return  •  esc requests stop"
-	case progress.current != nil && progress.current.Action == domain.ActionCommand:
-		if progress.plan.Command == "autofix" {
-			return "Next     stay on the active fix  •  esc requests stop"
-		}
-		return "Next     stay on the active task  •  esc requests stop"
-	default:
-		switch progress.plan.Command {
-		case "clean":
-			return "Next     continue reclaim batch  •  esc requests stop"
-		case "uninstall":
-			return "Next     continue uninstall batch  •  esc requests stop"
-		case "optimize":
-			return "Next     continue maintenance batch  •  esc requests stop"
-		case "autofix":
-			return "Next     continue fixes  •  esc requests stop"
-		default:
-			return "Next     continue through the approved batch  •  esc requests stop"
-		}
-	}
-}
-
-func progressTacticLine(progress progressModel) string {
-	parts := []string{"Next steps"}
-	switch {
-	case progress.cancelRequested:
-		parts = append(parts, "draining active work", "result rail follows")
-	case len(progress.plan.Items) > 0 && len(progress.items) == len(progress.plan.Items):
-		parts = append(parts, "finalizing batch", "prepare result review")
-	case progress.current != nil && progress.current.Action == domain.ActionNative:
-		parts = append(parts, "stay on vendor step", "review result rail after return")
-	case progress.current != nil && progress.current.Action == domain.ActionCommand:
-		parts = append(parts, "keep focus on active task", "esc requests stop")
-	default:
-		parts = append(parts, "watch current stage", "esc requests stop")
-	}
-	return strings.Join(parts, "  •  ")
-}
-
-func progressTrackLine(progress progressModel, stage stageInfo) string {
-	switch progress.plan.Command {
-	case "clean":
-		label := strings.TrimSpace(stage.Group)
-		if label == "" {
-			label = "cleanup section"
-		}
-		freed := progressFreedBytes(progress)
-		bytesLabel := domain.HumanBytes(stage.Bytes)
-		if freed > 0 {
-			bytesLabel = fmt.Sprintf("%s freed / %s total", domain.HumanBytes(freed), domain.HumanBytes(progressTotalBytes(progress.plan)))
-		}
-		totalItems := max(stage.Items, 1)
-		return fmt.Sprintf("Track   section %d/%d  •  %s  •  %d/%d %s  •  %s", stage.Index, max(stage.Total, 1), label, stage.Done, totalItems, pl(totalItems, "item", "items"), bytesLabel)
-	case "uninstall":
-		native, remnants, aftercare := uninstallProgressBuckets(progress.plan)
-		parts := []string{"Track", fmt.Sprintf("%d native", native), fmt.Sprintf("%d %s", remnants, pl(remnants, "remnant", "remnants"))}
-		if aftercare > 0 {
-			parts = append(parts, fmt.Sprintf("%d aftercare", aftercare))
-		}
-		switch {
-		case progress.current != nil && progress.current.Action == domain.ActionNative:
-			parts = append(parts, "handoff live")
-		case progress.current != nil && strings.TrimSpace(progress.current.TaskPhase) != "":
-			parts = append(parts, strings.TrimSpace(progress.current.TaskPhase)+" live")
-		case progress.current != nil:
-			parts = append(parts, "remnants live")
-		}
-		return strings.Join(parts, "  •  ")
-	case "optimize", "autofix":
-		phase := progressActiveTaskPhase(progress)
-		parts := []string{"Track"}
-		if phase != "" {
-			parts = append(parts, phase+" phase")
-		}
-		tasks := actionableCount(progress.plan)
-		parts = append(parts, fmt.Sprintf("%d %s", tasks, pl(tasks, "task", "tasks")))
-		if progress.plan.Command == "autofix" {
-			parts = append(parts, fmt.Sprintf("%d suggested", suggestedTaskCount(progress.plan)))
-		} else {
-			phases := max(maintenancePhaseCount(progress.plan), 1)
-			parts = append(parts, fmt.Sprintf("%d %s", phases, pl(phases, "phase", "phases")))
-		}
-		return strings.Join(parts, "  •  ")
-	default:
-		items := len(progress.plan.Items)
-		return fmt.Sprintf("Track   %d %s  •  %s", items, pl(items, "item", "items"), domain.HumanBytes(progressTotalBytes(progress.plan)))
-	}
-}
-
-func progressScopeLine(progress progressModel) string {
-	scope := strings.TrimSpace(planReviewScopeLine(progress.plan))
-	if scope == "" {
-		items := len(progress.plan.Items)
-		scope = fmt.Sprintf("%s  •  %d %s  •  %s reclaimable", titleCase(progress.plan.Command), items, pl(items, "item", "items"), domain.HumanBytes(progressTotalBytes(progress.plan)))
-	}
-	current := progressCurrentLine(progress)
-	if current == "" {
-		return "Scope   " + scope
-	}
-	return "Scope   " + scope + "  •  " + current
-}
-
 func progressCurrentLine(progress progressModel) string {
 	switch {
 	case progress.cancelRequested:
@@ -773,10 +664,6 @@ func progressTotalBytes(plan domain.ExecutionPlan) int64 {
 	return total
 }
 
-func progressAtmosphereLine(progress progressModel) string {
-	return "Scene " + motionSceneAtmosphere(progressMotionState(progress))
-}
-
 func progressSummary(progress progressModel) string {
 	switch progress.plan.Command {
 	case "clean":
@@ -877,56 +764,6 @@ func progressStageCardValue(progress progressModel, stage stageInfo) string {
 	return fmt.Sprintf("%s %d/%d %s", prefix, stage.Index, stage.Total, truncateText(label, 12))
 }
 
-func progressStageSummary(progress progressModel, stage stageInfo) string {
-	if stage.Total == 0 {
-		return "No execution stage is active."
-	}
-	label := stage.Group
-	if label == "" {
-		label = sectionTitle(domain.ExecutionPlan{}, stage.Category)
-	}
-	stageLabel := "Stage"
-	batchLabel := "batch"
-	if progress.plan.Command == "uninstall" {
-		stageLabel = "Target"
-		batchLabel = "app batch"
-	}
-	return fmt.Sprintf("%s %d of %d  •  %s %s  •  %d/%d %s processed  •  %s",
-		stageLabel,
-		stage.Index,
-		stage.Total,
-		label,
-		batchLabel,
-		stage.Done,
-		stage.Items,
-		pl(stage.Items, "item", "items"),
-		domain.HumanBytes(stage.Bytes),
-	)
-}
-
-func progressStageHeroLine(progress progressModel, stage stageInfo) string {
-	if stage.Total == 0 {
-		return "Current  •  waiting for first execution batch"
-	}
-	motion := progressMotionState(progress)
-	scopeLabel := "module"
-	if progress.plan.Command == "uninstall" {
-		scopeLabel = "target"
-	} else if progress.plan.Command == "optimize" || progress.plan.Command == "autofix" {
-		scopeLabel = "task"
-	}
-	return fmt.Sprintf(
-		"Current  •  %s rail  •  %s %d/%d  •  now %s  •  %d/%d settled",
-		motion.Scene,
-		scopeLabel,
-		stage.Index,
-		stage.Total,
-		motion.Phase,
-		stage.Done,
-		stage.Items,
-	)
-}
-
 func progressExecutionRail(progress progressModel) string {
 	completed, deleted, failed, skipped, protected := countResultStatuses(domain.ExecutionResult{Items: progress.items})
 	parts := []string{"Settled"}
@@ -1006,39 +843,6 @@ func progressSettledCardLabel(plan domain.ExecutionPlan) string {
 	default:
 		return "settled"
 	}
-}
-
-func progressChangedCardLabel(plan domain.ExecutionPlan) string {
-	switch plan.Command {
-	case "clean":
-		return "reclaim"
-	case "uninstall":
-		return "removed"
-	case "optimize":
-		return "changes"
-	case "autofix":
-		return "fixed"
-	default:
-		return "changed"
-	}
-}
-
-func progressChangedCount(_ domain.ExecutionPlan, completed, deleted int) int {
-	return completed + deleted
-}
-
-func uninstallProgressBuckets(plan domain.ExecutionPlan) (native, remnants, aftercare int) {
-	for _, item := range plan.Items {
-		switch {
-		case item.Action == domain.ActionNative:
-			native++
-		case item.Action == domain.ActionCommand && strings.TrimSpace(item.TaskPhase) != "":
-			aftercare++
-		default:
-			remnants++
-		}
-	}
-	return native, remnants, aftercare
 }
 
 func progressStageDetailLabel(progress progressModel) string {

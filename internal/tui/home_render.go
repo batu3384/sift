@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -13,87 +12,6 @@ import (
 	"github.com/batu3384/sift/internal/platform"
 	"github.com/batu3384/sift/internal/store"
 )
-
-// StatsCardView renders a dashboard stats card with system information
-func StatsCardView(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, width int) string {
-	if live == nil {
-		return ""
-	}
-
-	// Build stats rows
-	diskFree := domain.HumanBytes(int64(live.DiskFreeBytes))
-	diskTotal := domain.HumanBytes(int64(live.DiskTotalBytes))
-	diskPercent := float64(live.DiskTotalBytes-live.DiskFreeBytes) / float64(live.DiskTotalBytes) * 100
-
-	memUsed := domain.HumanBytes(int64(live.MemoryUsedBytes))
-	memTotal := domain.HumanBytes(int64(live.MemoryTotalBytes))
-	memPercent := live.MemoryUsedPercent
-
-	cpuStr := fmt.Sprintf("%.1f%%", live.CPUPercent)
-	healthStr := fmt.Sprintf("%d", live.HealthScore)
-
-	// Format last execution time
-	lastRunStr := "never"
-	if lastExecution != nil && !lastExecution.StartedAt.IsZero() {
-		elapsed := time.Since(lastExecution.StartedAt)
-		if elapsed < time.Hour {
-			lastRunStr = fmt.Sprintf("%.0fm ago", elapsed.Minutes())
-		} else if elapsed < 24*time.Hour {
-			lastRunStr = fmt.Sprintf("%.0fh ago", elapsed.Hours())
-		} else {
-			lastRunStr = fmt.Sprintf("%.0fd ago", elapsed.Hours()/24)
-		}
-	}
-
-	// Build the card content
-	rows := []string{
-		fmt.Sprintf("Disk    %s / %s (%.0f%%)", diskFree, diskTotal, diskPercent),
-		fmt.Sprintf("Memory  %s / %s (%.0f%%)", memUsed, memTotal, memPercent),
-		fmt.Sprintf("CPU     %s", cpuStr),
-		fmt.Sprintf("Health  %s", healthStr),
-		fmt.Sprintf("Last    %s", lastRunStr),
-	}
-
-	if lastExecution != nil && lastExecution.FreedBytes > 0 {
-		freed := domain.HumanBytes(lastExecution.FreedBytes)
-		rows = append(rows, fmt.Sprintf("Freed   %s", freed))
-	}
-
-	// Render each row
-	var lines []string
-	for _, row := range rows {
-		parts := strings.SplitN(row, "  ", 2)
-		if len(parts) == 2 {
-			lines = append(lines, statsLabelStyle.Render(parts[0])+"  "+statsValueStyle.Render(parts[1]))
-		} else {
-			lines = append(lines, statsValueStyle.Render(row))
-		}
-	}
-
-	content := strings.Join(lines, "\n")
-	return statsCardStyle.Width(width - 4).Render(content)
-}
-
-// WelcomeView renders a welcome screen for first-time users
-func WelcomeView(version string, width int) string {
-	lines := []string{
-		welcomeStyle.Render("Welcome to Sift"),
-		"",
-		mutedStyle.Render("Your intelligent system cleanup companion"),
-		"",
-		"Quick start:",
-		"  → Press Enter to start cleaning",
-		"  → Press t for more tools",
-		"  → Press ? for help",
-		"",
-		"Configuration:",
-		"  → Edit ~/.config/sift/config.toml",
-		"  → Run sift doctor for diagnostics",
-	}
-
-	content := strings.Join(lines, "\n")
-	return panelStyle.Width(width - 4).Render(content)
-}
 
 func homeSubtitle(executable bool, _ config.Config) string {
 	mode := "preview mode"
@@ -139,24 +57,6 @@ func homeDiagnosticLine(diagnostics []platform.Diagnostic) string {
 	return fmt.Sprintf("State  •  %d issues need review", issues)
 }
 
-func homeAlertLine(live *engine.SystemSnapshot, diagnostics []platform.Diagnostic, update *engine.UpdateNotice) string {
-	issues := diagnosticIssueCount(diagnostics)
-	parts := make([]string, 0, 3)
-	if issues > 0 {
-		parts = append(parts, fmt.Sprintf("%d doctor %s", issues, pl(issues, "issue", "issues")))
-	}
-	if update != nil && update.Available {
-		parts = append(parts, strings.ToUpper(update.LatestVersion)+" ready")
-	}
-	if live != nil && len(live.OperatorAlerts) > 0 {
-		parts = append(parts, live.OperatorAlerts[0])
-	}
-	if len(parts) == 0 {
-		return "Alerts none  •  system steady"
-	}
-	return "Alerts " + strings.Join(parts, "  •  ")
-}
-
 // diagnosticIssueCount returns the number of diagnostics with warn or error
 // status. Both statuses require user attention, so callers that gate on
 // "should I show an alert?" should use this rather than checking warn alone.
@@ -187,24 +87,6 @@ func homeRecommendedAction(actions []homeAction, cursor int, diagnostics []platf
 	}
 }
 
-func homeOperatorLine(actions []homeAction, cursor int, live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, diagnostics []platform.Diagnostic, update *engine.UpdateNotice) string {
-	parts := []string{"Recommended"}
-	switch {
-	case update != nil && update.Available:
-		parts = append(parts, "run sift update")
-	case live != nil && len(live.OperatorAlerts) > 0:
-		parts = append(parts, "open sift status")
-	case diagnosticIssueCount(diagnostics) > 0:
-		parts = append(parts, "press t for sift check")
-	case lastExecution != nil && lastExecution.Deleted > 0:
-		parts = append(parts, "continue with sift analyze")
-	default:
-		parts = append(parts, "open sift status")
-	}
-	parts = append(parts, "next "+homeRecommendedAction(actions, cursor, diagnostics, update))
-	return strings.Join(parts, "  •  ")
-}
-
 func homeSessionRailLine(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary) string {
 	parts := []string{"Last"}
 	if lastExecution != nil {
@@ -226,82 +108,6 @@ func homeSessionRailLine(live *engine.SystemSnapshot, lastExecution *store.Execu
 		return strings.Join(parts, "  •  ")
 	}
 	return "Last  •  no recent execution"
-}
-
-func homeStateLine(cfg config.Config, diagnostics []platform.Diagnostic) string {
-	nPaths := len(cfg.ProtectedPaths)
-	nFamilies := len(cfg.ProtectedFamilies)
-	parts := []string{
-		fmt.Sprintf("%d protected %s", nPaths, pl(nPaths, "path", "paths")),
-		fmt.Sprintf("%d %s", nFamilies, pl(nFamilies, "family", "families")),
-	}
-	scopes := len(cfg.CommandExcludes)
-	parts = append(parts, fmt.Sprintf("%d %s", scopes, pl(scopes, "scope", "scopes")))
-	if roots := len(cfg.PurgeSearchPaths); roots > 0 {
-		parts = append(parts, fmt.Sprintf("%d purge %s", roots, pl(roots, "root", "roots")))
-	}
-	if issues := diagnosticIssueCount(diagnostics); issues > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s queued", issues, pl(issues, "issue", "issues")))
-	}
-	return "Setup    " + strings.Join(parts, "  •  ")
-}
-
-func homeActionRail(actions []homeAction, cursor int, live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, diagnostics []platform.Diagnostic, update *engine.UpdateNotice) string {
-	parts := []string{"More"}
-	switch {
-	case update != nil && update.Available:
-		parts = append(parts, "t opens check", "rerun status after upgrade")
-	case diagnosticIssueCount(diagnostics) > 0:
-		parts = append(parts, "t opens check", "then run sift autofix")
-	case live != nil && len(live.OperatorAlerts) > 0:
-		parts = append(parts, "t opens doctor", "status stays live")
-	case lastExecution != nil && lastExecution.Deleted > 0:
-		parts = append(parts, "t opens installer cleanup", "continue with analyze")
-	case cursor >= 0 && cursor < len(actions) && strings.TrimSpace(actions[cursor].Command) != "":
-		parts = append(parts, "t opens more tools", "enter starts "+actions[cursor].Command)
-	default:
-		parts = append(parts, "t opens check/autofix", "doctor and protect live there")
-	}
-	return strings.Join(parts, "  •  ")
-}
-
-func homeCompactPriorityLine(actions []homeAction, cursor int, live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, diagnostics []platform.Diagnostic, update *engine.UpdateNotice) string {
-	parts := []string{"Recommended"}
-	switch {
-	case update != nil && update.Available:
-		parts = append(parts, strings.ToUpper(update.LatestVersion)+" ready")
-	case live != nil && len(live.OperatorAlerts) > 0:
-		parts = append(parts, live.OperatorAlerts[0])
-	case diagnosticIssueCount(diagnostics) > 0:
-		issues := diagnosticIssueCount(diagnostics)
-		parts = append(parts, fmt.Sprintf("%d doctor %s", issues, pl(issues, "issue", "issues")))
-	case lastExecution != nil && lastExecution.Deleted > 0:
-		parts = append(parts, fmt.Sprintf("%d deleted last run", lastExecution.Deleted))
-	default:
-		parts = append(parts, "system steady")
-	}
-	parts = append(parts, "next "+homeRecommendedAction(actions, cursor, diagnostics, update))
-	return strings.Join(parts, "  •  ")
-}
-
-func homeCompactCarryLine(lastExecution *store.ExecutionSummary, cfg config.Config, diagnostics []platform.Diagnostic) string {
-	parts := []string{"Setup"}
-	if lastExecution != nil {
-		settled := lastExecution.Completed + lastExecution.Deleted
-		parts = append(parts, fmt.Sprintf("%d settled", settled))
-		if lastExecution.FreedBytes > 0 {
-			parts = append(parts, domain.HumanBytes(lastExecution.FreedBytes)+" freed")
-		}
-	}
-	scopes := len(cfg.CommandExcludes)
-	parts = append(parts, fmt.Sprintf("%d %s", scopes, pl(scopes, "scope", "scopes")))
-	if roots := len(cfg.PurgeSearchPaths); roots > 0 {
-		parts = append(parts, fmt.Sprintf("%d purge %s", roots, pl(roots, "root", "roots")))
-	}
-	if issues := diagnosticIssueCount(diagnostics); issues > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s", issues, pl(issues, "issue", "issues")))
-	}
-	return strings.Join(parts, "  •  ")
 }
 
 func homeMenuView(actions []homeAction, cursor int, width int, maxLines int) string {
@@ -585,8 +391,8 @@ func homeStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummar
 	if live != nil && live.DiskTotalBytes > 0 {
 		storageStats := &StorageStats{
 			Total: int64(live.DiskTotalBytes),
-			Used: int64(live.DiskTotalBytes) - int64(live.DiskFreeBytes),
-			Free: int64(live.DiskFreeBytes),
+			Used:  int64(live.DiskTotalBytes) - int64(live.DiskFreeBytes),
+			Free:  int64(live.DiskFreeBytes),
 		}
 		stats = append(stats, renderStorageCard(storageStats, cardWidth))
 	}
@@ -653,32 +459,6 @@ type StorageStats struct {
 	Other     int64
 }
 
-// renderStorageRing creates an ASCII storage ring visualization
-func renderStorageRing(stats *StorageStats, width int) string {
-	if stats == nil || stats.Total == 0 {
-		return ""
-	}
-
-	usedPercent := float64(stats.Used) / float64(stats.Total)
-	ringWidth := 30
-	if width < 80 {
-		ringWidth = 20
-	}
-
-	// Create ring segments
-	filled := int(usedPercent * float64(ringWidth))
-	empty := ringWidth - filled
-
-	ring := strings.Repeat("█", filled) + strings.Repeat("░", empty)
-
-	// Calculate sizes
-	usedGB := float64(stats.Used) / 1_000_000_000
-	totalGB := float64(stats.Total) / 1_000_000_000
-
-	return fmt.Sprintf("┌─ Storage ─────────────────┐\n│  [%s]  %.0f%%\n│  Used:  %.1f GB / %.1f GB\n│  Free:  %.1f GB\n└────────────────────────────┘",
-		ring, usedPercent*100, usedGB, totalGB, float64(stats.Free)/1_000_000_000)
-}
-
 // renderStorageCard creates a compact storage info card
 func renderStorageCard(stats *StorageStats, cardWidth int) string {
 	if stats == nil {
@@ -727,40 +507,4 @@ func renderStorageCard(stats *StorageStats, cardWidth int) string {
 	)
 
 	return card
-}
-
-// renderCategoryBreakdown creates category breakdown cards
-func renderCategoryBreakdown(categories map[string]int64, cardWidth int) string {
-	if len(categories) == 0 {
-		return ""
-	}
-
-	// Sort by size
-	type pair struct {
-		name string
-		size int64
-	}
-	pairs := make([]pair, 0, len(categories))
-	for name, size := range categories {
-		pairs = append(pairs, pair{name, size})
-	}
-
-	// Simple bubble sort
-	for i := 0; i < len(pairs); i++ {
-		for j := i + 1; j < len(pairs); j++ {
-			if pairs[j].size > pairs[i].size {
-				pairs[i], pairs[j] = pairs[j], pairs[i]
-			}
-		}
-	}
-
-	lines := []string{panelTitleStyle.Render("Top Categories")}
-	for i, p := range pairs {
-		if i >= 5 {
-			break
-		}
-		lines = append(lines, fmt.Sprintf("  %-20s %s", p.name, domain.HumanBytes(p.size)))
-	}
-
-	return panelStyle.Width(cardWidth).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }

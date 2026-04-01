@@ -210,10 +210,6 @@ func trimAnalyzeSource(source string) string {
 func analyzePreviewText(item domain.Finding, plan domain.ExecutionPlan) string {
 	switch item.Category {
 	case domain.CategoryDiskUsage:
-		root := trimAnalyzeSource(item.Source)
-		if root == "" || strings.EqualFold(root, item.DisplayPath) {
-			root = currentAnalyzeTarget(plan)
-		}
 		if strings.Contains(item.Name, string(filepath.Separator)) {
 			return "Folded chain. Drill in starts at the deepest mapped directory."
 		}
@@ -325,23 +321,6 @@ func analyzeCurrentViewLines(item domain.Finding, model analyzeBrowserModel, wid
 		lines = append(lines, mutedStyle.Render(singleLine("Peers  "+strings.Join(peers, "  •  "), width)))
 	}
 	return lines
-}
-
-func formatFloatSeries(values []float64, limit int) string {
-	if len(values) == 0 {
-		return ""
-	}
-	if limit <= 0 || limit > len(values) {
-		limit = len(values)
-	}
-	parts := make([]string, 0, limit+1)
-	for _, value := range values[:limit] {
-		parts = append(parts, fmt.Sprintf("%.0f%%", value))
-	}
-	if len(values) > limit {
-		parts = append(parts, fmt.Sprintf("+%d more", len(values)-limit))
-	}
-	return strings.Join(parts, " ")
 }
 
 func currentAnalyzeTarget(plan domain.ExecutionPlan) string {

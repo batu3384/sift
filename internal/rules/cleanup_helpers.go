@@ -28,10 +28,6 @@ func darwinEdgeRunning() bool {
 	return currentAdapterIsProcessRunning("Microsoft Edge")
 }
 
-func darwinChromeRunning() bool {
-	return currentAdapterIsProcessRunning("Google Chrome")
-}
-
 func compareVersionish(left string, right string) int {
 	leftParts := strings.FieldsFunc(left, func(r rune) bool { return r == '.' || r == '-' || r == '_' })
 	rightParts := strings.FieldsFunc(right, func(r rune) bool { return r == '.' || r == '-' || r == '_' })

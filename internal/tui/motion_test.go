@@ -153,41 +153,6 @@ func TestDiagnosticsHaveIssuesIncludesErrorStatus(t *testing.T) {
 	}
 }
 
-func TestMotionSceneAtmosphereReflectsSceneAndMode(t *testing.T) {
-	t.Parallel()
-
-	idle := motionSceneAtmosphere(newMotionState(1, false, motionModeIdle, "steady", "control"))
-	alert := motionSceneAtmosphere(newMotionState(2, true, motionModeAlert, "monitor", "monitor"))
-
-	for _, needle := range []string{"⌂", "CONTROL FIELD", "STEADY WINDOW"} {
-		if !strings.Contains(idle, needle) {
-			t.Fatalf("expected %q in idle atmosphere, got %q", needle, idle)
-		}
-	}
-	for _, needle := range []string{"◬", "MONITOR FIELD", "MONITOR WINDOW"} {
-		if !strings.Contains(alert, needle) {
-			t.Fatalf("expected %q in alert atmosphere, got %q", needle, alert)
-		}
-	}
-	if idle == alert {
-		t.Fatalf("expected atmosphere bands to vary across motion modes, got %q", idle)
-	}
-}
-
-func TestMotionSceneGlyphVariesBySceneAndAlertState(t *testing.T) {
-	t.Parallel()
-
-	if glyph := motionSceneGlyph(newMotionState(0, false, motionModeIdle, "steady", "analyze")); glyph != "◧" {
-		t.Fatalf("expected analyze glyph, got %q", glyph)
-	}
-	if glyph := motionSceneGlyph(newMotionState(0, true, motionModeAlert, "recover", "cleanup")); glyph != "◩" {
-		t.Fatalf("expected alert cleanup glyph, got %q", glyph)
-	}
-	if glyph := motionSceneGlyph(newMotionState(0, false, motionModeProgress, "apply", "task")); glyph != "◆" {
-		t.Fatalf("expected task glyph, got %q", glyph)
-	}
-}
-
 func TestReducedMotionStateUsesStaticMotionArtifacts(t *testing.T) {
 	t.Parallel()
 

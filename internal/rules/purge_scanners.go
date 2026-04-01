@@ -305,11 +305,6 @@ func isShallowPurgeTarget(path string) bool {
 	return parent == root
 }
 
-func hasNearbyProjectMarker(path string) bool {
-	_, ok := nearestProjectMarker(path)
-	return ok
-}
-
 func nearestProjectMarker(path string) (string, bool) {
 	dir := filepath.Dir(path)
 	for range 6 {

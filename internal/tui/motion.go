@@ -50,10 +50,6 @@ func reducedMotionState(motion motionState) motionState {
 	return motion
 }
 
-func signalRailLabel(frame int, pulse bool) string {
-	return signalRailLabelForMotion(newMotionState(frame, pulse, motionModeIdle, "steady", "rail"))
-}
-
 func signalRailLabelForMotion(motion motionState) string {
 	marks := []string{"S1", "S2", "S3", "S4"}
 	switch motion.Mode {
@@ -131,104 +127,6 @@ func loadingPulseLine(label string, motion motionState) string {
 		return spinnerGlyph(motion) + " " + loadingVerb(label) + " " + display + loadingPulseSuffix(motion.Frame, motion.Pulse) + "  •  " + analyzeStage
 	}
 	return spinnerGlyph(motion) + " " + loadingVerb(label) + " " + display + loadingPulseSuffix(motion.Frame, motion.Pulse) + "  •  " + loadingStageScript(label, motion)
-}
-
-func motionCadenceLabel(motion motionState) string {
-	phase := strings.TrimSpace(motion.Phase)
-	if phase == "" {
-		phase = "steady"
-	}
-	scene := strings.TrimSpace(motion.Scene)
-	if scene == "" {
-		scene = "rail"
-	}
-	return scene + " cadence  •  " + phase
-}
-
-func motionSignatureBand(motion motionState) string {
-	bands := []string{"▁▂▃▂", "▂▃▄▃", "▃▄▅▄", "▄▅▆▅"}
-	switch motion.Mode {
-	case motionModeAlert:
-		bands = []string{"▅▃▆▃", "▆▂▇▂", "▇▃▆▃", "▆▂▅▂"}
-	case motionModeProgress:
-		bands = []string{"▁▃▆▇", "▂▄▆▇", "▃▅▇▇", "▄▆▇▇"}
-	case motionModeReview:
-		// Deliberate left-to-right peak sweep — contemplative rhythm.
-		bands = []string{"▆▄▂▁", "▄▆▄▂", "▂▄▆▄", "▁▂▄▆"}
-	case motionModeLoading:
-		bands = []string{"▁▂▄▆", "▂▃▅▆", "▃▄▆▇", "▂▃▅▇"}
-	}
-	index := motion.Frame % len(bands)
-	if index < 0 {
-		index = 0
-	}
-	return bands[index]
-}
-
-func motionSceneAtmosphere(motion motionState) string {
-	phase := strings.ToUpper(strings.TrimSpace(motion.Phase))
-	if phase == "" {
-		phase = "STEADY"
-	}
-	scene := strings.ToUpper(strings.TrimSpace(motion.Scene))
-	if scene == "" {
-		scene = "RAIL"
-	}
-	if motion.Reduced {
-		return motionSceneGlyph(motion) + " " + scene + " FIELD  •  " + phase + " STATE"
-	}
-	return motionSceneGlyph(motion) + " " + scene + " FIELD " + motionSignatureBand(motion) + "  •  " + phase + " WINDOW"
-}
-
-func motionSceneGlyph(motion motionState) string {
-	switch strings.ToLower(strings.TrimSpace(motion.Scene)) {
-	case "control":
-		if motion.Mode == motionModeAlert {
-			return "⌁"
-		}
-		return "⌂"
-	case "monitor":
-		if motion.Mode == motionModeAlert {
-			return "◬"
-		}
-		return "◫"
-	case "analyze":
-		if motion.Mode == motionModeAlert {
-			return "◪"
-		}
-		return "◧"
-	case "task":
-		if motion.Mode == motionModeAlert {
-			return "✦"
-		}
-		return "◆"
-	case "target":
-		if motion.Mode == motionModeAlert {
-			return "⬢"
-		}
-		return "⬡"
-	case "cleanup":
-		if motion.Mode == motionModeAlert {
-			return "◩"
-		}
-		return "◨"
-	case "decision":
-		if motion.Mode == motionModeAlert {
-			return "✧"
-		}
-		return "◇"
-	case "inventory":
-		return "▣"
-	case "protect":
-		return "▤"
-	case "apply":
-		return "▥"
-	default:
-		if motion.Mode == motionModeAlert {
-			return "◎"
-		}
-		return "○"
-	}
 }
 
 func spinnerGlyph(motion motionState) string {

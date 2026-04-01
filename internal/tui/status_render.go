@@ -50,26 +50,6 @@ func statusAlertLine(model statusModel) string {
 	return "Alerts " + strings.Join(parts, "  •  ")
 }
 
-func statusCompactCarryLine(model statusModel, width int) string {
-	parts := []string{"Activity"}
-	if sessionValue, _ := statusSessionCard(model.lastExecution, model.scans); sessionValue != "" {
-		parts = append(parts, sessionValue)
-	} else if len(model.scans) > 0 {
-		parts = append(parts, statusCompactScanSummary(model.scans[0]))
-	}
-	if model.live != nil {
-		if power := statusCompactBatteryPowerSummary(model.live); power != "" {
-			parts = append(parts, power)
-		}
-		if btDevices := statusBluetoothDevicesSummary(model.live, width); btDevices != "" {
-			parts = append(parts, btDevices)
-		} else if bt := statusBluetoothSummary(model.live); bt != "" {
-			parts = append(parts, bt)
-		}
-	}
-	return strings.Join(parts, "  •  ")
-}
-
 func statusCompanionEnabled(model statusModel) bool {
 	return strings.TrimSpace(strings.ToLower(model.companionMode)) != "off"
 }
@@ -956,54 +936,6 @@ func statusHeroSceneSummary(live *engine.SystemSnapshot) string {
 	return strings.Join(parts, "  •  ")
 }
 
-func compactStatusAuxView(model statusModel, width int, maxLines int) string {
-	live := model.live
-	lines := []string{}
-	if live == nil {
-		return mutedStyle.Render("No storage or power data.")
-	}
-	lines = append(lines,
-		mutedStyle.Render(fmt.Sprintf("Mem %.1f%%  •  Disk %.1f%%", live.MemoryUsedPercent, live.DiskUsedPercent)),
-		mutedStyle.Render(fmt.Sprintf("Free %s  •  Net %s/%s", domain.HumanBytes(int64(live.DiskFreeBytes)), domain.HumanBytes(int64(live.NetworkRxBytes)), domain.HumanBytes(int64(live.NetworkTxBytes)))),
-		mutedStyle.Render("Pressure "+statusPressureLabel(live)),
-	)
-	if live.DiskIO != nil {
-		lines = append(lines, mutedStyle.Render(fmt.Sprintf("I/O %s read  •  %s write", domain.HumanBytes(int64(live.DiskIO.ReadBytes)), domain.HumanBytes(int64(live.DiskIO.WriteBytes)))))
-	}
-	if rate := statusRateLine("Rate", model.networkRxRate, model.networkTxRate); rate != "" {
-		lines = append(lines, mutedStyle.Render(rate))
-	}
-	if len(model.cpuTrend) > 0 {
-		lines = append(lines, mutedStyle.Render(statusTrendLine("CPU", model.cpuTrend, width)))
-	}
-	if len(model.networkTrend) > 0 {
-		lines = append(lines, mutedStyle.Render(statusTrendLine("NET", model.networkTrend, width)))
-	}
-	batteryParts := make([]string, 0, 2)
-	if live.Battery != nil {
-		batteryParts = append(batteryParts, fmt.Sprintf("Battery %.0f%% %s", live.Battery.Percent, live.Battery.State))
-	}
-	if btDevices := statusBluetoothDevicesSummary(live, width); btDevices != "" {
-		batteryParts = append(batteryParts, btDevices)
-	} else if bt := statusBluetoothSummary(live); bt != "" {
-		batteryParts = append(batteryParts, bt)
-	}
-	if len(batteryParts) > 0 {
-		lines = append(lines, mutedStyle.Render(singleLine(strings.Join(batteryParts, "  •  "), width)))
-	}
-	if summary := statusCompactBatteryPowerSummary(live); summary != "" {
-		lines = append(lines, mutedStyle.Render(summary))
-	}
-	if live.Proxy != nil && live.Proxy.Enabled {
-		lines = append(lines, mutedStyle.Render("Proxy enabled"))
-	}
-	if len(live.Highlights) > 0 {
-		lines = append(lines, mutedStyle.Render(truncateText(live.Highlights[0], width)))
-	}
-	lines = viewportLines(lines, 0, maxLines)
-	return strings.Join(lines, "\n")
-}
-
 func statusRateLine(label string, readRate, writeRate float64) string {
 	if readRate <= 0 && writeRate <= 0 {
 		return ""
@@ -1272,27 +1204,6 @@ func statusPressureLabel(live *engine.SystemSnapshot) string {
 		return "watch"
 	default:
 		return "steady"
-	}
-}
-
-func statusPressureBand(label string, value float64, watch float64, critical float64) string {
-	state := "steady"
-	if value >= critical {
-		state = "critical"
-	} else if value >= watch {
-		state = "watch"
-	}
-	return fmt.Sprintf("%s %s", label, state)
-}
-
-func toneForPressure(label string) string {
-	switch label {
-	case "critical":
-		return "high"
-	case "watch":
-		return "review"
-	default:
-		return "safe"
 	}
 }
 

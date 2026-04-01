@@ -262,10 +262,6 @@ func analyzeBrowseRail(model analyzeBrowserModel) string {
 	return "Filter  " + analyzeFilterLabel(model)
 }
 
-func analyzeInspectRail(model analyzeBrowserModel) string {
-	return analyzeAtmosphereLine(model)
-}
-
 func analyzeQueueRail(model analyzeBrowserModel, order []string) string {
 	if len(order) == 0 {
 		return "Review  nothing staged"

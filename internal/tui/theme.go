@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,7 +15,6 @@ const (
 
 var (
 	titleStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
-	subtitleStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#BD93F9"))
 	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#50FA7B"))
 	panelTitleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#8BE9FD"))
 	panelMetaStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
@@ -48,14 +46,6 @@ var (
 	highTokenStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Bold(true)
 	cardLabelStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
 	accentFrameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#BD93F9"))
-
-	// New product-focused styles
-	statsCardStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#2F6860")).Background(lipgloss.Color("#1A1A2E")).Padding(1, 2)
-	statsValueStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#50FA7B"))
-	statsLabelStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
-	statsUnitStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#BD93F9"))
-	welcomeStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF")).Padding(0, 1)
-	versionBadgeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#BD93F9")).Bold(true).Padding(0, 1)
 )
 
 func newProgram(model tea.Model) *tea.Program {
@@ -345,28 +335,6 @@ func splitColumns(totalWidth int, leftRatio float64, minLeft int, minRight int) 
 		right = minRight
 	}
 	return left, right
-}
-
-func renderMeterBar(label string, value float64, width int) string {
-	if width < 16 {
-		return fmt.Sprintf("%s %.1f%%", label, value)
-	}
-	barWidth := 16
-	if width > 40 {
-		barWidth = 20
-	}
-	if value < 0 {
-		value = 0
-	}
-	if value > 100 {
-		value = 100
-	}
-	filled := int((value / 100) * float64(barWidth))
-	if filled > barWidth {
-		filled = barWidth
-	}
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
-	return fmt.Sprintf("%-5s %s %5.1f%%", label, bar, value)
 }
 
 func compactWidth(width int) bool {

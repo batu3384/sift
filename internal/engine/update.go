@@ -265,10 +265,6 @@ func compareReleaseVersions(left, right string) int {
 	return 0
 }
 
-func (s *Service) RunUpdate(ctx context.Context, dryRun bool) (UpdateResult, error) {
-	return s.RunUpdateWithOptions(ctx, dryRun, UpdateOptions{Channel: UpdateChannelStable})
-}
-
 func (s *Service) RunUpdateWithOptions(ctx context.Context, dryRun bool, opts UpdateOptions) (UpdateResult, error) {
 	channel := NormalizeUpdateChannel(string(opts.Channel))
 	guidance := s.UpdateGuidanceForOptions(UpdateOptions{Channel: channel, Force: opts.Force})

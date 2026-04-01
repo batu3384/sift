@@ -11,45 +11,7 @@ import (
 	"github.com/batu3384/sift/internal/store"
 )
 
-func TestHomeOperatorLinePrioritizesUpdateWindow(t *testing.T) {
-	t.Parallel()
-
-	line := homeOperatorLine(
-		[]homeAction{{ID: "status", Title: "Status", Command: "sift status", Enabled: true}},
-		0,
-		&engine.SystemSnapshot{HealthScore: 87, OperatorAlerts: []string{"thermal warm 61.5°C"}},
-		&store.ExecutionSummary{Deleted: 2},
-		[]platform.Diagnostic{{Name: "filevault", Status: "warn"}},
-		&engine.UpdateNotice{Available: true, LatestVersion: "v9.9.9"},
-	)
-
-	for _, needle := range []string{"Recommended", "run sift update", "next run sift update"} {
-		if !strings.Contains(line, needle) {
-			t.Fatalf("expected %q in operator line, got %q", needle, line)
-		}
-	}
-}
-
-func TestHomeActionRailGuidesNextStep(t *testing.T) {
-	t.Parallel()
-
-	line := homeActionRail(
-		[]homeAction{{ID: "status", Title: "Status", Command: "sift status", Enabled: true}},
-		0,
-		nil,
-		nil,
-		[]platform.Diagnostic{{Name: "filevault", Status: "warn"}},
-		nil,
-	)
-
-	for _, needle := range []string{"More", "t opens check", "then run sift autofix"} {
-		if !strings.Contains(line, needle) {
-			t.Fatalf("expected %q in action rail, got %q", needle, line)
-		}
-	}
-}
-
-func TestHomeSessionAndStateRailsExposeOperationalContext(t *testing.T) {
+func TestHomeSessionRailLineExposesOperationalContext(t *testing.T) {
 	t.Parallel()
 
 	session := homeSessionRailLine(nil, &store.ExecutionSummary{
@@ -61,47 +23,6 @@ func TestHomeSessionAndStateRailsExposeOperationalContext(t *testing.T) {
 	for _, needle := range []string{"Last", "8 settled", "2 protected"} {
 		if !strings.Contains(session, needle) {
 			t.Fatalf("expected %q in session rail, got %q", needle, session)
-		}
-	}
-
-	cfg := config.Default()
-	cfg.ProtectedPaths = []string{"/tmp/a", "/tmp/b"}
-	cfg.ProtectedFamilies = []string{"raycast"}
-	cfg.CommandExcludes = map[string][]string{}
-	cfg.CommandExcludes["clean"] = []string{"/tmp/cache"}
-	cfg.PurgeSearchPaths = []string{"/tmp/work"}
-	state := homeStateLine(cfg, []platform.Diagnostic{{Name: "gatekeeper", Status: "warn"}})
-	for _, needle := range []string{"Setup", "2 protected paths", "1 family", "1 scope", "1 purge root", "1 issue queued"} {
-		if !strings.Contains(state, needle) {
-			t.Fatalf("expected %q in state rail, got %q", needle, state)
-		}
-	}
-}
-
-func TestHomeCompactLinesPrioritizeNextActionAndCarryState(t *testing.T) {
-	t.Parallel()
-
-	priority := homeCompactPriorityLine(
-		[]homeAction{{ID: "status", Title: "Status", Command: "sift status", Enabled: true}},
-		0,
-		&engine.SystemSnapshot{OperatorAlerts: []string{"thermal warm 61.5°C"}},
-		&store.ExecutionSummary{Deleted: 3},
-		[]platform.Diagnostic{{Name: "gatekeeper", Status: "warn"}},
-		&engine.UpdateNotice{Available: true, LatestVersion: "v9.9.9"},
-	)
-	for _, needle := range []string{"Recommended", "V9.9.9 ready", "next run sift update"} {
-		if !strings.Contains(priority, needle) {
-			t.Fatalf("expected %q in compact priority line, got %q", needle, priority)
-		}
-	}
-
-	cfg := config.Default()
-	cfg.CommandExcludes = map[string][]string{"clean": []string{"/tmp/cache"}}
-	cfg.PurgeSearchPaths = []string{"/tmp/work"}
-	carry := homeCompactCarryLine(&store.ExecutionSummary{Completed: 5, Deleted: 3, Protected: 2}, cfg, []platform.Diagnostic{{Name: "filevault", Status: "warn"}})
-	for _, needle := range []string{"Setup", "8 settled", "1 scope", "1 purge root", "1 issue"} {
-		if !strings.Contains(carry, needle) {
-			t.Fatalf("expected %q in compact carry line, got %q", needle, carry)
 		}
 	}
 }
@@ -196,16 +117,6 @@ func TestDiagnosticIssueCountIncludesErrors(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%s: diagnosticIssueCount = %d, want %d", tc.name, got, tc.want)
 		}
-	}
-
-	// Verify that the alert line reflects error diagnostics.
-	alertLine := homeAlertLine(nil, errorOnly, nil)
-	if !strings.Contains(alertLine, "doctor issue") {
-		t.Errorf("homeAlertLine with error diagnostic: expected 'doctor issue', got %q", alertLine)
-	}
-	steadyLine := homeAlertLine(nil, clean, nil)
-	if !strings.Contains(steadyLine, "system steady") {
-		t.Errorf("homeAlertLine with ok diagnostic: expected 'system steady', got %q", steadyLine)
 	}
 
 	// Verify recommended action fires for error diagnostics.

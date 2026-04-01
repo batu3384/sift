@@ -34,9 +34,9 @@ func (s stubAdapter) Name() string {
 	}
 	return "stub"
 }
-func (s stubAdapter) CuratedRoots() platform.CuratedRoots                 { return s.roots }
-func (s stubAdapter) ProtectedPaths() []string                            { return s.protected }
-func (s stubAdapter) ResolveTargets(in []string) []string                 { return in }
+func (s stubAdapter) CuratedRoots() platform.CuratedRoots                       { return s.roots }
+func (s stubAdapter) ProtectedPaths() []string                                  { return s.protected }
+func (s stubAdapter) ResolveTargets(in []string) []string                       { return in }
 func (s stubAdapter) ListApps(context.Context, bool) ([]domain.AppEntry, error) { return nil, nil }
 func (s stubAdapter) DiscoverRemnants(context.Context, domain.AppEntry) ([]string, []string, error) {
 	return s.remnants, nil, nil
@@ -1046,7 +1046,7 @@ func TestRunUpdateHomebrewPreviewAndApply(t *testing.T) {
 			return nil
 		},
 	}
-	preview, err := service.RunUpdate(context.Background(), true)
+	preview, err := service.RunUpdateWithOptions(context.Background(), true, UpdateOptions{Channel: UpdateChannelStable})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1056,7 +1056,7 @@ func TestRunUpdateHomebrewPreviewAndApply(t *testing.T) {
 	if runCount != 0 {
 		t.Fatalf("expected preview to avoid running commands, got %d", runCount)
 	}
-	applied, err := service.RunUpdate(context.Background(), false)
+	applied, err := service.RunUpdateWithOptions(context.Background(), false, UpdateOptions{Channel: UpdateChannelStable})
 	if err != nil {
 		t.Fatal(err)
 	}

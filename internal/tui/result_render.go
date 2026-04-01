@@ -450,31 +450,6 @@ func resultFocusLine(model resultModel) string {
 	}
 }
 
-func resultAtmosphereLine(model resultModel) string {
-	mode := motionModeIdle
-	phase := "settle"
-	pulse := false
-	if len(resultRecoveryCandidates(model.plan, model.result, model.filter)) > 0 {
-		mode = motionModeAlert
-		phase = "recover"
-		pulse = true
-	} else if len(model.result.Warnings) > 0 || len(model.result.FollowUpCommands) > 0 {
-		mode = motionModeReview
-		phase = "review"
-	}
-	scene := "cleanup"
-	if model.plan.Command == "uninstall" {
-		scene = "target"
-	} else if model.plan.Command == "optimize" || model.plan.Command == "autofix" {
-		scene = "task"
-	}
-	motion := newMotionState(model.spinnerFrame, pulse, mode, phase, scene)
-	if model.reducedMotion {
-		motion = reducedMotionState(motion)
-	}
-	return "Atmosphere " + motionSceneAtmosphere(motion)
-}
-
 func resultListSubtitle(model resultModel) string {
 	visible := model.visibleIndices()
 	scopeSingular, scopeLabel := resultScopeLabelPair(model.plan)
@@ -766,20 +741,6 @@ func resultCurrentGroupRecoveryCandidates(model resultModel) []domain.Finding {
 	return filterRecoveryCandidatesByGroup(candidates, group)
 }
 
-func resultCurrentGroupFailedCandidates(model resultModel) []domain.Finding {
-	visible := model.visibleIndices()
-	if len(visible) == 0 || model.cursor < 0 || model.cursor >= len(visible) {
-		return nil
-	}
-	item := model.result.Items[visible[model.cursor]]
-	group := resultGroupLabelForItem(model.plan, item)
-	if group == "" {
-		return nil
-	}
-	failed := resultRecoveryCandidatesForStatuses(model.plan, model.result, model.filter, domain.StatusFailed)
-	return filterRecoveryCandidatesByGroup(failed, group)
-}
-
 func filterRecoveryCandidatesByGroup(candidates []domain.Finding, group string) []domain.Finding {
 	if group == "" || len(candidates) == 0 {
 		return nil
@@ -861,45 +822,6 @@ func resultRecoveryScopeSummary(plan domain.ExecutionPlan, candidates []domain.F
 		scopeSingular, scopePlural = "target", "targets"
 	}
 	return fmt.Sprintf("%d %s across %d %s", len(candidates), pl(len(candidates), "issue", "issues"), len(seen), pl(len(seen), scopeSingular, scopePlural))
-}
-
-func resultSummary(result domain.ExecutionResult) string {
-	completed := 0
-	deleted := 0
-	failed := 0
-	skipped := 0
-	protected := 0
-	for _, item := range result.Items {
-		switch item.Status {
-		case domain.StatusCompleted:
-			completed++
-		case domain.StatusDeleted:
-			deleted++
-		case domain.StatusFailed:
-			failed++
-		case domain.StatusSkipped:
-			skipped++
-		case domain.StatusProtected:
-			protected++
-		}
-	}
-	return fmt.Sprintf("Completed %d  Deleted %d  Failed %d  Skipped %d  Protected %d", completed, deleted, failed, skipped, protected)
-}
-
-func resultExecutionRecapLine(plan domain.ExecutionPlan, result domain.ExecutionResult) string {
-	items := len(result.Items)
-	scope := resultScopeCount(plan)
-	warnings := len(result.Warnings)
-	cmds := len(result.FollowUpCommands)
-	scopeSingular, scopePlural := resultScopeLabelPair(plan)
-	return fmt.Sprintf(
-		"Execution recap  •  %s rail  •  %d %s  •  %d %s  •  %d %s  •  %d follow-up %s",
-		resultRecapRailLabel(plan),
-		items, pl(items, "item", "items"),
-		scope, pl(scope, scopeSingular, scopePlural),
-		warnings, pl(warnings, "warning", "warnings"),
-		cmds, pl(cmds, "command", "commands"),
-	)
 }
 
 func resultWhatChangedLine(result domain.ExecutionResult) string {
@@ -984,21 +906,6 @@ func resultChangedSummaryLabel(plan domain.ExecutionPlan) string {
 		return "fixed"
 	default:
 		return "changed"
-	}
-}
-
-func resultRecapRailLabel(plan domain.ExecutionPlan) string {
-	switch plan.Command {
-	case "clean":
-		return "reclaim"
-	case "uninstall":
-		return "uninstall"
-	case "optimize":
-		return "maintenance"
-	case "autofix":
-		return "fix"
-	default:
-		return plan.Command
 	}
 }
 

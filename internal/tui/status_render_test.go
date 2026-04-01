@@ -51,29 +51,6 @@ func TestStatusHeroVectorLabelPrefersGraphicsWhenStable(t *testing.T) {
 	}
 }
 
-func TestStatusCompactCarryLineCombinesSessionPowerAndDevices(t *testing.T) {
-	t.Parallel()
-
-	line := statusCompactCarryLine(statusModel{
-		live: &engine.SystemSnapshot{
-			SystemPowerWatts:   42,
-			AdapterPowerWatts:  96,
-			BatteryPowerWatts:  18,
-			Battery:            &engine.BatterySnapshot{Percent: 84, State: "charging", Condition: "Normal", CycleCount: 142},
-			BluetoothPowered:   true,
-			BluetoothConnected: 1,
-			BluetoothDevices:   []engine.BluetoothDeviceSnapshot{{Name: "Keyboard", Connected: true}},
-		},
-		lastExecution: &store.ExecutionSummary{Completed: 2, Deleted: 1},
-	}, 100)
-
-	for _, needle := range []string{"Activity", "just now", "1 deleted", "42W system", "Devices Keyboard"} {
-		if !strings.Contains(line, needle) {
-			t.Fatalf("expected %q in compact carry line, got %q", needle, line)
-		}
-	}
-}
-
 func TestStatusOverviewViewIncludesSummaryLines(t *testing.T) {
 	t.Parallel()
 

@@ -26,21 +26,20 @@ type uninstallItem struct {
 }
 
 type uninstallModel struct {
-	items         []uninstallItem
-	filtered      []int
-	cursor        int
-	width         int
-	height        int
-	loading       bool
-	loadingLabel  string
-	staged        map[string]uninstallItem
-	stageOrder    []string
-	search        textinput.Model
-	searchActive  bool
-	message       string
-	messageTicks  int
-	lastRefreshed string
-	preview       menuPreviewState
+	items        []uninstallItem
+	filtered     []int
+	cursor       int
+	width        int
+	height       int
+	loading      bool
+	loadingLabel string
+	staged       map[string]uninstallItem
+	stageOrder   []string
+	search       textinput.Model
+	searchActive bool
+	message      string
+	messageTicks int
+	preview      menuPreviewState
 }
 
 func newUninstallModel() uninstallModel {
@@ -528,36 +527,6 @@ func uninstallStats(m uninstallModel, width int) []string {
 		renderStatCard("admin", fmt.Sprintf("%d gated", admin), "high", cardWidth),
 		renderStatCard("cache", mode, tone, cardWidth),
 	}
-}
-
-func uninstallOriginToken(item uninstallItem) string {
-	switch strings.ToLower(strings.TrimSpace(item.Origin)) {
-	case "homebrew cask":
-		return safeTokenStyle.Render("BREW")
-	case "setapp":
-		return reviewTokenStyle.Render("SETAPP")
-	case "registry uninstall":
-		return reviewTokenStyle.Render("REG")
-	case "user program", "user application":
-		return safeTokenStyle.Render("USER")
-	case "system application":
-		return highTokenStyle.Render("SYSTEM")
-	default:
-		if item.RequiresAdmin {
-			return highTokenStyle.Render("ADMIN")
-		}
-		return mutedStyle.Render("APP")
-	}
-}
-
-func uninstallRiskToken(item uninstallItem) string {
-	if item.Sensitive {
-		return highTokenStyle.Render("SENSITIVE")
-	}
-	if item.RequiresAdmin {
-		return reviewTokenStyle.Render("ADMIN")
-	}
-	return mutedStyle.Render("SAFE")
 }
 
 func coalesceText(value, fallback string) string {

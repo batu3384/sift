@@ -668,13 +668,6 @@ func (m *progressModel) apply(progress domain.ExecutionProgress) {
 	}
 }
 
-func (m progressModel) selectedItem() (domain.Finding, bool) {
-	if m.cursor < 0 || m.cursor >= len(m.plan.Items) {
-		return domain.Finding{}, false
-	}
-	return m.plan.Items[m.cursor], true
-}
-
 func (m progressModel) cursorForPath(path string) (int, bool) {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -749,7 +742,7 @@ func (m statusModel) View() string {
 	compact := width < 118 || height < 28
 	contentWidth := width - 6
 	leftWidth, rightWidth := splitColumns(contentWidth-2, 0.56, 40, 36)
-	panelLines := bodyLineBudget(height, 23, 4)
+	var panelLines int
 	overviewLines := 6
 	if compact {
 		overviewLines = 5

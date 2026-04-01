@@ -53,13 +53,6 @@ func runManagedProcess(ctx context.Context, path string, args ...string) error {
 	return cmd.Run()
 }
 
-func runManagedCommandItem(ctx context.Context, item domain.Finding) error {
-	if err := validateManagedCommand(item.CommandPath, item.CommandArgs); err != nil {
-		return err
-	}
-	return runManagedProcess(ctx, item.CommandPath, item.CommandArgs...)
-}
-
 func parseNativeCommand(raw string) (nativeCommand, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" {

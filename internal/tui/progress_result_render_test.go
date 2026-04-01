@@ -58,16 +58,6 @@ func TestProgressStageValueSummaryAndMeterForUninstall(t *testing.T) {
 		t.Fatalf("expected uninstall target value with truncation, got %q", value)
 	}
 
-	summary := progressStageSummary(progress, stage)
-	if !strings.Contains(summary, "Target 2 of 4") || !strings.Contains(summary, "app batch") {
-		t.Fatalf("expected uninstall summary wording, got %q", summary)
-	}
-
-	hero := progressStageHeroLine(progress, stage)
-	if !strings.Contains(hero, "Current") || !strings.Contains(hero, "target rail") || !strings.Contains(hero, "target 2/4") {
-		t.Fatalf("expected richer stage hero wording, got %q", hero)
-	}
-
 	meter := progressMeterLine(progressModel{
 		plan:  domain.ExecutionPlan{Items: []domain.Finding{{ID: "a"}, {ID: "b"}}},
 		items: []domain.OperationResult{{FindingID: "a", Status: domain.StatusDeleted}},
@@ -108,20 +98,6 @@ func TestResultStatsAndSummaryReflectExecutionOutcome(t *testing.T) {
 	for _, needle := range []string{"reclaim", "done", "2"} {
 		if !strings.Contains(strings.ToLower(joined), needle) {
 			t.Fatalf("expected %q in result stats, got %s", needle, joined)
-		}
-	}
-
-	summary := resultSummary(result)
-	for _, needle := range []string{"Completed 1", "Deleted 1", "Failed 1", "Skipped 1", "Protected 1"} {
-		if !strings.Contains(summary, needle) {
-			t.Fatalf("expected %q in result summary, got %q", needle, summary)
-		}
-	}
-
-	recap := resultExecutionRecapLine(plan, result)
-	for _, needle := range []string{"Execution recap", "reclaim rail", "5 items", "1 module"} {
-		if !strings.Contains(recap, needle) {
-			t.Fatalf("expected %q in result recap, got %q", needle, recap)
 		}
 	}
 
@@ -292,24 +268,7 @@ func TestProgressExecutionRailUsesCommandSpecificBuckets(t *testing.T) {
 	}
 }
 
-func TestProgressAtmosphereLineReflectsMotionScene(t *testing.T) {
-	t.Parallel()
-
-	line := progressAtmosphereLine(progressModel{
-		plan:         domain.ExecutionPlan{Command: "optimize"},
-		currentPhase: domain.ProgressPhaseStarting,
-		spinnerFrame: 1,
-		pulse:        true,
-	})
-
-	for _, needle := range []string{"Scene", "◆", "TASK FIELD", "STAGE WINDOW"} {
-		if !strings.Contains(line, needle) {
-			t.Fatalf("expected %q in progress atmosphere line, got %q", needle, line)
-		}
-	}
-}
-
-func TestProgressScopeAndCurrentLinesReflectBatchIntent(t *testing.T) {
+func TestProgressCurrentLineReflectsBatchIntent(t *testing.T) {
 	t.Parallel()
 
 	progress := progressModel{
@@ -323,13 +282,6 @@ func TestProgressScopeAndCurrentLinesReflectBatchIntent(t *testing.T) {
 		},
 		current:      &domain.Finding{DisplayPath: "/tmp/cache", Action: domain.ActionTrash},
 		currentPhase: domain.ProgressPhaseStarting,
-	}
-
-	scope := progressScopeLine(progress)
-	for _, needle := range []string{"Scope", "Quick Clean", "3.0 MB", "moving item to trash", "/tmp/cache"} {
-		if !strings.Contains(scope, needle) {
-			t.Fatalf("expected %q in progress scope line, got %q", needle, scope)
-		}
 	}
 
 	current := progressCurrentLine(progress)
@@ -361,22 +313,6 @@ func TestProgressCurrentLineShowsQueuedSelectedItemBeforeFirstUpdate(t *testing.
 	}
 }
 
-func TestProgressTacticLineGuidesActiveTask(t *testing.T) {
-	t.Parallel()
-
-	line := progressTacticLine(progressModel{
-		current: &domain.Finding{
-			Action: domain.ActionCommand,
-		},
-	})
-
-	for _, needle := range []string{"Next steps", "keep focus on active task", "esc requests stop"} {
-		if !strings.Contains(line, needle) {
-			t.Fatalf("expected %q in progress tactic line, got %q", needle, line)
-		}
-	}
-}
-
 func TestProgressSummaryStatusAndNextLinesGuideExecution(t *testing.T) {
 	t.Parallel()
 
@@ -402,20 +338,6 @@ func TestProgressSummaryStatusAndNextLinesGuideExecution(t *testing.T) {
 	for _, needle := range []string{"Status", "running task", "/tmp/a", "no completed operations yet"} {
 		if !strings.Contains(status, needle) {
 			t.Fatalf("expected %q in progress status line, got %q", needle, status)
-		}
-	}
-
-	next := progressNextLine(progress)
-	for _, needle := range []string{"Next", "stay on the active task", "esc requests stop"} {
-		if !strings.Contains(next, needle) {
-			t.Fatalf("expected %q in progress next line, got %q", needle, next)
-		}
-	}
-
-	track := progressTrackLine(progress, progressStageInfo(progress))
-	for _, needle := range []string{"Track", "maintenance", "1 task", "1 phase"} {
-		if !strings.Contains(track, needle) {
-			t.Fatalf("expected %q in progress track line, got %q", needle, track)
 		}
 	}
 
@@ -457,30 +379,6 @@ func TestProgressStepLineUsesHandoffAndRemnantLanguage(t *testing.T) {
 	}
 	if line := progressStepLine(remnant); !strings.Contains(line, "Step     remnants") || !strings.Contains(line, "moving /tmp/example to trash") {
 		t.Fatalf("unexpected remnant step line: %q", line)
-	}
-}
-
-func TestResultAtmosphereLineReflectsRecoveryState(t *testing.T) {
-	t.Parallel()
-
-	line := resultAtmosphereLine(resultModel{
-		plan: domain.ExecutionPlan{
-			Command: "clean",
-			Items: []domain.Finding{
-				{ID: "a", Path: "/tmp/a", DisplayPath: "/tmp/a", Category: domain.CategoryBrowserData},
-			},
-		},
-		result: domain.ExecutionResult{
-			Items: []domain.OperationResult{
-				{FindingID: "a", Path: "/tmp/a", Status: domain.StatusFailed},
-			},
-		},
-	})
-
-	for _, needle := range []string{"Atmosphere", "◩", "CLEANUP FIELD", "RECOVER WINDOW"} {
-		if !strings.Contains(line, needle) {
-			t.Fatalf("expected %q in result atmosphere line, got %q", needle, line)
-		}
 	}
 }
 
@@ -586,13 +484,6 @@ func TestProgressSummaryAndResultSummaryUseCommandSpecificLanguage(t *testing.T)
 		}
 	}
 
-	track := progressTrackLine(uninstallProgress, progressStageInfo(uninstallProgress))
-	for _, needle := range []string{"Track", "0 native", "1 remnant"} {
-		if !strings.Contains(track, needle) {
-			t.Fatalf("expected %q in uninstall progress track, got %q", needle, track)
-		}
-	}
-
 	optimizeResult := resultModel{
 		plan: domain.ExecutionPlan{
 			Command: "optimize",
@@ -644,9 +535,6 @@ func TestProgressStageInfoUsesSectionEventsFromExecutionStream(t *testing.T) {
 	stage := progressStageInfo(progress)
 	if stage.Group != "User cache" || stage.Index != 1 || stage.Total != 3 || stage.Items != 4 || stage.Bytes != 2048 {
 		t.Fatalf("expected explicit section stage info, got %+v", stage)
-	}
-	if line := progressTrackLine(progress, stage); !strings.Contains(line, "User cache") || !strings.Contains(line, "section 1/3") {
-		t.Fatalf("unexpected section track line: %q", line)
 	}
 }
 

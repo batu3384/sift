@@ -142,10 +142,7 @@ type analyzeActionFinishedMsg struct {
 }
 
 type scanProgressMsg struct {
-	ruleID     string
-	ruleName   string
-	itemsFound int
-	bytesFound int64
+	ruleName string
 }
 
 type dashboardTickMsg struct{}
@@ -204,10 +201,6 @@ type appModel struct {
 	pendingReviewReturn             Route
 	pendingResultReturn             Route
 	planLoadTransitionVisible       bool
-	scanCurrentRule                 string
-	scanCurrentItems                int
-	scanCurrentBytes                int64
-	scanTotalBytes                  int64
 	executionStream                 <-chan tea.Msg
 	executionCancel                 context.CancelFunc
 	acceptedPermissionProfiles      map[string]struct{}
@@ -855,10 +848,6 @@ func uiTickCmd() tea.Cmd {
 	})
 }
 
-func loadAppsCmd(loader func() ([]domain.AppEntry, error)) tea.Cmd {
-	return loadAppsCmdWithRequest(loader, 0)
-}
-
 func loadAppsCmdWithRequest(loader func() ([]domain.AppEntry, error), requestID int) tea.Cmd {
 	if loader == nil {
 		return nil
@@ -867,10 +856,6 @@ func loadAppsCmdWithRequest(loader func() ([]domain.AppEntry, error), requestID 
 		apps, err := loader()
 		return appsLoadedMsg{apps: apps, err: err, loadedAt: time.Now(), requestID: requestID}
 	}
-}
-
-func loadCachedAppsCmd(loader func() ([]domain.AppEntry, time.Time, error)) tea.Cmd {
-	return loadCachedAppsCmdWithRequest(loader, 0)
 }
 
 func loadCachedAppsCmdWithRequest(loader func() ([]domain.AppEntry, time.Time, error), requestID int) tea.Cmd {
