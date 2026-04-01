@@ -468,7 +468,11 @@ func resultAtmosphereLine(model resultModel) string {
 	} else if model.plan.Command == "optimize" || model.plan.Command == "autofix" {
 		scene = "task"
 	}
-	return "Atmosphere " + motionSceneAtmosphere(newMotionState(model.spinnerFrame, pulse, mode, phase, scene))
+	motion := newMotionState(model.spinnerFrame, pulse, mode, phase, scene)
+	if model.reducedMotion {
+		motion = reducedMotionState(motion)
+	}
+	return "Atmosphere " + motionSceneAtmosphere(motion)
 }
 
 func resultListSubtitle(model resultModel) string {

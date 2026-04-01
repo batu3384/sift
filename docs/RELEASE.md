@@ -128,3 +128,13 @@ Update this file and README if you change:
 - manifest file names or package manager ownership
 - the commands in `hack/release_dry_run.sh`
 - the required local tooling for release preparation
+
+## GitHub publish readiness
+
+Before creating the remote repository or opening the first public release:
+
+1. Ensure the local worktree is clean.
+2. Run `make quality-gate-full`.
+3. Confirm `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, and `SECURITY.md` are current.
+4. Confirm `.github/workflows/ci.yml` and `.github/workflows/release.yml` still match the actual build and packaging contract.
+5. Push the branch, verify Actions succeeds, then create the release tag from that validated commit.

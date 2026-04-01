@@ -19,11 +19,12 @@ const (
 )
 
 type motionState struct {
-	Frame int
-	Pulse bool
-	Mode  motionMode
-	Phase string
-	Scene string
+	Frame   int
+	Pulse   bool
+	Mode    motionMode
+	Phase   string
+	Scene   string
+	Reduced bool
 }
 
 func newMotionState(frame int, pulse bool, mode motionMode, phase, scene string) motionState {
@@ -40,6 +41,13 @@ func newMotionState(frame int, pulse bool, mode motionMode, phase, scene string)
 		Phase: phase,
 		Scene: scene,
 	}
+}
+
+func reducedMotionState(motion motionState) motionState {
+	motion.Reduced = true
+	motion.Frame = 0
+	motion.Pulse = false
+	return motion
 }
 
 func signalRailLabel(frame int, pulse bool) string {
@@ -62,6 +70,9 @@ func signalRailLabelForMotion(motion motionState) string {
 	if index < 0 {
 		index = 0
 	}
+	if motion.Reduced {
+		index = 0
+	}
 	label := marks[index]
 	suffix := strings.ToLower(strings.TrimSpace(motion.Phase))
 	if suffix == "" {
@@ -74,6 +85,9 @@ func signalRailLabelForMotion(motion motionState) string {
 }
 
 func footerMotionLabel(motion motionState) string {
+	if motion.Reduced {
+		return "live updates 15s"
+	}
 	switch motion.Mode {
 	case motionModeAlert:
 		// Urgent pulse: double-ring ↔ asterisk
@@ -108,6 +122,9 @@ func footerMotionLabel(motion motionState) string {
 
 func loadingPulseLine(label string, motion motionState) string {
 	display := loadingDisplayLabel(label)
+	if motion.Reduced {
+		return loadingVerb(label) + " " + display + "  •  " + loadingStageFlow(label)
+	}
 	// Show dynamic stage for analyze operations
 	analyzeStage := getAnalyzeStage(label, motion.Frame)
 	if analyzeStage != "" {
@@ -156,6 +173,9 @@ func motionSceneAtmosphere(motion motionState) string {
 	scene := strings.ToUpper(strings.TrimSpace(motion.Scene))
 	if scene == "" {
 		scene = "RAIL"
+	}
+	if motion.Reduced {
+		return motionSceneGlyph(motion) + " " + scene + " FIELD  •  " + phase + " STATE"
 	}
 	return motionSceneGlyph(motion) + " " + scene + " FIELD " + motionSignatureBand(motion) + "  •  " + phase + " WINDOW"
 }
@@ -212,6 +232,9 @@ func motionSceneGlyph(motion motionState) string {
 }
 
 func spinnerGlyph(motion motionState) string {
+	if motion.Reduced {
+		return "•"
+	}
 	frames := spinnerFrames
 	switch motion.Mode {
 	case motionModeAlert:
@@ -238,7 +261,11 @@ func statusMotionState(model statusModel) motionState {
 	if statusHasActiveAlerts(model.live, model.diagnostics, model.updateNotice) {
 		mode = motionModeAlert
 	}
-	return newMotionState(model.signalFrame, model.pulse, mode, statusMotionPhase(model.live), "monitor")
+	motion := newMotionState(model.signalFrame, model.pulse, mode, statusMotionPhase(model.live), "monitor")
+	if model.reducedMotion {
+		return reducedMotionState(motion)
+	}
+	return motion
 }
 
 func homeMotionState(model homeModel) motionState {
@@ -246,7 +273,11 @@ func homeMotionState(model homeModel) motionState {
 	if statusHasActiveAlerts(model.live, model.diagnostics, model.updateNotice) {
 		mode = motionModeAlert
 	}
-	return newMotionState(model.signalFrame, model.pulse, mode, homeMotionPhase(model.live, model.diagnostics, model.updateNotice), "control")
+	motion := newMotionState(model.signalFrame, model.pulse, mode, homeMotionPhase(model.live, model.diagnostics, model.updateNotice), "control")
+	if model.reducedMotion {
+		return reducedMotionState(motion)
+	}
+	return motion
 }
 
 func progressMotionState(progress progressModel) motionState {
@@ -272,31 +303,40 @@ func progressMotionState(progress progressModel) motionState {
 	} else if progress.plan.Command == "optimize" || progress.plan.Command == "autofix" {
 		scene = "task"
 	}
-	return newMotionState(progress.spinnerFrame, progress.pulse, motionModeProgress, phase, scene)
+	motion := newMotionState(progress.spinnerFrame, progress.pulse, motionModeProgress, phase, scene)
+	if progress.reducedMotion {
+		return reducedMotionState(motion)
+	}
+	return motion
 }
 
 func appMotionState(model appModel) motionState {
+	var motion motionState
 	currentLoading := model.currentLoadingLabel()
 	switch {
 	case currentLoading != "":
-		return newMotionState(model.spinnerFrame, model.livePulse, motionModeLoading, loadingPhase(currentLoading), loadingScene(currentLoading))
+		motion = newMotionState(model.spinnerFrame, model.livePulse, motionModeLoading, loadingPhase(currentLoading), loadingScene(currentLoading))
 	case model.route == RouteProgress:
-		return progressMotionState(model.progress)
+		motion = progressMotionState(model.progress)
 	case model.route == RouteHome:
-		return homeMotionState(model.home)
+		motion = homeMotionState(model.home)
 	case model.route == RouteStatus:
-		return statusMotionState(model.status)
+		motion = statusMotionState(model.status)
 	case model.route == RouteDoctor:
 		mode := motionModeIdle
 		if diagnosticsHaveIssues(model.doctor.diagnostics) {
 			mode = motionModeAlert
 		}
-		return newMotionState(model.spinnerFrame, model.livePulse, mode, "inspect", "doctor")
+		motion = newMotionState(model.spinnerFrame, model.livePulse, mode, "inspect", "doctor")
 	case model.route == RouteReview || model.route == RoutePreflight || model.route == RouteResult:
-		return newMotionState(model.spinnerFrame, model.livePulse, motionModeReview, "review", "decision")
+		motion = newMotionState(model.spinnerFrame, model.livePulse, motionModeReview, "review", "decision")
 	default:
-		return newMotionState(model.spinnerFrame, model.livePulse, motionModeIdle, "steady", "rail")
+		motion = newMotionState(model.spinnerFrame, model.livePulse, motionModeIdle, "steady", "rail")
 	}
+	if model.reducedMotion {
+		return reducedMotionState(motion)
+	}
+	return motion
 }
 
 func loadingPhase(label string) string {

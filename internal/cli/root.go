@@ -184,6 +184,7 @@ func (r *runtimeState) runInteractive(ctx context.Context, route tui.Route, plan
 		InitialRoute:  route,
 		InitialPlan:   plan,
 		InitialResult: result,
+		ReducedMotion: tui.ReducedMotionEnabled(),
 	}, tui.AppCallbacks{
 		LoadDashboard: func() (tui.DashboardData, error) {
 			report, err := r.service.StatusReport(ctx, 10)

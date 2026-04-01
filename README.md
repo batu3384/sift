@@ -45,6 +45,8 @@ brew install batuhanyuksel/tap/sift
 
 ## Documentation
 
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): collaboration expectations for issues, reviews, and pull requests
+- [CHANGELOG.md](CHANGELOG.md): release-facing product changes and publish notes
 - [CONTRIBUTING.md](CONTRIBUTING.md): contributor workflow, safety expectations, and local checks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): package layout and scan-plan-review-execute flow
 - [docs/MOLE_GAP_REPORT.md](docs/MOLE_GAP_REPORT.md): latest Mole fresh-clone baseline, compare range, and parity notes
@@ -107,6 +109,7 @@ and apps where SIFT can only offer remnant review.
 ## Command Notes
 
 - `sift`, `sift status`, `sift analyze`, and `sift check` prefer the interactive TUI on a real terminal. When `status`, `analyze`, or `check` are piped, SIFT automatically emits JSON unless `--plain` is set.
+- Set `SIFT_REDUCED_MOTION=1` to keep the TUI interactive while disabling spinner and pulse animation. This is useful for accessibility-sensitive sessions and deterministic terminal captures.
 - `sift check`: actionable posture audit across `security`, `updates`, `config`, and `health`. It is read-only by design and acts as the intake stage for `autofix`.
 - `sift autofix`: turns autofixable `check` findings into a reviewed execution plan. It uses the same review/progress/result flow as `optimize`, keeps `--dry-run=true` by default, and requires `--dry-run=false --yes` to apply.
 - `sift analyze`: read-only disk usage analysis. Without a target it analyzes your home directory, separates the output into "largest children" and "large files", lets you drill into directories with `enter` and `backspace`, and in TUI mode supports a staged cleanup queue: `space` to stage, `u` to unstage, `o` to open/reveal the selected path, and `x` to hand staged items into the normal cleanup review flow.
@@ -201,6 +204,14 @@ make release-dry-run
 make package-manifests TAG=v0.0.0-ci DIST_DIR=./.tmp/package-dist OUT_DIR=./.tmp/manifests
 make release-preflight TAG=v0.0.0-ci DIST_DIR=./.tmp/package-dist MANIFEST_DIR=./.tmp/manifests
 ```
+
+## GitHub Publish Checklist
+
+- Run `make quality-gate-full`
+- Confirm `README.md`, `CHANGELOG.md`, and `docs/RELEASE.md` match current behavior
+- Confirm the git worktree is clean and local artifacts remain ignored
+- Verify `.github/workflows/ci.yml` and `.github/workflows/release.yml` still match the packaging contract
+- Tag and publish only from a passing commit
 
 ## Configuration
 

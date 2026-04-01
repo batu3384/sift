@@ -44,6 +44,7 @@ type AppOptions struct {
 	InitialRoute  Route
 	InitialPlan   *domain.ExecutionPlan
 	InitialResult *domain.ExecutionResult
+	ReducedMotion bool
 }
 
 type AppCallbacks struct {
@@ -141,10 +142,10 @@ type analyzeActionFinishedMsg struct {
 }
 
 type scanProgressMsg struct {
-	ruleID      string
-	ruleName    string
-	itemsFound  int
-	bytesFound  int64
+	ruleID     string
+	ruleName   string
+	itemsFound int
+	bytesFound int64
 }
 
 type dashboardTickMsg struct{}
@@ -182,6 +183,7 @@ type appModel struct {
 	lastDashboardSync               string
 	spinnerFrame                    int
 	livePulse                       bool
+	reducedMotion                   bool
 	nextPlanRequestID               int
 	activePlanRequestID             int
 	nextMenuPreviewRequestID        int
@@ -216,15 +218,16 @@ const uiTickInterval = 250 * time.Millisecond
 
 func RunApp(opts AppOptions, callbacks AppCallbacks) error {
 	model := appModel{
-		route:               opts.InitialRoute,
-		cfg:                 config.Normalize(opts.Config),
-		executable:          opts.Executable,
-		hasHome:             opts.InitialRoute == RouteHome,
-		keys:                defaultKeyMap(),
-		help:                newHelpModel(),
-		callbacks:           callbacks,
-		permissionWarmup:    defaultPermissionWarmupCmd,
-		permissionKeepalive: defaultPermissionKeepalive,
+		route:                      opts.InitialRoute,
+		cfg:                        config.Normalize(opts.Config),
+		executable:                 opts.Executable,
+		hasHome:                    opts.InitialRoute == RouteHome,
+		reducedMotion:              opts.ReducedMotion,
+		keys:                       defaultKeyMap(),
+		help:                       newHelpModel(),
+		callbacks:                  callbacks,
+		permissionWarmup:           defaultPermissionWarmupCmd,
+		permissionKeepalive:        defaultPermissionKeepalive,
 		acceptedPermissionProfiles: map[string]struct{}{},
 		home: homeModel{
 			actions:    buildHomeActions(opts.Config),
@@ -246,6 +249,7 @@ func RunApp(opts AppOptions, callbacks AppCallbacks) error {
 		protect:   newProtectModel(config.Normalize(opts.Config).ProtectedPaths),
 		uninstall: newUninstallModel(),
 	}
+	model.syncMotionSettings()
 	model.protect.syncFamilies(model.cfg.ProtectedFamilies)
 	model.protect.syncScopes(model.cfg.CommandExcludes)
 	switch opts.InitialRoute {
@@ -302,6 +306,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.syncMotionSettings()
 		m.home.width, m.home.height = msg.Width, msg.Height
 		m.clean.width, m.clean.height = msg.Width, msg.Height
 		m.tools.width, m.tools.height = msg.Width, msg.Height
@@ -312,6 +317,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.analyze.width, m.analyze.height = msg.Width, msg.Height
 		m.review.width, m.review.height = msg.Width, msg.Height
 		m.preflight.width, m.preflight.height = msg.Width, msg.Height
+		m.progress.width, m.progress.height = msg.Width, msg.Height
 		m.result.width, m.result.height = msg.Width, msg.Height
 		return m, nil
 	case dashboardLoadedMsg:
@@ -334,16 +340,15 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, dashboardTickCmd()
 	case uiTickMsg:
-		m.livePulse = !m.livePulse
-		m.spinnerFrame = (m.spinnerFrame + 1) % len(spinnerFrames)
-		m.tickNotices()
-		m.home.pulse = m.livePulse
-		m.home.signalFrame = m.spinnerFrame
-		m.status.pulse = m.livePulse
-		m.status.signalFrame = m.spinnerFrame
-		if m.route == RouteProgress {
-			m.progress.pulse = m.livePulse
+		if m.reducedMotion {
+			m.livePulse = false
+			m.spinnerFrame = 0
+		} else {
+			m.livePulse = !m.livePulse
+			m.spinnerFrame = (m.spinnerFrame + 1) % len(spinnerFrames)
 		}
+		m.tickNotices()
+		m.syncMotionSettings()
 		if m.wantsUITick() {
 			return m, uiTickCmd()
 		}
@@ -624,6 +629,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m appModel) View() string {
+	m.syncMotionSettings()
 	var body string
 	if m.planLoadActive() {
 		body = m.transitionView()
@@ -665,11 +671,19 @@ func (m appModel) View() string {
 			body = m.preflight.View()
 		case RouteProgress:
 			m.progress.width, m.progress.height = m.width, m.height
-			m.progress.spinnerFrame = m.spinnerFrame
+			if m.reducedMotion {
+				m.progress.spinnerFrame = 0
+			} else {
+				m.progress.spinnerFrame = m.spinnerFrame
+			}
 			body = m.progress.View()
 		case RouteResult:
 			m.result.width, m.result.height = m.width, m.height
-			m.result.spinnerFrame = m.spinnerFrame
+			if m.reducedMotion {
+				m.result.spinnerFrame = 0
+			} else {
+				m.result.spinnerFrame = m.spinnerFrame
+			}
 			body = m.result.View()
 		default:
 			body = "Unknown route"
@@ -965,8 +979,33 @@ func waitForExecutionStreamCmd(stream <-chan tea.Msg) tea.Cmd {
 }
 
 func (m appModel) wantsUITick() bool {
+	if m.reducedMotion {
+		return m.noticeTicks > 0 || m.uninstall.messageTicks > 0 || m.protect.messageTicks > 0
+	}
 	return m.currentLoadingLabel() != "" || m.route == RouteProgress || m.route == RouteResult ||
 		m.route == RouteHome || m.route == RouteStatus || m.route == RouteDoctor
+}
+
+func (m *appModel) syncMotionSettings() {
+	m.home.reducedMotion = m.reducedMotion
+	m.home.pulse = m.livePulse
+	m.home.signalFrame = m.spinnerFrame
+	m.status.reducedMotion = m.reducedMotion
+	m.status.pulse = m.livePulse
+	m.status.signalFrame = m.spinnerFrame
+	m.progress.reducedMotion = m.reducedMotion
+	m.progress.pulse = m.livePulse && !m.reducedMotion
+	if m.reducedMotion {
+		m.progress.spinnerFrame = 0
+	} else {
+		m.progress.spinnerFrame = m.spinnerFrame
+	}
+	m.result.reducedMotion = m.reducedMotion
+	if m.reducedMotion {
+		m.result.spinnerFrame = 0
+	} else {
+		m.result.spinnerFrame = m.spinnerFrame
+	}
 }
 
 func formatDashboardSync(live *engine.SystemSnapshot) string {

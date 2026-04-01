@@ -2326,6 +2326,82 @@ func TestTransientNoticesFadeOnUITick(t *testing.T) {
 	}
 }
 
+func TestReducedMotionSkipsAnimationButStillClearsNotices(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteHome)
+	model.reducedMotion = true
+	model.noticeMsg = "Opened /tmp/cache"
+	model.noticeTicks = 1
+	model.spinnerFrame = 4
+	model.livePulse = true
+
+	next, cmd := model.Update(uiTickMsg{})
+	ticked := next.(appModel)
+	if cmd != nil {
+		t.Fatal("expected reduced-motion tick to stop when no transient notices remain")
+	}
+	if ticked.spinnerFrame != 0 || ticked.livePulse {
+		t.Fatalf("expected reduced-motion tick to keep animation static, got frame=%d pulse=%v", ticked.spinnerFrame, ticked.livePulse)
+	}
+	if ticked.noticeMsg != "" || ticked.noticeTicks != 0 {
+		t.Fatalf("expected reduced-motion tick to still clear notices, got %q (%d)", ticked.noticeMsg, ticked.noticeTicks)
+	}
+}
+
+func TestWindowSizePropagatesAcrossRoutes(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteAnalyze)
+	next, _ := model.Update(tea.WindowSizeMsg{Width: 84, Height: 26})
+	sized := next.(appModel)
+
+	if sized.width != 84 || sized.height != 26 {
+		t.Fatalf("expected app size to update, got %dx%d", sized.width, sized.height)
+	}
+	checks := []struct {
+		name          string
+		width, height int
+	}{
+		{"home", sized.home.width, sized.home.height},
+		{"clean", sized.clean.width, sized.clean.height},
+		{"tools", sized.tools.width, sized.tools.height},
+		{"protect", sized.protect.width, sized.protect.height},
+		{"uninstall", sized.uninstall.width, sized.uninstall.height},
+		{"status", sized.status.width, sized.status.height},
+		{"doctor", sized.doctor.width, sized.doctor.height},
+		{"analyze", sized.analyze.width, sized.analyze.height},
+		{"review", sized.review.width, sized.review.height},
+		{"preflight", sized.preflight.width, sized.preflight.height},
+		{"progress", sized.progress.width, sized.progress.height},
+		{"result", sized.result.width, sized.result.height},
+	}
+	for _, check := range checks {
+		if check.width != 84 || check.height != 26 {
+			t.Fatalf("expected %s size to update, got %dx%d", check.name, check.width, check.height)
+		}
+	}
+}
+
+func TestCompactFooterAfterResizeUsesCompactBindings(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteHome)
+	model.applyDashboard(testDashboardData())
+	next, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	sized := next.(appModel)
+
+	footer := sized.footerContent()
+	for _, snippet := range []string{"enter open", "t tools", "? help"} {
+		if !strings.Contains(footer, snippet) {
+			t.Fatalf("expected compact footer to contain %q, got %q", snippet, footer)
+		}
+	}
+	if !strings.Contains(sized.View(), "SIFT") {
+		t.Fatalf("expected resized home view to remain readable, got:\n%s", sized.View())
+	}
+}
+
 func TestUninstallKeepsCachedInventoryWhenFreshRefreshFails(t *testing.T) {
 	t.Parallel()
 
@@ -2862,14 +2938,14 @@ func TestAppRouterToolsOptimizeReview(t *testing.T) {
 
 func newTestAppModel(initial Route) appModel {
 	return appModel{
-		route:               initial,
-		cfg:                 config.Default(),
-		executable:          true,
-		hasHome:             initial == RouteHome,
-		keys:                defaultKeyMap(),
-		help:                newHelpModel(),
-		permissionWarmup:    defaultPermissionWarmupCmd,
-		permissionKeepalive: defaultPermissionKeepalive,
+		route:                      initial,
+		cfg:                        config.Default(),
+		executable:                 true,
+		hasHome:                    initial == RouteHome,
+		keys:                       defaultKeyMap(),
+		help:                       newHelpModel(),
+		permissionWarmup:           defaultPermissionWarmupCmd,
+		permissionKeepalive:        defaultPermissionKeepalive,
 		acceptedPermissionProfiles: map[string]struct{}{},
 		callbacks: AppCallbacks{
 			LoadDashboard:     func() (DashboardData, error) { return testDashboardData(), nil },

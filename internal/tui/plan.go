@@ -26,14 +26,15 @@ type planModel struct {
 }
 
 type resultModel struct {
-	plan         domain.ExecutionPlan
-	result       domain.ExecutionResult
-	cursor       int
-	width        int
-	height       int
-	flash        bool
-	spinnerFrame int
-	filter       resultFilter
+	plan          domain.ExecutionPlan
+	result        domain.ExecutionResult
+	cursor        int
+	width         int
+	height        int
+	flash         bool
+	spinnerFrame  int
+	filter        resultFilter
+	reducedMotion bool
 }
 
 type resultFilter string
@@ -45,22 +46,23 @@ const (
 )
 
 type progressModel struct {
-	plan            domain.ExecutionPlan
-	items           []domain.OperationResult
-	cursor          int
-	width           int
-	height          int
-	startedAt       time.Time
-	spinnerFrame    int
-	pulse           bool
-	current         *domain.Finding
-	currentPhase    domain.ProgressPhase
-	currentStep     string
-	currentDetail   string
-	currentSection  stageInfo
+	plan              domain.ExecutionPlan
+	items             []domain.OperationResult
+	cursor            int
+	width             int
+	height            int
+	startedAt         time.Time
+	spinnerFrame      int
+	pulse             bool
+	current           *domain.Finding
+	currentPhase      domain.ProgressPhase
+	currentStep       string
+	currentDetail     string
+	currentSection    stageInfo
 	currentSectionKey string // engine section key for the active section
-	cancelRequested bool
-	autoFollow      bool
+	cancelRequested   bool
+	autoFollow        bool
+	reducedMotion     bool
 }
 
 type analyzeLoader func(target string) (domain.ExecutionPlan, error)
@@ -422,6 +424,7 @@ type statusModel struct {
 	pulse         bool
 	signalFrame   int
 	companionMode string
+	reducedMotion bool
 }
 
 func (m statusModel) Init() tea.Cmd { return nil }

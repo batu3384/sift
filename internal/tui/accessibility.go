@@ -2,10 +2,13 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/batuhanyuksel/sift/internal/domain"
 )
+
+const envSIFTReducedMotion = "SIFT_REDUCED_MOTION"
 
 // AccessibilityMetadata holds accessibility information for UI elements
 type AccessibilityMetadata struct {
@@ -14,6 +17,19 @@ type AccessibilityMetadata struct {
 	Description string // Detailed description
 	State       string // "checked", "disabled", "expanded", etc.
 	Shortcut    string // Keyboard shortcut if any
+}
+
+func ReducedMotionEnabled() bool {
+	return truthyEnv(os.Getenv(envSIFTReducedMotion))
+}
+
+func truthyEnv(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // GetHomeActionAccessibility returns accessibility metadata for home actions

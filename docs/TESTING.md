@@ -100,6 +100,22 @@ Requirements:
 The PowerShell smoke script mirrors the same product-level checks with Windows
 paths and uninstall behavior.
 
+## TUI regression focus
+
+When you touch the full-screen interface, also run the focused render and route
+contract sweep:
+
+```bash
+go test ./internal/tui/... -run 'Snapshot|Render|Help|Preflight|Home|Status|Analyze|Progress|Result|Motion|Plan' -count=1
+```
+
+The TUI also supports `SIFT_REDUCED_MOTION=1`. Use it when you need
+deterministic captures or want to verify the accessibility fallback:
+
+```bash
+SIFT_REDUCED_MOTION=1 ./sift
+```
+
 ## Cross-platform verification
 
 Run this when you touch platform adapters, CLI behavior used by smoke tests, or

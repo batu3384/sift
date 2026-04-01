@@ -42,6 +42,7 @@ type homeModel struct {
 	loadingLabel  string
 	pulse         bool
 	signalFrame   int
+	reducedMotion bool
 }
 
 func buildHomeActions(_ config.Config) []homeAction {

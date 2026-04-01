@@ -187,3 +187,24 @@ func TestMotionSceneGlyphVariesBySceneAndAlertState(t *testing.T) {
 		t.Fatalf("expected task glyph, got %q", glyph)
 	}
 }
+
+func TestReducedMotionStateUsesStaticMotionArtifacts(t *testing.T) {
+	t.Parallel()
+
+	motion := reducedMotionState(newMotionState(3, true, motionModeLoading, "inspect", "analyze"))
+	if glyph := spinnerGlyph(motion); glyph != "•" {
+		t.Fatalf("expected reduced-motion spinner glyph, got %q", glyph)
+	}
+	if footer := footerMotionLabel(motion); footer != "live updates 15s" {
+		t.Fatalf("expected reduced-motion footer label, got %q", footer)
+	}
+	line := loadingPulseLine("refresh analysis view", motion)
+	for _, needle := range []string{"Refreshing scanning files", "reload folder -> refresh"} {
+		if !strings.Contains(line, needle) {
+			t.Fatalf("expected %q in reduced-motion loading line, got %q", needle, line)
+		}
+	}
+	if strings.Contains(line, "⠋") || strings.Contains(line, "◉") {
+		t.Fatalf("did not expect animated glyphs in reduced-motion loading line, got %q", line)
+	}
+}
