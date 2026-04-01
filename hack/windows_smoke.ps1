@@ -205,16 +205,16 @@ $uninstallRerun = $uninstallRerunRaw | ConvertFrom-Json
 if ($uninstallRerun.command -ne 'uninstall') {
   throw "expected uninstall command in rerun plan"
 }
-if (-not ($uninstallRerunRaw -match 'No installed app or leftover files were found for Example\.')) {
+if (-not ($uninstallRerunRaw -match 'No installed app or leftover files were found for Example App\.')) {
   throw "expected empty uninstall rerun after native uninstall"
 }
 
 $status = & $Binary status --plain
 $status | Out-File -Encoding utf8 (Join-Path $Root "status.txt")
-if (-not ($status -match '^System:')) {
+if (-not ($status -match '(?m)^System:')) {
   throw "expected status system output"
 }
-if (-not ($status -match '^Operator alerts:')) {
+if (-not ($status -match '(?m)^Operator alerts:')) {
   throw "expected operator alerts in status output"
 }
 & $Binary completion bash | Out-File -Encoding utf8 (Join-Path $Root "completions\sift.bash")
