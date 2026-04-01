@@ -198,7 +198,10 @@ for ($i = 0; $i -lt 100 -and -not (Test-Path $NativeSentinel); $i++) {
 if (-not (Test-Path $NativeSentinel)) {
   throw "expected native uninstall helper to create sentinel file"
 }
-Remove-Item -Recurse -Force (Join-Path $env:LOCALAPPDATA "Programs\Example App")
+$installedAppPath = Join-Path $env:LOCALAPPDATA "Programs\Example App"
+if (Test-Path $installedAppPath) {
+  Remove-Item -Recurse -Force $installedAppPath
+}
 $uninstallRerunRaw = & $Binary uninstall --json "Example App"
 $uninstallRerunRaw | Out-File -Encoding utf8 (Join-Path $Root "uninstall-rerun.json")
 $uninstallRerun = $uninstallRerunRaw | ConvertFrom-Json
