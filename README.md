@@ -31,7 +31,7 @@ Review, Permissions, Progress, and Result screens without tearing down the UI.
 ### Script install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/batuhanyuksel/sift/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/batu3384/sift/main/install.sh | sh
 ```
 
 This installs `sift` plus the short alias `si` into `~/.local/bin` by default.
@@ -40,7 +40,7 @@ Set `PREFIX=/custom/bin` to override the target directory.
 ### Homebrew
 
 ```bash
-brew install batuhanyuksel/tap/sift
+brew install batu3384/tap/sift
 ```
 
 ## Documentation

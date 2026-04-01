@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/rules"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/rules"
 )
 
 func (s *Service) Scan(ctx context.Context, opts ScanOptions) (domain.ExecutionPlan, error) {

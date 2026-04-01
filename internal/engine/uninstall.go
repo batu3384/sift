@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func uninstallAdvisoryFinding(app domain.AppEntry) (domain.Finding, bool) {

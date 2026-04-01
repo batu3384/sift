@@ -64,7 +64,7 @@ const updateNoticeTTL = 6 * time.Hour
 var updateNoticeCacheDir = os.UserCacheDir
 
 var fetchLatestReleaseTag = func(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/batuhanyuksel/sift/releases/latest", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/batu3384/sift/releases/latest", nil)
 	if err != nil {
 		return "", err
 	}
@@ -358,7 +358,7 @@ func (s *Service) installMethodAndCommands(channel UpdateChannel, force bool) (s
 			ref = "@main"
 		}
 		return "manual", []string{
-			"go install github.com/batuhanyuksel/sift/cmd/sift" + ref,
+			"go install github.com/batu3384/sift/cmd/sift" + ref,
 			"Delete the installed sift binary after state cleanup",
 		}
 	}
@@ -391,9 +391,9 @@ func updateCommandForMethod(method string, channel UpdateChannel, force bool) (m
 		}
 		return managedCommand{Name: "winget", Args: []string{"upgrade", "SIFT"}}, true
 	case "manual":
-		ref := "github.com/batuhanyuksel/sift/cmd/sift@latest"
+		ref := "github.com/batu3384/sift/cmd/sift@latest"
 		if channel == UpdateChannelNightly {
-			ref = "github.com/batuhanyuksel/sift/cmd/sift@main"
+			ref = "github.com/batu3384/sift/cmd/sift@main"
 		}
 		return managedCommand{Name: "go", Args: []string{"install", ref}}, true
 	default:

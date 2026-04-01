@@ -7,11 +7,11 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/engine"
-	"github.com/batuhanyuksel/sift/internal/platform"
-	"github.com/batuhanyuksel/sift/internal/store"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/engine"
+	"github.com/batu3384/sift/internal/platform"
+	"github.com/batu3384/sift/internal/store"
 )
 
 // StatsCardView renders a dashboard stats card with system information

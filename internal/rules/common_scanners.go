@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func scanImmediateChildren(ctx context.Context, root string, category domain.Category, risk domain.Risk, action domain.Action, source string, curated []string) ([]domain.Finding, []string, error) {

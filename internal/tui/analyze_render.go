@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func analyzeStats(plan domain.ExecutionPlan, stageOrder []string, loading bool, errMsg string, width int) []string {

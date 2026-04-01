@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/batuhanyuksel/sift/internal/cli"
+	"github.com/batu3384/sift/internal/cli"
 )
 
 func main() {

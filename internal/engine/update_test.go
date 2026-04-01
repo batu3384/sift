@@ -59,7 +59,7 @@ func TestInstallMethodAndCommandsForHomebrewNightlyAndForce(t *testing.T) {
 
 func TestUpdateCommandForMethod(t *testing.T) {
 	command, ok := updateCommandForMethod("manual", UpdateChannelNightly, false)
-	if !ok || command.Name != "go" || len(command.Args) != 2 || command.Args[1] != "github.com/batuhanyuksel/sift/cmd/sift@main" {
+	if !ok || command.Name != "go" || len(command.Args) != 2 || command.Args[1] != "github.com/batu3384/sift/cmd/sift@main" {
 		t.Fatalf("expected nightly manual go install command, got %+v ok=%v", command, ok)
 	}
 

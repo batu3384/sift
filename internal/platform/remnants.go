@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func aliasCandidates(app domain.AppEntry) []string {

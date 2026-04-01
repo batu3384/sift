@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func resultStats(plan domain.ExecutionPlan, result domain.ExecutionResult, width int) []string {

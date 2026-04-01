@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/batuhanyuksel/sift/internal/engine"
+	"github.com/batu3384/sift/internal/engine"
 )
 
 func newUninstallCommand(state *runtimeState) *cobra.Command {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/shirou/gopsutil/v4/process"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 type runningProcess struct {

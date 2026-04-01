@@ -6,10 +6,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/engine"
-	"github.com/batuhanyuksel/sift/internal/platform"
-	"github.com/batuhanyuksel/sift/internal/store"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/engine"
+	"github.com/batu3384/sift/internal/platform"
+	"github.com/batu3384/sift/internal/store"
 )
 
 type homeAction struct {

@@ -10,7 +10,7 @@ OUT_DIR="${3:-$DIST_DIR/scoop}"
 
 SHORT_VERSION="${TAG#v}"
 PACKAGE_NAME="sift"
-HOMEPAGE="https://github.com/batuhanyuksel/sift"
+HOMEPAGE="https://github.com/batu3384/sift"
 DESCRIPTION="Safety-first terminal cleaner for macOS and Windows"
 LICENSE="MIT"
 
@@ -34,7 +34,7 @@ mkdir -p "$OUT_DIR"
 
 amd64_sha="$(hash_file "$amd64_zip")"
 arm64_sha="$(hash_file "$arm64_zip")"
-release_base="https://github.com/batuhanyuksel/sift/releases/download/${TAG}"
+release_base="https://github.com/batu3384/sift/releases/download/${TAG}"
 manifest_path="$OUT_DIR/${PACKAGE_NAME}.json"
 
 cat > "$manifest_path" <<EOF

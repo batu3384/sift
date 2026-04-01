@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/platform"
-	"github.com/batuhanyuksel/sift/internal/store"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/platform"
+	"github.com/batu3384/sift/internal/store"
 )
 
 type stubAdapter struct {
@@ -1176,7 +1176,7 @@ func TestRunUpdateManualNightlyPreviewAndApply(t *testing.T) {
 	if runCount != 1 || runPath != "/usr/local/go/bin/go" {
 		t.Fatalf("expected go to run once, got count=%d path=%q", runCount, runPath)
 	}
-	if strings.Join(runArgs, " ") != "install github.com/batuhanyuksel/sift/cmd/sift@main" {
+	if strings.Join(runArgs, " ") != "install github.com/batu3384/sift/cmd/sift@main" {
 		t.Fatalf("unexpected nightly update args %+v", runArgs)
 	}
 }

@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/batuhanyuksel/sift/internal/platform"
+	"github.com/batu3384/sift/internal/platform"
 )
 
 func TestDoctorViewIncludesSummary(t *testing.T) {

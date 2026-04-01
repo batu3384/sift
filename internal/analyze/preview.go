@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 const previewCacheTTL = 20 * time.Second

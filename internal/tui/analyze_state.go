@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/batuhanyuksel/sift/internal/analyze"
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/analyze"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func canDescendInto(item domain.Finding) bool {

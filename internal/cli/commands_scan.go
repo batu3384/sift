@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/engine"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/engine"
 )
 
 func newAnalyzeCommand(state *runtimeState) *cobra.Command {

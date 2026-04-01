@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func TestCleanMenuDetailShowsSelectionAndNextAction(t *testing.T) {

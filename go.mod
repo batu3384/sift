@@ -1,4 +1,4 @@
-module github.com/batuhanyuksel/sift
+module github.com/batu3384/sift
 
 go 1.25.0
 

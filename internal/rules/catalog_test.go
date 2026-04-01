@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/batuhanyuksel/sift/internal/analyze"
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/platform"
+	"github.com/batu3384/sift/internal/analyze"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/platform"
 )
 
 type stubAdapter struct {

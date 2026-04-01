@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/rules"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/rules"
 )
 
 func (s *Service) TrashPaths(ctx context.Context, command string, targets []string, allowAdmin bool) (domain.ExecutionResult, error) {

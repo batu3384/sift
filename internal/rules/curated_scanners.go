@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/platform"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/platform"
 )
 
 // ProtectedWebEditors are web editor domains that should be protected from Service Worker cache cleanup (Mole-style)

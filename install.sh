@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO="batuhanyuksel/sift"
+REPO="batu3384/sift"
 API_URL="https://api.github.com/repos/$REPO/releases/latest"
 PREFIX="${PREFIX:-$HOME/.local/bin}"
 VERSION="${SIFT_VERSION:-}"

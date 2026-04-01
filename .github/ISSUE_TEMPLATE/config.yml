@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Private Security Report
-    url: https://github.com/batuhanyuksel/sift/security/advisories/new
+    url: https://github.com/batu3384/sift/security/advisories/new
     about: Report a suspected vulnerability privately instead of opening a public issue.
   - name: GitHub Discussions
-    url: https://github.com/batuhanyuksel/sift/discussions
+    url: https://github.com/batu3384/sift/discussions
     about: Ask questions, share ideas, and discuss product direction with the community.

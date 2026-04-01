@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/platform"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/platform"
 )
 
 func TestIsInteractiveTerminalHonorsEnvOverrides(t *testing.T) {

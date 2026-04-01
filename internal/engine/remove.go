@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/report"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/report"
 )
 
 type RemoveGuidance struct {

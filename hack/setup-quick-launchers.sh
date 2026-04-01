@@ -68,7 +68,7 @@ install_alfred() {
   local spec subcommand title description bundle workflow_uid input_uid action_uid dir
   for spec in "${COMMAND_SPECS[@]}"; do
     IFS='|' read -r subcommand title description <<<"$spec"
-    bundle="com.batuhanyuksel.sift.${subcommand}"
+    bundle="com.batu3384.sift.${subcommand}"
     workflow_uid="user.workflow.$(uuid_value)"
     input_uid="$(uuid_value)"
     action_uid="$(uuid_value)"

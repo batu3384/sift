@@ -6,9 +6,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/batuhanyuksel/sift/internal/parity"
-	"github.com/batuhanyuksel/sift/internal/platform"
-	"github.com/batuhanyuksel/sift/internal/report"
+	"github.com/batu3384/sift/internal/parity"
+	"github.com/batu3384/sift/internal/platform"
+	"github.com/batu3384/sift/internal/report"
 )
 
 func (s *Service) Diagnostics(ctx context.Context) []platform.Diagnostic {

@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 func TestAccessibilityHomeAction(t *testing.T) {

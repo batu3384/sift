@@ -8,9 +8,9 @@ TAG="${1:?usage: generate_winget_manifest.sh <tag> [dist-dir] [out-dir]}"
 DIST_DIR="${2:-$ROOT_DIR/dist}"
 OUT_DIR="${3:-$DIST_DIR/winget}"
 
-PACKAGE_IDENTIFIER="batuhanyuksel.SIFT"
+PACKAGE_IDENTIFIER="batu3384.SIFT"
 PACKAGE_NAME="SIFT"
-PUBLISHER="batuhanyuksel"
+PUBLISHER="batu3384"
 LICENSE="MIT"
 SHORT_VERSION="${TAG#v}"
 
@@ -34,7 +34,7 @@ mkdir -p "$OUT_DIR"
 
 amd64_sha="$(hash_file "$amd64_zip")"
 arm64_sha="$(hash_file "$arm64_zip")"
-release_base="https://github.com/batuhanyuksel/sift/releases/download/${TAG}"
+release_base="https://github.com/batu3384/sift/releases/download/${TAG}"
 
 cat > "$OUT_DIR/${PACKAGE_IDENTIFIER}.yaml" <<EOF
 PackageIdentifier: ${PACKAGE_IDENTIFIER}

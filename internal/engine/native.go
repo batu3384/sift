@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
+	"github.com/batu3384/sift/internal/domain"
 )
 
 type nativeCommand struct {

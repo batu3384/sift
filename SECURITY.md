@@ -4,7 +4,7 @@
 
 Please use GitHub Security Advisories for private reports:
 
-- [Report a vulnerability](https://github.com/batuhanyuksel/sift/security/advisories/new)
+- [Report a vulnerability](https://github.com/batu3384/sift/security/advisories/new)
 
 Do not open public issues for suspected vulnerabilities.
 

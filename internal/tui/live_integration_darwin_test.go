@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/batuhanyuksel/sift/internal/platform"
+	"github.com/batu3384/sift/internal/platform"
 )
 
 func TestLiveIntegrationOpenAndRevealPath(t *testing.T) {

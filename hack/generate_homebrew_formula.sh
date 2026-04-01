@@ -12,7 +12,7 @@ SHORT_VERSION="${TAG#v}"
 FORMULA_NAME="Sift"
 FORMULA_CLASS="Sift"
 PACKAGE_NAME="sift"
-HOMEPAGE="https://github.com/batuhanyuksel/sift"
+HOMEPAGE="https://github.com/batu3384/sift"
 DESCRIPTION="Safety-first terminal cleaner for macOS and Windows"
 LICENSE="MIT"
 
@@ -36,7 +36,7 @@ mkdir -p "$OUT_DIR"
 
 amd64_sha="$(hash_file "$amd64_archive")"
 arm64_sha="$(hash_file "$arm64_archive")"
-release_base="https://github.com/batuhanyuksel/sift/releases/download/${TAG}"
+release_base="https://github.com/batu3384/sift/releases/download/${TAG}"
 formula_path="$OUT_DIR/${FORMULA_NAME}.rb"
 
 cat > "$formula_path" <<EOF

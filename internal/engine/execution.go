@@ -10,9 +10,9 @@ import (
 	"github.com/Bios-Marcel/wastebasket/v2"
 	"github.com/google/uuid"
 
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/platform"
-	"github.com/batuhanyuksel/sift/internal/rules"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/platform"
+	"github.com/batu3384/sift/internal/rules"
 )
 
 func (s *Service) ExecuteWithOptions(ctx context.Context, plan domain.ExecutionPlan, opts ExecuteOptions) (domain.ExecutionResult, error) {

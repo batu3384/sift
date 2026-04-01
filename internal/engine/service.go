@@ -8,10 +8,10 @@ import (
 
 	"github.com/Bios-Marcel/wastebasket/v2"
 
-	"github.com/batuhanyuksel/sift/internal/config"
-	"github.com/batuhanyuksel/sift/internal/domain"
-	"github.com/batuhanyuksel/sift/internal/platform"
-	"github.com/batuhanyuksel/sift/internal/store"
+	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
+	"github.com/batu3384/sift/internal/platform"
+	"github.com/batu3384/sift/internal/store"
 )
 
 type Service struct {

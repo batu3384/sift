@@ -67,9 +67,9 @@ Expected outputs:
 
 - `homebrew/Sift.rb`
 - `scoop/sift.json`
-- `winget/batuhanyuksel.SIFT.yaml`
-- `winget/batuhanyuksel.SIFT.locale.en-US.yaml`
-- `winget/batuhanyuksel.SIFT.installer.yaml`
+- `winget/batu3384.SIFT.yaml`
+- `winget/batu3384.SIFT.locale.en-US.yaml`
+- `winget/batu3384.SIFT.installer.yaml`
 - validation marker files for each package manager
 
 ## CI and tagged releases
