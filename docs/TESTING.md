@@ -48,6 +48,10 @@ make smoke
 This runs the contract layer and exports `SIFT_TEST_MODE=ci-safe` unless you
 explicitly opt into live integration.
 
+In `ci-safe` mode, admin-managed follow-up commands are intentionally skipped
+instead of prompting for `sudo`. That keeps smoke runs unattended-safe while
+`make integration-live-macos` continues to cover the real privilege path.
+
 For the live macOS validation layer:
 
 ```bash

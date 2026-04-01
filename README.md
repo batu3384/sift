@@ -131,6 +131,7 @@ and apps where SIFT can only offer remnant review.
 - `sift uninstall <app>` also checks whether the target app still appears to be running. If it is, SIFT protects the whole uninstall plan and tells you to close the app first.
 - `sift uninstall <app>` now also adds platform-aware aftermath guidance in review/result, including LaunchServices refresh and Homebrew follow-up on macOS when relevant.
 - `sift uninstall <app>` now also offers managed launch-agent unload follow-ups so stale per-user or system daemons can be unloaded from the review flow instead of being left as manual cleanup.
+- CI-safe smoke runs keep native uninstall flows unattended by skipping admin-managed follow-up commands there; the real `sudo` path remains covered by `make integration-live-macos`.
 
 ## Output Contracts
 

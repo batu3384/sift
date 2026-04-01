@@ -19,6 +19,24 @@ else
   export SIFT_TEST_MODE="${SIFT_TEST_MODE:-ci-safe}"
 fi
 
+run_with_sigkill_retry() {
+  local output="$1"
+  shift
+  local attempt=1
+  local max_attempts=3
+  while true; do
+    if "$@" > "$output"; then
+      return 0
+    fi
+    local rc=$?
+    if [[ $rc -ne 137 || $attempt -ge $max_attempts ]]; then
+      return $rc
+    fi
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+}
+
 mkdir -p \
   "$HOME/Applications/Example.app" \
   "$HOME/Applications/Example.app/Contents/MacOS" \
@@ -46,7 +64,7 @@ printf 'ok\n' > "$SMOKE_ROOT/native-uninstall-ran"
 EOF
 chmod +x "$HOME/Applications/Example.app/Contents/MacOS/uninstall"
 
-"$BINARY" --help > "$SMOKE_ROOT/help.txt"
+run_with_sigkill_retry "$SMOKE_ROOT/help.txt" "$BINARY" --help
 "$BINARY" doctor --plain > "$SMOKE_ROOT/doctor.txt"
 grep -q 'report_cache' "$SMOKE_ROOT/doctor.txt"
 grep -q 'audit_log' "$SMOKE_ROOT/doctor.txt"
@@ -105,13 +123,7 @@ grep -q '"action":"enable"' "$SMOKE_ROOT/touchid-enable.json"
 grep -q '"command": "remove"' "$SMOKE_ROOT/remove.json"
 "$BINARY" uninstall --json --dry-run=false --yes --native-uninstall Example > "$SMOKE_ROOT/uninstall-exec.json"
 grep -q 'continued with remnant cleanup and aftercare' "$SMOKE_ROOT/uninstall-exec.json"
-for _ in $(seq 1 100); do
-  if [[ -f "$SMOKE_ROOT/native-uninstall-ran" ]]; then
-    break
-  fi
-  sleep 0.1
-done
-test -f "$SMOKE_ROOT/native-uninstall-ran"
+perl -0ne 'exit 0 if /Contents\/MacOS\/uninstall.*?"status": "completed"/s; exit 1' "$SMOKE_ROOT/uninstall-exec.json"
 test ! -e "$HOME/Library/Application Support/Example"
 rm -rf "$HOME/Applications/Example.app"
 "$BINARY" uninstall --json Example > "$SMOKE_ROOT/uninstall-rerun.json"

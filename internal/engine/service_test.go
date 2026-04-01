@@ -2137,6 +2137,40 @@ func TestExecuteWithOptionsSkipsOsaScriptCommandInCiSafeMode(t *testing.T) {
 	}
 }
 
+func TestExecuteWithOptionsSkipsAdminCommandInCiSafeMode(t *testing.T) {
+	t.Setenv("SIFT_TEST_MODE", "ci-safe")
+
+	called := false
+	service := &Service{
+		RunCommand: func(context.Context, string, ...string) error {
+			called = true
+			return nil
+		},
+	}
+	result, err := service.ExecuteWithOptions(context.Background(), domain.ExecutionPlan{
+		ScanID: "scan",
+		Policy: domain.ProtectionPolicy{AllowAdmin: true},
+		Items: []domain.Finding{{
+			ID:            uuid.NewString(),
+			Action:        domain.ActionCommand,
+			Status:        domain.StatusPlanned,
+			DisplayPath:   "/usr/bin/sudo /usr/bin/true",
+			CommandPath:   "/usr/bin/sudo",
+			CommandArgs:   []string{"/usr/bin/true"},
+			RequiresAdmin: true,
+		}},
+	}, ExecuteOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("expected admin command to be skipped in ci-safe mode")
+	}
+	if len(result.Items) != 1 || result.Items[0].Status != domain.StatusSkipped || !strings.Contains(result.Items[0].Message, "ci-safe") {
+		t.Fatalf("expected ci-safe skipped admin command result, got %+v", result.Items)
+	}
+}
+
 func TestExecuteWithOptionsBatchNativeLaunchAddsContinuationWarning(t *testing.T) {
 	original := startNativeProcess
 	defer func() {

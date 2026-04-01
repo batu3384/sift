@@ -423,6 +423,11 @@ func (s *Service) executeManagedCommandItem(ctx context.Context, plan domain.Exe
 		result.Message = "dry-run"
 		return result
 	}
+	if (item.RequiresAdmin || item.CommandPath == "/usr/bin/sudo") && platform.TestModeEnabled() && !platform.LiveIntegrationEnabled() {
+		result.Status = domain.StatusSkipped
+		result.Message = "skipped in ci-safe test mode"
+		return result
+	}
 	if item.CommandPath == "/usr/bin/osascript" && !platform.AllowDialogSensitiveActions() {
 		result.Status = domain.StatusSkipped
 		result.Message = "skipped in ci-safe test mode"

@@ -403,6 +403,11 @@ func (r *runtimeState) maybeExecute(ctx context.Context, plan domain.ExecutionPl
 }
 
 func (r *runtimeState) executePlan(ctx context.Context, plan domain.ExecutionPlan) (domain.ExecutionResult, error) {
+	releaseAdminSession, err := preparePlanExecution(ctx, plan)
+	if err != nil {
+		return domain.ExecutionResult{}, err
+	}
+	defer releaseAdminSession()
 	return r.service.ExecuteWithOptions(ctx, plan, engine.ExecuteOptions{
 		Permanent:       r.flags.Force,
 		NativeUninstall: r.flags.NativeUninstall,
@@ -410,6 +415,11 @@ func (r *runtimeState) executePlan(ctx context.Context, plan domain.ExecutionPla
 }
 
 func (r *runtimeState) executePlanWithProgress(ctx context.Context, plan domain.ExecutionPlan, emit func(domain.ExecutionProgress)) (domain.ExecutionResult, error) {
+	releaseAdminSession, err := preparePlanExecution(ctx, plan)
+	if err != nil {
+		return domain.ExecutionResult{}, err
+	}
+	defer releaseAdminSession()
 	return r.service.ExecuteWithProgress(ctx, plan, engine.ExecuteOptions{
 		Permanent:       r.flags.Force,
 		NativeUninstall: r.flags.NativeUninstall,
