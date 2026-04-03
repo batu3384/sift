@@ -12,6 +12,12 @@ For most code changes:
 make quality-gate
 ```
 
+If you only need the pinned lint pass:
+
+```bash
+make lint
+```
+
 If you want the explicit command-by-command sequence instead:
 
 ```bash
@@ -29,6 +35,8 @@ What each step covers:
 
 - `./hack/security_check.sh`: guards against forbidden destructive or shell
   invocation patterns in `internal/` and `cmd/`
+- `make lint`: installs pinned `staticcheck` and `shellcheck` builds into
+  `.tmp/tools/bin`, then runs Go and shell lint passes
 - `go test ./...`: package-level unit and behavior tests across the codebase
 - `go vet ./...`: common correctness issues
 - `go build ./cmd/sift`: binary still compiles end-to-end
@@ -38,6 +46,10 @@ What each step covers:
 
 Smoke tests exercise the built binary against isolated fixture roots instead of
 your real machine state.
+
+They intentionally prefer structured JSON assertions over fragile text matching
+for plan and execution contracts. Plain-text checks stay focused on stable human
+headers and summary lines.
 
 ### macOS smoke
 

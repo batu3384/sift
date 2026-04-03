@@ -145,6 +145,80 @@ func (m appModel) startAnalyzeReload(label string, preserveCursor bool) (tea.Mod
 	}))
 }
 
+func (m appModel) handlePlanLoaded(msg planLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.requestID != 0 && msg.requestID != m.activePlanRequestID {
+		return m, nil
+	}
+	m.loadingLabel = ""
+	m.activePlanRequestID = 0
+	m.planLoadTransitionVisible = false
+	if msg.err != nil {
+		m.errorMsg = msg.err.Error()
+		m.resetPendingPlanLoadState()
+		return m, nil
+	}
+	m.errorMsg = ""
+	switch m.pendingTargetRoute {
+	case RouteAnalyze:
+		cmd := m.applyLoadedAnalyzePlan(msg.plan)
+		return m, cmd
+	case RouteReview:
+		m.setReviewPlan(msg.plan, shouldExecutePlan(msg.plan))
+		m.route = RouteReview
+		m.reviewReturnRoute = m.pendingReviewReturn
+		m.resultReturnRoute = m.pendingResultReturn
+	}
+	m.resetPendingPlanLoadState()
+	return m, nil
+}
+
+func (m *appModel) applyLoadedAnalyzePlan(plan domain.ExecutionPlan) tea.Cmd {
+	if m.analyze.search.CharLimit == 0 {
+		m.analyze.search = newAnalyzeSearchInput()
+	}
+	if m.analyze.previewLoader == nil {
+		m.analyze.previewLoader = m.callbacks.LoadAnalyzePreviews
+	}
+	if m.pendingAnalyzePushHistory {
+		m.analyze.history = append(m.analyze.history, analyzeHistoryEntry{
+			plan:   m.analyze.plan,
+			cursor: m.analyze.cursor,
+		})
+		if len(m.analyze.history) > maxAnalyzeHistory {
+			m.analyze.history = m.analyze.history[len(m.analyze.history)-maxAnalyzeHistory:]
+		}
+	}
+	cursor := 0
+	if m.pendingAnalyzeSelectionPath != "" {
+		restored := plan
+		m.analyze.plan = restored
+		if matchedCursor, ok := m.analyze.cursorForPath(m.pendingAnalyzeSelectionPath); ok {
+			cursor = matchedCursor
+		} else if m.pendingAnalyzePreserveCursor {
+			cursor = m.analyze.cursor
+		}
+	} else if m.pendingAnalyzePreserveCursor {
+		cursor = m.analyze.cursor
+	}
+	m.analyze.plan = plan
+	m.analyze.cursor = cursor
+	m.analyze.clampCursor()
+	if m.pendingAnalyzePane == analyzePaneQueue && len(m.analyze.stageOrder) > 0 {
+		m.analyze.pane = analyzePaneQueue
+		if matchedQueueCursor, ok := m.analyze.queueCursorForPath(m.pendingAnalyzeQueuePath); ok {
+			m.analyze.queueCursor = matchedQueueCursor
+		}
+	}
+	m.analyze.clampQueueCursor()
+	m.analyze.syncPreviewWindow()
+	m.analyze.loading = false
+	m.analyze.errMsg = ""
+	m.route = RouteAnalyze
+	m.analyzeReturnRoute = m.pendingReviewReturn
+	m.resetPendingPlanLoadState()
+	return m.startAnalyzeReviewPreviewLoad()
+}
+
 func analyzeResultDeletedPaths(result domain.ExecutionResult) []string {
 	paths := make([]string, 0, len(result.Items))
 	for _, item := range result.Items {
@@ -202,6 +276,12 @@ func (m *appModel) setProgressPlan(plan domain.ExecutionPlan, focusPath string) 
 func (m *appModel) cancelPendingPlanLoad() {
 	m.loadingLabel = ""
 	m.planLoadTransitionVisible = false
+	m.resetPendingPlanLoadState()
+	m.activePlanRequestID = 0
+	m.analyze.loading = false
+}
+
+func (m *appModel) resetPendingPlanLoadState() {
 	m.pendingAnalyzePushHistory = false
 	m.pendingAnalyzePreserveCursor = false
 	m.pendingAnalyzeSelectionPath = ""
@@ -210,8 +290,6 @@ func (m *appModel) cancelPendingPlanLoad() {
 	m.pendingTargetRoute = ""
 	m.pendingReviewReturn = ""
 	m.pendingResultReturn = ""
-	m.activePlanRequestID = 0
-	m.analyze.loading = false
 }
 
 func analyzePrimaryTarget(plan domain.ExecutionPlan) string {

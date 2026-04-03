@@ -10,6 +10,19 @@ import (
 	"github.com/batu3384/sift/internal/platform"
 )
 
+func pipeWriter(t *testing.T) *os.File {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = reader.Close()
+		_ = writer.Close()
+	})
+	return writer
+}
+
 func TestIsInteractiveTerminalHonorsEnvOverrides(t *testing.T) {
 	t.Setenv("SIFT_NO_TUI", "1")
 	t.Setenv("SIFT_FORCE_TUI", "")
@@ -40,6 +53,63 @@ func TestWantsJSONOutputHonorsExplicitFlags(t *testing.T) {
 	if state.wantsJSONOutput("status", &out) {
 		t.Fatal("expected --plain to disable JSON output")
 	}
+}
+
+func TestOutputModeForCommand(t *testing.T) {
+	t.Parallel()
+
+	state := &runtimeState{}
+	state.flags.NonInteractive = true
+	var buffered bytes.Buffer
+
+	if mode := state.outputModeForCommand("clean", &buffered); mode != outputModePlain {
+		t.Fatalf("expected clean buffered output to stay plain, got %q", mode)
+	}
+	if mode := state.outputModeForCommand("status", pipeWriter(t)); mode != outputModeJSON {
+		t.Fatalf("expected piped status to prefer JSON, got %q", mode)
+	}
+
+	state.flags.Plain = true
+	if mode := state.outputModeForCommand("status", pipeWriter(t)); mode != outputModePlain {
+		t.Fatalf("expected --plain to disable auto JSON, got %q", mode)
+	}
+
+	state.flags.Plain = false
+	state.flags.JSON = true
+	if mode := state.outputModeForCommand("clean", &buffered); mode != outputModeJSON {
+		t.Fatalf("expected --json to force JSON output, got %q", mode)
+	}
+}
+
+func TestRequiresYesFlagForExecutionModes(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Command: "clean",
+		DryRun:  false,
+		Items: []domain.Finding{{
+			Status: domain.StatusPlanned,
+			Action: domain.ActionTrash,
+		}},
+	}
+
+	state := &runtimeState{}
+	if state.requiresYesFlagForExecution(plan, &bytes.Buffer{}) {
+		t.Fatal("expected plain interactive execution to allow confirm prompt instead of forcing --yes")
+	}
+
+	state.flags.NonInteractive = true
+	if !state.requiresYesFlagForExecution(plan, &bytes.Buffer{}) {
+		t.Fatal("expected non-interactive execution to require --yes")
+	}
+
+	state.flags.NonInteractive = false
+	state.flags.JSON = true
+	if !state.requiresYesFlagForExecution(plan, &bytes.Buffer{}) {
+		t.Fatal("expected JSON execution to require --yes")
+	}
+
+	state.flags.JSON = false
 }
 
 func TestActionableItemCountSkipsAdvisoryAndProtected(t *testing.T) {

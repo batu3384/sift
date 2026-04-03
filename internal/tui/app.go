@@ -210,65 +210,7 @@ const dashboardRefreshInterval = 15 * time.Second
 const uiTickInterval = 250 * time.Millisecond
 
 func RunApp(opts AppOptions, callbacks AppCallbacks) error {
-	model := appModel{
-		route:                      opts.InitialRoute,
-		cfg:                        config.Normalize(opts.Config),
-		executable:                 opts.Executable,
-		hasHome:                    opts.InitialRoute == RouteHome,
-		reducedMotion:              opts.ReducedMotion,
-		keys:                       defaultKeyMap(),
-		help:                       newHelpModel(),
-		callbacks:                  callbacks,
-		permissionWarmup:           defaultPermissionWarmupCmd,
-		permissionKeepalive:        defaultPermissionKeepalive,
-		acceptedPermissionProfiles: map[string]struct{}{},
-		home: homeModel{
-			actions:    buildHomeActions(opts.Config),
-			executable: opts.Executable,
-			cfg:        config.Normalize(opts.Config),
-		},
-		clean: menuModel{
-			title:    "Clean",
-			subtitle: "choose scope",
-			hint:     "Quick for routine cleanup, workstation for cache-heavy days, deep for maximum reclaim.",
-			actions:  buildCleanActions(),
-		},
-		tools: menuModel{
-			title:    "More Tools",
-			subtitle: "more tools",
-			hint:     "Check, fixes, installer cleanup, protect, purge, and diagnostics live here.",
-			actions:  buildToolsActions(config.Normalize(opts.Config)),
-		},
-		protect:   newProtectModel(config.Normalize(opts.Config).ProtectedPaths),
-		uninstall: newUninstallModel(),
-	}
-	model.syncMotionSettings()
-	model.protect.syncFamilies(model.cfg.ProtectedFamilies)
-	model.protect.syncScopes(model.cfg.CommandExcludes)
-	switch opts.InitialRoute {
-	case RouteHome:
-		model.setHomeLoading("dashboard")
-	case RouteStatus:
-		model.setStatusLoading("dashboard")
-	case RouteDoctor:
-		model.setDoctorLoading("doctor")
-	case RouteUninstall:
-		model.setUninstallLoading("installed apps")
-	}
-	if opts.InitialPlan != nil {
-		switch opts.InitialRoute {
-		case RouteAnalyze:
-			model.setAnalyzePlan(*opts.InitialPlan)
-		case RouteReview:
-			model.setReviewPlan(*opts.InitialPlan, shouldExecutePlan(*opts.InitialPlan))
-		}
-	}
-	if opts.InitialResult != nil {
-		model.result = resultModel{result: *opts.InitialResult}
-		if opts.InitialPlan != nil {
-			model.result.plan = *opts.InitialPlan
-		}
-	}
+	model := newAppModel(opts, callbacks)
 	_, err := newProgram(model).Run()
 	return err
 }
@@ -297,150 +239,18 @@ func (m appModel) Init() tea.Cmd {
 func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.syncMotionSettings()
-		m.home.width, m.home.height = msg.Width, msg.Height
-		m.clean.width, m.clean.height = msg.Width, msg.Height
-		m.tools.width, m.tools.height = msg.Width, msg.Height
-		m.protect.width, m.protect.height = msg.Width, msg.Height
-		m.uninstall.width, m.uninstall.height = msg.Width, msg.Height
-		m.status.width, m.status.height = msg.Width, msg.Height
-		m.doctor.width, m.doctor.height = msg.Width, msg.Height
-		m.analyze.width, m.analyze.height = msg.Width, msg.Height
-		m.review.width, m.review.height = msg.Width, msg.Height
-		m.preflight.width, m.preflight.height = msg.Width, msg.Height
-		m.progress.width, m.progress.height = msg.Width, msg.Height
-		m.result.width, m.result.height = msg.Width, msg.Height
+		m.applyWindowSize(msg)
 		return m, nil
 	case dashboardLoadedMsg:
-		m.clearDashboardLoading()
-		if msg.err != nil {
-			m.clearNotice()
-			m.errorMsg = msg.err.Error()
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		m.applyDashboard(msg.data)
-		return m, nil
+		return m.handleDashboardLoaded(msg)
 	case dashboardTickMsg:
-		if m.dashboardLoadingActive() || m.loadingLabel != "" {
-			return m, dashboardTickCmd()
-		}
-		if m.route == RouteHome || m.route == RouteStatus || m.route == RouteDoctor {
-			return m, tea.Batch(loadDashboardCmd(m.callbacks.LoadDashboard), dashboardTickCmd())
-		}
-		return m, dashboardTickCmd()
+		return m.handleDashboardTick()
 	case uiTickMsg:
-		if m.reducedMotion {
-			m.livePulse = false
-			m.spinnerFrame = 0
-		} else {
-			m.livePulse = !m.livePulse
-			m.spinnerFrame = (m.spinnerFrame + 1) % len(spinnerFrames)
-		}
-		m.tickNotices()
-		m.syncMotionSettings()
-		if m.wantsUITick() {
-			return m, uiTickCmd()
-		}
-		return m, nil
+		return m.handleUITick()
 	case scanProgressMsg:
-		// Update loading label with scan progress
-		if msg.ruleName != "" {
-			m.loadingLabel = "scanning: " + msg.ruleName
-		}
-		return m, nil
+		return m.handleScanProgress(msg)
 	case planLoadedMsg:
-		if msg.requestID != 0 && msg.requestID != m.activePlanRequestID {
-			return m, nil
-		}
-		m.loadingLabel = ""
-		m.activePlanRequestID = 0
-		m.planLoadTransitionVisible = false
-		if msg.err != nil {
-			m.errorMsg = msg.err.Error()
-			m.pendingAnalyzePushHistory = false
-			m.pendingAnalyzePreserveCursor = false
-			m.pendingAnalyzeSelectionPath = ""
-			m.pendingAnalyzePane = ""
-			m.pendingAnalyzeQueuePath = ""
-			m.pendingTargetRoute = ""
-			m.pendingReviewReturn = ""
-			m.pendingResultReturn = ""
-			return m, nil
-		}
-		m.errorMsg = ""
-		switch m.pendingTargetRoute {
-		case RouteAnalyze:
-			if m.analyze.search.CharLimit == 0 {
-				m.analyze.search = newAnalyzeSearchInput()
-			}
-			if m.analyze.previewLoader == nil {
-				m.analyze.previewLoader = m.callbacks.LoadAnalyzePreviews
-			}
-			if m.pendingAnalyzePushHistory {
-				m.analyze.history = append(m.analyze.history, analyzeHistoryEntry{
-					plan:   m.analyze.plan,
-					cursor: m.analyze.cursor,
-				})
-				// Limit history size to prevent memory leak
-				if len(m.analyze.history) > maxAnalyzeHistory {
-					m.analyze.history = m.analyze.history[len(m.analyze.history)-maxAnalyzeHistory:]
-				}
-			}
-			cursor := 0
-			if m.pendingAnalyzeSelectionPath != "" {
-				restored := msg.plan
-				m.analyze.plan = restored
-				if matchedCursor, ok := m.analyze.cursorForPath(m.pendingAnalyzeSelectionPath); ok {
-					cursor = matchedCursor
-				} else if m.pendingAnalyzePreserveCursor {
-					cursor = m.analyze.cursor
-				}
-			} else if m.pendingAnalyzePreserveCursor {
-				cursor = m.analyze.cursor
-			}
-			m.analyze.plan = msg.plan
-			m.analyze.cursor = cursor
-			m.analyze.clampCursor()
-			if m.pendingAnalyzePane == analyzePaneQueue && len(m.analyze.stageOrder) > 0 {
-				m.analyze.pane = analyzePaneQueue
-				if matchedQueueCursor, ok := m.analyze.queueCursorForPath(m.pendingAnalyzeQueuePath); ok {
-					m.analyze.queueCursor = matchedQueueCursor
-				}
-			}
-			m.analyze.clampQueueCursor()
-			m.analyze.syncPreviewWindow()
-			m.analyze.loading = false
-			m.analyze.errMsg = ""
-			m.route = RouteAnalyze
-			m.analyzeReturnRoute = m.pendingReviewReturn
-			m.pendingAnalyzePushHistory = false
-			m.pendingAnalyzePreserveCursor = false
-			m.pendingAnalyzeSelectionPath = ""
-			m.pendingAnalyzePane = ""
-			m.pendingAnalyzeQueuePath = ""
-			m.pendingTargetRoute = ""
-			m.pendingReviewReturn = ""
-			m.pendingResultReturn = ""
-			return m, m.startAnalyzeReviewPreviewLoad()
-		case RouteReview:
-			m.setReviewPlan(msg.plan, shouldExecutePlan(msg.plan))
-			m.route = RouteReview
-			m.reviewReturnRoute = m.pendingReviewReturn
-			m.resultReturnRoute = m.pendingResultReturn
-		}
-		m.pendingAnalyzePushHistory = false
-		m.pendingAnalyzePreserveCursor = false
-		m.pendingAnalyzeSelectionPath = ""
-		m.pendingAnalyzePane = ""
-		m.pendingAnalyzeQueuePath = ""
-		m.pendingTargetRoute = ""
-		m.pendingReviewReturn = ""
-		m.pendingResultReturn = ""
-		return m, nil
+		return m.handlePlanLoaded(msg)
 	case planLoadTransitionMsg:
 		if msg.requestID == 0 || msg.requestID != m.activePlanRequestID || !m.planLoadPending() {
 			return m, nil
@@ -448,173 +258,23 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.planLoadTransitionVisible = true
 		return m, nil
 	case menuPreviewLoadedMsg:
-		switch msg.route {
-		case RouteClean:
-			if msg.requestID == 0 || msg.requestID != m.activeCleanPreviewRequestID {
-				return m, nil
-			}
-			m.activeCleanPreviewRequestID = 0
-			m.clean.applyPreview(msg.key, msg.plan, msg.err)
-		case RouteUninstall:
-			if msg.requestID == 0 || msg.requestID != m.activeUninstallPreviewRequestID {
-				return m, nil
-			}
-			m.activeUninstallPreviewRequestID = 0
-			m.uninstall.applyPreview(msg.key, msg.plan, msg.err)
-		case RouteAnalyze:
-			if msg.requestID == 0 || msg.requestID != m.activeAnalyzePreviewRequestID {
-				return m, nil
-			}
-			m.activeAnalyzePreviewRequestID = 0
-			m.analyze.applyReviewPreview(msg.key, msg.plan, msg.err)
-		}
-		return m, nil
+		return m.handleMenuPreviewLoaded(msg)
 	case resultLoadedMsg:
-		m.loadingLabel = ""
-		if msg.err != nil {
-			m.clearNotice()
-			m.errorMsg = msg.err.Error()
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		m.result = buildResultModel(msg.plan, msg.result, m.result, m.width, m.height)
-		m.route = RouteResult
-		return m, nil
+		return m.handleResultLoaded(msg)
 	case executionProgressMsg:
-		m.errorMsg = ""
-		m.progress.apply(msg.progress)
-		if m.executionStream != nil {
-			return m, waitForExecutionStreamCmd(m.executionStream)
-		}
-		return m, nil
+		return m.handleExecutionProgress(msg)
 	case permissionWarmupFinishedMsg:
-		m.loadingLabel = ""
-		if msg.err != nil {
-			m.clearNotice()
-			message := strings.TrimSpace(msg.err.Error())
-			if message == "" {
-				message = "Admin access was not confirmed."
-			}
-			m.errorMsg = message
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		return m.executePreparedPreflight()
+		return m.handlePermissionWarmupFinished(msg)
 	case executionFinishedMsg:
-		m.executionStream = nil
-		m.executionCancel = nil
-		if msg.err != nil {
-			if errorsIsCanceled(msg.err) {
-				m.errorMsg = ""
-				m.setNotice("Execution cancelled. Partial results preserved.")
-			} else {
-				m.clearNotice()
-				m.errorMsg = msg.err.Error()
-			}
-		} else {
-			m.errorMsg = ""
-			m.clearNotice()
-		}
-		m.result = buildResultModel(m.progress.plan, msg.result, m.result, m.width, m.height)
-		m.route = RouteResult
-		return m, nil
+		return m.handleExecutionFinished(msg)
 	case appsLoadedMsg:
-		if msg.requestID != 0 && msg.requestID != m.activeInventoryRequestID {
-			return m, nil
-		}
-		if msg.err != nil {
-			if msg.cached {
-				return m, nil
-			}
-			m.activeInventoryRequestID = 0
-			m.setUninstallLoading("")
-			m.clearNotice()
-			m.errorMsg = msg.err.Error()
-			return m, nil
-		}
-		if !msg.cached {
-			m.activeInventoryRequestID = 0
-			m.setUninstallLoading("")
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		m.applyInstalledApps(msg.apps)
-		if msg.cached {
-			m.uninstall.setMessage(uninstallInventoryMessage(msg.loadedAt, true), routeMessageLongTicks)
-		} else {
-			m.uninstall.setMessage(uninstallInventoryMessage(msg.loadedAt, false), routeMessageLongTicks)
-		}
-		m.route = RouteUninstall
-		return m, m.startUninstallPreviewLoad()
+		return m.handleAppsLoaded(msg)
 	case protectAddedMsg:
-		m.loadingLabel = ""
-		if msg.err != nil {
-			m.clearNotice()
-			m.errorMsg = msg.err.Error()
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		m.protect.inputActive = false
-		m.protect.input.Blur()
-		m.applyConfig(msg.cfg)
-		m.protect.syncPaths(msg.cfg.ProtectedPaths)
-		m.protect.syncScopes(msg.cfg.CommandExcludes)
-		m.protect.setMessage("Protected path added: "+msg.path, routeMessageTicks)
-		m.refreshProtectExplanation(msg.path)
-		return m, nil
+		return m.handleProtectAdded(msg)
 	case protectRemovedMsg:
-		m.loadingLabel = ""
-		if msg.err != nil {
-			m.clearNotice()
-			m.errorMsg = msg.err.Error()
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		m.applyConfig(msg.cfg)
-		m.protect.syncPaths(msg.cfg.ProtectedPaths)
-		m.protect.syncScopes(msg.cfg.CommandExcludes)
-		if msg.removed {
-			m.protect.setMessage("Protected path removed: "+msg.path, routeMessageTicks)
-		} else {
-			m.protect.setMessage("Protected path not found: "+msg.path, routeMessageLongTicks)
-		}
-		m.refreshProtectExplanation(m.protect.selectedPath())
-		return m, nil
+		return m.handleProtectRemoved(msg)
 	case analyzeActionFinishedMsg:
-		m.loadingLabel = ""
-		if msg.err != nil {
-			m.clearNotice()
-			m.errorMsg = msg.err.Error()
-			return m, nil
-		}
-		completed, deleted, failed, skipped, protected := countResultStatuses(msg.result)
-		m.pendingAnalyzeSelectionPath = m.analyze.fallbackSelectionPathAfterRemoval(analyzeResultDeletedPaths(msg.result))
-		for _, item := range msg.result.Items {
-			if item.Status == domain.StatusDeleted || item.Status == domain.StatusCompleted {
-				m.analyze.removeStage(item.Path)
-			}
-		}
-		if m.analyze.filter == analyzeFilterQueued && len(m.analyze.stageOrder) == 0 {
-			m.analyze.filter = analyzeFilterAll
-		}
-		m.analyze.syncPreviewWindow()
-		if deleted > 0 || completed > 0 {
-			m.errorMsg = ""
-			m.clearNotice()
-			return m.startAnalyzeReload("analysis refresh", false)
-		}
-		if protected > 0 || failed > 0 || skipped > 0 {
-			m.errorMsg = ""
-			m.setNotice(analyzeActionSummary(msg.result))
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.clearNotice()
-		return m, nil
+		return m.handleAnalyzeActionFinished(msg)
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -631,56 +291,7 @@ func (m appModel) View() string {
 		m.loadingLabel = m.uninstall.loadingLabel
 		body = m.transitionView()
 	} else {
-		switch m.route {
-		case RouteHome:
-			m.home.width, m.home.height = m.width, m.height
-			body = m.home.View()
-		case RouteClean:
-			m.clean.width, m.clean.height = m.width, m.height
-			body = m.clean.View()
-		case RouteTools:
-			m.tools.width, m.tools.height = m.width, m.height
-			body = m.tools.View()
-		case RouteProtect:
-			m.protect.width, m.protect.height = m.width, m.height
-			body = m.protect.View()
-		case RouteUninstall:
-			m.uninstall.width, m.uninstall.height = m.width, m.height
-			body = m.uninstall.View()
-		case RouteStatus:
-			m.status.width, m.status.height = m.width, m.height
-			body = m.status.View()
-		case RouteDoctor:
-			m.doctor.width, m.doctor.height = m.width, m.height
-			body = m.doctor.View()
-		case RouteAnalyze:
-			m.analyze.width, m.analyze.height = m.width, m.height
-			body = m.analyze.View()
-		case RouteReview:
-			m.review.width, m.review.height = m.width, m.height
-			body = m.review.View()
-		case RoutePreflight:
-			m.preflight.width, m.preflight.height = m.width, m.height
-			body = m.preflight.View()
-		case RouteProgress:
-			m.progress.width, m.progress.height = m.width, m.height
-			if m.reducedMotion {
-				m.progress.spinnerFrame = 0
-			} else {
-				m.progress.spinnerFrame = m.spinnerFrame
-			}
-			body = m.progress.View()
-		case RouteResult:
-			m.result.width, m.result.height = m.width, m.height
-			if m.reducedMotion {
-				m.result.spinnerFrame = 0
-			} else {
-				m.result.spinnerFrame = m.spinnerFrame
-			}
-			body = m.result.View()
-		default:
-			body = "Unknown route"
-		}
+		body = m.routeView()
 	}
 	if m.helpVisible {
 		body = m.helpOverlayView()

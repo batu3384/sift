@@ -29,19 +29,42 @@ var (
 	mutedStyle  = color.New(color.FgWhite)
 )
 
-func (r *runtimeState) wantsJSONOutput(command string, writer io.Writer) bool {
+type outputMode string
+
+const (
+	outputModePlain outputMode = "plain"
+	outputModeJSON  outputMode = "json"
+	outputModeTUI   outputMode = "tui"
+)
+
+func (r *runtimeState) outputModeForCommand(command string, writer io.Writer) outputMode {
 	if r.flags.JSON {
-		return true
+		return outputModeJSON
 	}
 	if r.flags.Plain {
-		return false
+		return outputModePlain
 	}
 	switch strings.TrimSpace(command) {
 	case "status", "analyze", "check":
-		return isPipedWriter(writer)
-	default:
+		if isPipedWriter(writer) {
+			return outputModeJSON
+		}
+	}
+	if r.shouldUseTUI() {
+		return outputModeTUI
+	}
+	return outputModePlain
+}
+
+func (r *runtimeState) wantsJSONOutput(command string, writer io.Writer) bool {
+	return r.outputModeForCommand(command, writer) == outputModeJSON
+}
+
+func (r *runtimeState) requiresYesFlagForExecution(plan domain.ExecutionPlan, writer io.Writer) bool {
+	if !shouldExecutePlan(plan) {
 		return false
 	}
+	return r.flags.NonInteractive || r.outputModeForCommand(plan.Command, writer) == outputModeJSON
 }
 
 func printCheckReport(writer io.Writer, report domain.CheckReport) error {

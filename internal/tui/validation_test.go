@@ -21,6 +21,9 @@ func TestValidateProtectedPath(t *testing.T) {
 	if ok {
 		t.Error("expected whitespace path to be invalid")
 	}
+	if msg == "" {
+		t.Error("expected error message for whitespace path")
+	}
 
 	// Test valid path with tilde expansion
 	home, err := os.UserHomeDir()

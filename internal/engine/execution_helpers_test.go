@@ -84,3 +84,27 @@ func TestManagedProgressHelpersUsePhaseAndFixLanguage(t *testing.T) {
 		t.Fatalf("expected autofix verify detail, got %q", got)
 	}
 }
+
+func TestManagedCommandBlockedInTestMode(t *testing.T) {
+	t.Setenv("SIFT_TEST_MODE", "ci-safe")
+	t.Setenv("SIFT_LIVE_INTEGRATION", "")
+
+	if !managedCommandBlockedInTestMode(domain.Finding{CommandPath: testAdminCommandPath(), RequiresAdmin: true}) {
+		t.Fatal("expected admin command to be blocked in ci-safe mode")
+	}
+	if !managedCommandBlockedInTestMode(domain.Finding{CommandPath: testDialogSensitiveCommandPath()}) {
+		t.Fatal("expected dialog-sensitive command to be blocked in ci-safe mode")
+	}
+	if managedCommandBlockedInTestMode(domain.Finding{CommandPath: testManagedCommandPath()}) {
+		t.Fatal("expected regular managed command to remain allowed in ci-safe mode")
+	}
+}
+
+func TestManagedCommandBlockedInTestModeAllowsLiveIntegration(t *testing.T) {
+	t.Setenv("SIFT_TEST_MODE", "ci-safe")
+	t.Setenv("SIFT_LIVE_INTEGRATION", "1")
+
+	if managedCommandBlockedInTestMode(domain.Finding{CommandPath: testAdminCommandPath(), RequiresAdmin: true}) {
+		t.Fatal("expected live integration to allow admin managed command")
+	}
+}

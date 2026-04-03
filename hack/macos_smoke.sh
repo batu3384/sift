@@ -19,6 +19,138 @@ else
   export SIFT_TEST_MODE="${SIFT_TEST_MODE:-ci-safe}"
 fi
 
+assert_json_command() {
+  local file="$1"
+  local expected="$2"
+  python3 - "$file" "$expected" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+command = data.get("command")
+if command != sys.argv[2]:
+    raise SystemExit(f"expected command {sys.argv[2]!r}, got {command!r}")
+PY
+}
+
+assert_plan_has_item() {
+  local file="$1"
+  local path_fragment="$2"
+  local expected_status="$3"
+  python3 - "$file" "$path_fragment" "$expected_status" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+fragment = sys.argv[2]
+expected_status = sys.argv[3]
+for item in data.get("items", []):
+    path = item.get("path", "") or ""
+    display = item.get("display_path", "") or ""
+    if fragment in path or fragment in display:
+        status = item.get("status")
+        if status != expected_status:
+            raise SystemExit(f"expected status {expected_status!r} for {fragment!r}, got {status!r}")
+        raise SystemExit(0)
+raise SystemExit(f"expected item containing {fragment!r}")
+PY
+}
+
+assert_execution_result() {
+  local file="$1"
+  local path_fragment="$2"
+  local expected_status="$3"
+  python3 - "$file" "$path_fragment" "$expected_status" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+fragment = sys.argv[2]
+expected_status = sys.argv[3]
+for item in data.get("result", {}).get("items", []):
+    path = item.get("path", "") or ""
+    if fragment in path:
+        status = item.get("status")
+        if status != expected_status:
+            raise SystemExit(f"expected execution status {expected_status!r} for {fragment!r}, got {status!r}")
+        raise SystemExit(0)
+raise SystemExit(f"expected execution item containing {fragment!r}")
+PY
+}
+
+assert_execution_warning_contains() {
+  local file="$1"
+  local needle="$2"
+  python3 - "$file" "$needle" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+needle = sys.argv[2]
+warnings = data.get("result", {}).get("warnings", []) or []
+if not any(needle in warning for warning in warnings):
+    raise SystemExit(f"expected warning containing {needle!r}, got {warnings!r}")
+PY
+}
+
+assert_plan_warning_contains() {
+  local file="$1"
+  local needle="$2"
+  python3 - "$file" "$needle" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+needle = sys.argv[2]
+warnings = data.get("warnings", []) or []
+if not any(needle in warning for warning in warnings):
+    raise SystemExit(f"expected plan warning containing {needle!r}, got {warnings!r}")
+PY
+}
+
+assert_follow_up_contains() {
+  local file="$1"
+  local needle="$2"
+  python3 - "$file" "$needle" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+needle = sys.argv[2]
+commands = data.get("result", {}).get("follow_up_commands", []) or []
+if not any(needle in command for command in commands):
+    raise SystemExit(f"expected follow-up containing {needle!r}, got {commands!r}")
+PY
+}
+
+assert_report_exists() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import json
+import os
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+path = data.get("path", "")
+if not path or not os.path.exists(path):
+    raise SystemExit(f"expected report path to exist, got {path!r}")
+PY
+}
+
 run_with_sigkill_retry() {
   local output="$1"
   shift
@@ -93,23 +225,23 @@ grep -q "$HOME/Library/Caches/Homebrew" "$SMOKE_ROOT/optimize-whitelist-list.txt
 "$BINARY" optimize --whitelist remove "$HOME/Library/Caches/Homebrew" > "$SMOKE_ROOT/optimize-whitelist-remove.txt"
 "$BINARY" analyze --plain "$SMOKE_ROOT/analyze"
 "$BINARY" clean --json --profile safe > "$SMOKE_ROOT/clean.json"
-grep -q '"command": "clean"' "$SMOKE_ROOT/clean.json"
+assert_json_command "$SMOKE_ROOT/clean.json" "clean"
 "$BINARY" optimize --json > "$SMOKE_ROOT/optimize.json"
-grep -q '"command": "optimize"' "$SMOKE_ROOT/optimize.json"
+assert_json_command "$SMOKE_ROOT/optimize.json" "optimize"
 "$BINARY" clean --json --profile deep > "$SMOKE_ROOT/clean-deep.json"
-perl -0ne 'exit 0 if /Application Support\/Google\/Chrome\/Default.*?"status": "planned"/s; exit 1' "$SMOKE_ROOT/clean-deep.json"
-perl -0ne 'exit 0 if /Library\/Caches\/Homebrew\/Downloads.*?"status": "planned"/s; exit 1' "$SMOKE_ROOT/clean-deep.json"
+assert_plan_has_item "$SMOKE_ROOT/clean-deep.json" "Application Support/Google/Chrome/Default" "planned"
+assert_plan_has_item "$SMOKE_ROOT/clean-deep.json" "Library/Caches/Homebrew/Downloads" "planned"
 "$BINARY" protect explain --json "$HOME/Library/Application Support/Google/Chrome/Default/Code Cache/js" > "$SMOKE_ROOT/protect-explain-safe.json"
 grep -q '"state":"unprotected"' "$SMOKE_ROOT/protect-explain-safe.json"
 grep -q '"exception_matches":\[' "$SMOKE_ROOT/protect-explain-safe.json"
 "$BINARY" purge --json "$SMOKE_ROOT/project/node_modules" > "$SMOKE_ROOT/purge.json"
-grep -q '"command": "purge"' "$SMOKE_ROOT/purge.json"
+assert_json_command "$SMOKE_ROOT/purge.json" "purge"
 "$BINARY" purge scan --json "$SMOKE_ROOT/project" > "$SMOKE_ROOT/purge-scan.json"
-grep -q '"command": "purge_scan"' "$SMOKE_ROOT/purge-scan.json"
-grep -q 'node_modules' "$SMOKE_ROOT/purge-scan.json"
+assert_json_command "$SMOKE_ROOT/purge-scan.json" "purge_scan"
+assert_plan_has_item "$SMOKE_ROOT/purge-scan.json" "node_modules" "planned"
 "$BINARY" uninstall --json Example > "$SMOKE_ROOT/uninstall.json"
-grep -q '"command": "uninstall"' "$SMOKE_ROOT/uninstall.json"
-grep -q '"uninstall.native_step"' "$SMOKE_ROOT/uninstall.json"
+assert_json_command "$SMOKE_ROOT/uninstall.json" "uninstall"
+assert_plan_has_item "$SMOKE_ROOT/uninstall.json" "Contents/MacOS/uninstall" "planned"
 "$BINARY" update --plain > "$SMOKE_ROOT/update.txt"
 grep -q 'Install method:' "$SMOKE_ROOT/update.txt"
 grep -q 'Channel: stable' "$SMOKE_ROOT/update.txt"
@@ -120,20 +252,22 @@ grep -q 'Supported:' "$SMOKE_ROOT/touchid.txt"
 "$BINARY" touchid enable --json > "$SMOKE_ROOT/touchid-enable.json"
 grep -q '"action":"enable"' "$SMOKE_ROOT/touchid-enable.json"
 "$BINARY" remove --json > "$SMOKE_ROOT/remove.json"
-grep -q '"command": "remove"' "$SMOKE_ROOT/remove.json"
+assert_json_command "$SMOKE_ROOT/remove.json" "remove"
 "$BINARY" uninstall --json --dry-run=false --yes --native-uninstall Example > "$SMOKE_ROOT/uninstall-exec.json"
-grep -q 'continued with remnant cleanup and aftercare' "$SMOKE_ROOT/uninstall-exec.json"
-perl -0ne 'exit 0 if /Contents\/MacOS\/uninstall.*?"status": "completed"/s; exit 1' "$SMOKE_ROOT/uninstall-exec.json"
+assert_execution_warning_contains "$SMOKE_ROOT/uninstall-exec.json" "continued with remnant cleanup and aftercare"
+assert_execution_result "$SMOKE_ROOT/uninstall-exec.json" "Contents/MacOS/uninstall" "completed"
 test ! -e "$HOME/Library/Application Support/Example"
 rm -rf "$HOME/Applications/Example.app"
 "$BINARY" uninstall --json Example > "$SMOKE_ROOT/uninstall-rerun.json"
-grep -q '"command": "uninstall"' "$SMOKE_ROOT/uninstall-rerun.json"
-grep -q 'No installed app or leftover files were found for Example.' "$SMOKE_ROOT/uninstall-rerun.json"
+assert_json_command "$SMOKE_ROOT/uninstall-rerun.json" "uninstall"
+assert_plan_warning_contains "$SMOKE_ROOT/uninstall-rerun.json" "No installed app or leftover files were found for Example."
 "$BINARY" status --plain > "$SMOKE_ROOT/status.txt"
 grep -q '^System:' "$SMOKE_ROOT/status.txt"
-grep -q '^Operator alerts:' "$SMOKE_ROOT/status.txt"
+grep -q '^Health ' "$SMOKE_ROOT/status.txt"
+grep -q '^Audit log:' "$SMOKE_ROOT/status.txt"
 "$BINARY" completion bash > "$SMOKE_ROOT/completions/sift.bash"
 "$BINARY" completion zsh > "$SMOKE_ROOT/completions/_sift"
 "$BINARY" completion fish > "$SMOKE_ROOT/completions/sift.fish"
 "$BINARY" completion powershell > "$SMOKE_ROOT/completions/sift.ps1"
 "$BINARY" report --json > "$SMOKE_ROOT/report.json"
+assert_report_exists "$SMOKE_ROOT/report.json"

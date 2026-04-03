@@ -24,6 +24,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Install lint tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x ./hack/install_dev_tools.sh
+          ./hack/install_dev_tools.sh all
+      - name: Lint (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          PATH="$PWD/.tmp/tools/bin:$PATH" make lint
       - name: Vet
         run: go vet ./...
       - name: Test

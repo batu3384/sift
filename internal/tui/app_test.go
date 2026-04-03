@@ -698,7 +698,7 @@ func TestPermissionPreflightWarmsAccessThenStartsExecution(t *testing.T) {
 		t.Fatal("expected permission warmup to run")
 	}
 
-	next, cmd = next.(appModel).Update(deliverCmd(t, cmd))
+	next, _ = next.(appModel).Update(deliverCmd(t, cmd))
 	progress := next.(appModel)
 	if progress.route != RouteProgress {
 		t.Fatalf("expected progress route after warmup, got %s", progress.route)
@@ -756,7 +756,7 @@ func TestAcceptedPermissionProfileSkipsRepeatPreflight(t *testing.T) {
 	if warmupCalled != 1 {
 		t.Fatalf("expected first warmup, got %d", warmupCalled)
 	}
-	next, cmd = next.(appModel).Update(deliverCmd(t, cmd))
+	next, _ = next.(appModel).Update(deliverCmd(t, cmd))
 	progress := next.(appModel)
 	if progress.route != RouteProgress {
 		t.Fatalf("expected progress route after first warmup, got %s", progress.route)
@@ -871,6 +871,49 @@ func TestProgressManualBrowseStopsAutoFollow(t *testing.T) {
 	updated := next.(appModel)
 	if updated.progress.cursor != 2 {
 		t.Fatalf("expected cursor to stay on browsed item, got %d", updated.progress.cursor)
+	}
+}
+
+func TestExecutionProgressKeepsWaitingForStream(t *testing.T) {
+	t.Parallel()
+
+	stream := make(chan tea.Msg, 1)
+	stream <- executionFinishedMsg{result: domain.ExecutionResult{}}
+
+	model := newTestAppModel(RouteProgress)
+	model.executionStream = stream
+	model.progress = progressModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{{
+				ID:          "cache",
+				Path:        "/tmp/cache",
+				DisplayPath: "/tmp/cache",
+			}},
+		},
+	}
+
+	next, cmd := model.Update(executionProgressMsg{
+		progress: domain.ExecutionProgress{
+			Current: 1,
+			Total:   1,
+			Phase:   domain.ProgressPhaseRunning,
+			Item: domain.Finding{
+				ID:          "cache",
+				Path:        "/tmp/cache",
+				DisplayPath: "/tmp/cache",
+			},
+		},
+	})
+	updated := next.(appModel)
+	if updated.progress.current == nil || updated.progress.current.Path != "/tmp/cache" {
+		t.Fatalf("expected current progress item to update, got %+v", updated.progress.current)
+	}
+	if cmd == nil {
+		t.Fatal("expected execution progress to keep waiting for stream")
+	}
+	if _, ok := deliverCmd(t, cmd).(executionFinishedMsg); !ok {
+		t.Fatalf("expected execution stream wait command to return executionFinishedMsg")
 	}
 }
 
@@ -2435,6 +2478,49 @@ func TestUninstallKeepsCachedInventoryWhenFreshRefreshFails(t *testing.T) {
 	}
 	if failed.currentLoadingLabel() != "" || failed.uninstall.loading {
 		t.Fatalf("expected uninstall loading to clear after refresh failure, got loading=%v label=%q", failed.uninstall.loading, failed.currentLoadingLabel())
+	}
+}
+
+func TestNewAppModelSeedsInitialRouteState(t *testing.T) {
+	t.Parallel()
+
+	plan := &domain.ExecutionPlan{
+		Command:   "clean",
+		PlanState: "preview",
+		Items: []domain.Finding{{
+			ID:     "item-1",
+			Path:   "/tmp/cache",
+			Status: domain.StatusPlanned,
+			Action: domain.ActionTrash,
+		}},
+	}
+	result := &domain.ExecutionResult{
+		Items: []domain.OperationResult{{
+			FindingID: "item-1",
+			Path:      "/tmp/cache",
+			Status:    domain.StatusDeleted,
+		}},
+	}
+
+	model := newAppModel(AppOptions{
+		Config:        config.Default(),
+		Executable:    true,
+		InitialRoute:  RouteReview,
+		InitialPlan:   plan,
+		InitialResult: result,
+	}, AppCallbacks{})
+
+	if model.route != RouteReview {
+		t.Fatalf("expected review route, got %s", model.route)
+	}
+	if model.review.plan.Command != "clean" || len(model.review.plan.Items) != 1 {
+		t.Fatalf("expected review plan to be seeded, got %+v", model.review.plan)
+	}
+	if model.result.result.Items[0].Status != domain.StatusDeleted {
+		t.Fatalf("expected initial result to be seeded, got %+v", model.result.result)
+	}
+	if model.result.plan.Command != "clean" {
+		t.Fatalf("expected result plan to follow initial plan, got %+v", model.result.plan)
 	}
 }
 
