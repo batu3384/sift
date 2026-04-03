@@ -30,7 +30,7 @@ var (
 	appStyle         = lipgloss.NewStyle().Padding(0, 1)
 	topBarStyle      = lipgloss.NewStyle().BorderBottom(true).BorderForeground(lipgloss.Color("#44475A")).PaddingBottom(0)
 	panelStyle       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#2F6860")).Background(lipgloss.Color("#1A1A2E")).Padding(0, 1)
-	activePanelStyle = panelStyle.Copy().BorderForeground(lipgloss.Color("#50FA7B")).Background(lipgloss.Color("#21222C"))
+	activePanelStyle = panelStyle.BorderForeground(lipgloss.Color("#50FA7B")).Background(lipgloss.Color("#21222C"))
 	cardStyle        = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#44475A")).Background(lipgloss.Color("#21222C")).Padding(0, 1)
 	compactCardStyle = lipgloss.NewStyle().Padding(0, 1)
 	keyStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#50FA7B")).Bold(true).Padding(0, 1)
@@ -179,7 +179,7 @@ func renderPanel(title, subtitle, body string, width int, active bool) string {
 		style = activePanelStyle
 	}
 	borderColor, bodyBackground, titleStyle, markerStyle := panelTheme(title, active)
-	style = style.Copy().BorderForeground(borderColor).Background(bodyBackground)
+	style = style.BorderForeground(borderColor).Background(bodyBackground)
 	marker := markerStyle.Render("·")
 	if active {
 		marker = markerStyle.Bold(true).Render("▶")
@@ -188,20 +188,20 @@ func renderPanel(title, subtitle, body string, width int, active bool) string {
 	if subtitle != "" {
 		header += "  " + panelMetaStyle.Render(singleLine(subtitle, max(width-18, 10)))
 	}
-	rule := accentFrameStyle.Copy().Foreground(borderColor).Render(strings.Repeat("─", max(width-6, 8)))
+	rule := accentFrameStyle.Foreground(borderColor).Render(strings.Repeat("─", max(width-6, 8)))
 	return style.Width(width).Render(header + "\n" + rule + "\n" + body)
 }
 
 func renderStatCard(label, value, tone string, width int) string {
-	style := cardStyle.Copy().Width(width)
+	style := cardStyle.Width(width)
 	valueStyle := headerStyle
 	labelStyle := cardLabelStyle
 	borderColor, labelColor, valueColor, backgroundColor := cardTonePalette(label, tone)
 	style = style.BorderForeground(borderColor).Background(backgroundColor)
-	labelStyle = labelStyle.Copy().Foreground(labelColor)
-	valueStyle = valueStyle.Copy().Foreground(valueColor).Bold(true)
+	labelStyle = labelStyle.Foreground(labelColor)
+	valueStyle = valueStyle.Foreground(valueColor).Bold(true)
 	if compactWidth(width) {
-		compact := compactCardStyle.Copy().Width(width)
+		compact := compactCardStyle.Width(width)
 		compact = compact.Foreground(valueColor).Background(backgroundColor)
 		return compact.Render(labelStyle.Render(strings.ToUpper(label)) + "  " + valueStyle.Render(value))
 	}
@@ -255,7 +255,7 @@ func joinPanels(left, right string, width int) string {
 
 func renderSectionRule(width int) string {
 	ruleWidth := max(min(width-2, 48), 8)
-	return accentFrameStyle.Copy().Foreground(lipgloss.Color("#253F3A")).Render(strings.Repeat("─", ruleWidth))
+	return accentFrameStyle.Foreground(lipgloss.Color("#253F3A")).Render(strings.Repeat("─", ruleWidth))
 }
 
 func wrapText(text string, width int) string {
@@ -478,31 +478,31 @@ func panelTheme(panelName string, active bool) (borderColor lipgloss.Color, back
 	borderColor = lipgloss.Color("#2F6860")
 	backgroundColor = lipgloss.Color("#1A1A2E")
 	titleStyle = panelTitleStyle
-	marker = mutedStyle.Copy().Foreground(lipgloss.Color("#5FAEA2"))
+	marker = mutedStyle.Foreground(lipgloss.Color("#5FAEA2"))
 	if active {
 		borderColor = lipgloss.Color("#7BE2D2")
 		backgroundColor = lipgloss.Color("#21222C")
-		marker = railStyle.Copy().Foreground(lipgloss.Color("#50FA7B"))
+		marker = railStyle.Foreground(lipgloss.Color("#50FA7B"))
 	}
 	switch upper {
 	case "SPOTLIGHT", "OVERVIEW":
 		borderColor = lipgloss.Color("#3C8D84")
 		backgroundColor = lipgloss.Color("#0C1918")
-		titleStyle = panelTitleStyle.Copy().Foreground(lipgloss.Color("#D8FFF7"))
-		marker = railStyle.Copy().Foreground(lipgloss.Color("#BD93F9"))
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#D8FFF7"))
+		marker = railStyle.Foreground(lipgloss.Color("#BD93F9"))
 	case "DETAIL", "INSPECT", "FOLLOW-UP":
 		borderColor = lipgloss.Color("#4D7C75")
 		backgroundColor = lipgloss.Color("#21222C")
-		titleStyle = panelTitleStyle.Copy().Foreground(lipgloss.Color("#E8F7F3"))
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E8F7F3"))
 	case "QUEUE", "OPERATIONS":
 		borderColor = lipgloss.Color("#8A7B3E")
 		backgroundColor = lipgloss.Color("#17150D")
-		titleStyle = panelTitleStyle.Copy().Foreground(lipgloss.Color("#F7E6B1"))
-		marker = reviewStyle.Copy().Foreground(lipgloss.Color("#FFB86C"))
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F7E6B1"))
+		marker = reviewStyle.Foreground(lipgloss.Color("#FFB86C"))
 	case "RESCAN", "COMPLETE":
 		borderColor = lipgloss.Color("#6D6351")
 		backgroundColor = lipgloss.Color("#151411")
-		titleStyle = panelTitleStyle.Copy().Foreground(lipgloss.Color("#E8DCC2"))
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E8DCC2"))
 	}
 	if active {
 		backgroundColor = brightenTone(backgroundColor)

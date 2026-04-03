@@ -5,6 +5,74 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Assert-PlanCommand {
+  param(
+    [Parameter(Mandatory = $true)]$Plan,
+    [Parameter(Mandatory = $true)][string]$Expected
+  )
+
+  if ($Plan.command -ne $Expected) {
+    throw "expected command '$Expected', got '$($Plan.command)'"
+  }
+}
+
+function Assert-PlanHasItem {
+  param(
+    [Parameter(Mandatory = $true)]$Plan,
+    [Parameter(Mandatory = $true)][string]$PathPattern,
+    [Parameter(Mandatory = $true)][string]$ExpectedStatus
+  )
+
+  $item = $Plan.items | Where-Object {
+    (($_.path -as [string]) -match $PathPattern) -or
+    (($_.display_path -as [string]) -match $PathPattern)
+  } | Select-Object -First 1
+  if (-not $item) {
+    throw "expected item matching '$PathPattern'"
+  }
+  if ($item.status -ne $ExpectedStatus) {
+    throw "expected status '$ExpectedStatus' for '$PathPattern', got '$($item.status)'"
+  }
+}
+
+function Assert-ExecutionResult {
+  param(
+    [Parameter(Mandatory = $true)]$Execution,
+    [Parameter(Mandatory = $true)][string]$PathPattern,
+    [Parameter(Mandatory = $true)][string]$ExpectedStatus
+  )
+
+  $item = $Execution.result.items | Where-Object { ($_.path -as [string]) -match $PathPattern } | Select-Object -First 1
+  if (-not $item) {
+    throw "expected execution item matching '$PathPattern'"
+  }
+  if ($item.status -ne $ExpectedStatus) {
+    throw "expected execution status '$ExpectedStatus' for '$PathPattern', got '$($item.status)'"
+  }
+}
+
+function Assert-WarningContains {
+  param(
+    [Parameter(Mandatory = $true)]$Warnings,
+    [Parameter(Mandatory = $true)][string]$Expected
+  )
+
+  if (-not ($Warnings | Where-Object { ($_ -as [string]) -match [regex]::Escape($Expected) })) {
+    throw "expected warning containing '$Expected'"
+  }
+}
+
+function Assert-FollowUpContains {
+  param(
+    [Parameter(Mandatory = $true)]$Commands,
+    [Parameter(Mandatory = $true)][string]$Expected
+  )
+
+  if (-not ($Commands | Where-Object { ($_ -as [string]) -match [regex]::Escape($Expected) })) {
+    throw "expected follow-up containing '$Expected'"
+  }
+}
+
 $Root = Join-Path (Get-Location) ".tmp\ci-smoke-windows"
 if (Test-Path $Root) {
   Remove-Item -Recurse -Force $Root
@@ -108,25 +176,15 @@ if ($protectExplainUser.state -ne 'user_protected') {
 & $Binary analyze --plain (Join-Path $Root "analyze")
 
 $optimize = & $Binary optimize --json | ConvertFrom-Json
-if ($optimize.command -ne 'optimize') {
-  throw "expected optimize command in JSON output"
-}
+Assert-PlanCommand -Plan $optimize -Expected 'optimize'
 
 $clean = & $Binary clean --json --profile safe | ConvertFrom-Json
-if ($clean.command -ne 'clean') {
-  throw "expected clean command in JSON output"
-}
+Assert-PlanCommand -Plan $clean -Expected 'clean'
 $deepClean = & $Binary clean --json --profile deep | ConvertFrom-Json
-$chromeCache = $deepClean.items | Where-Object { $_.path -match 'Google[\\/]+Chrome[\\/]+User Data[\\/]+Default[\\/]+Code Cache(?:$|[\\/])' } | Select-Object -First 1
-if (-not $chromeCache) {
-  throw "expected Chrome code cache finding in deep clean output: $($deepClean.items | ConvertTo-Json -Compress)"
-}
-if ($chromeCache.status -ne 'planned') {
-  throw "expected planned Chrome code cache finding, got $($chromeCache | ConvertTo-Json -Compress)"
-}
+Assert-PlanHasItem -Plan $deepClean -PathPattern 'Google[\\/]+Chrome[\\/]+User Data[\\/]+Default[\\/]+Code Cache(?:$|[\\/])' -ExpectedStatus 'planned'
 $chocoCache = $deepClean.items | Where-Object { $_.path -match 'chocolatey[\\/]+cache(?:$|[\\/])' } | Select-Object -First 1
 if (-not $chocoCache) {
-  throw "expected chocolatey cache finding in deep clean output: $($deepClean.items | ConvertTo-Json -Compress)"
+  throw "expected chocolatey cache finding in deep clean output"
 }
 if ($chocoCache.status -ne 'protected') {
   throw "expected protected chocolatey cache finding, got $($chocoCache | ConvertTo-Json -Compress)"
@@ -140,23 +198,16 @@ if ($protectExplainSafe.state -ne 'safe_exception') {
 }
 
 $purge = & $Binary purge --json (Join-Path $Root "project\node_modules") | ConvertFrom-Json
-if ($purge.command -ne 'purge') {
-  throw "expected purge command in JSON output"
-}
+Assert-PlanCommand -Plan $purge -Expected 'purge'
 $purgeScan = & $Binary purge scan --json (Join-Path $Root "project") | ConvertFrom-Json
-if ($purgeScan.command -ne 'purge_scan') {
-  throw "expected purge scan command in JSON output"
-}
+Assert-PlanCommand -Plan $purgeScan -Expected 'purge_scan'
+Assert-PlanHasItem -Plan $purgeScan -PathPattern 'node_modules' -ExpectedStatus 'planned'
 
 $uninstallRaw = & $Binary uninstall --json "Example App"
 $uninstallRaw | Out-File -Encoding utf8 (Join-Path $Root "uninstall-plan.json")
 $uninstall = $uninstallRaw | ConvertFrom-Json
-if ($uninstall.command -ne 'uninstall') {
-  throw "expected uninstall command in JSON output"
-}
-if (-not ($uninstallRaw -match 'uninstall.native_step')) {
-  throw "expected native uninstall step in uninstall plan"
-}
+Assert-PlanCommand -Plan $uninstall -Expected 'uninstall'
+Assert-PlanHasItem -Plan $uninstall -PathPattern 'uninstall\.exe' -ExpectedStatus 'planned'
 
 $update = & $Binary update --json | ConvertFrom-Json
 if (-not $update.install_method) {
@@ -173,25 +224,18 @@ if ($touchIDEnable.supported -ne $false -or $touchIDEnable.action -ne 'enable') 
 }
 
 $remove = & $Binary remove --json | ConvertFrom-Json
-if ($remove.command -ne 'remove') {
-  throw "expected remove command in JSON output"
-}
+Assert-PlanCommand -Plan $remove -Expected 'remove'
 
 $uninstallExecRaw = & $Binary uninstall --json --dry-run=false --yes --native-uninstall "Example App"
 $uninstallExecRaw | Out-File -Encoding utf8 (Join-Path $Root "uninstall-exec.json")
 $uninstallExec = $uninstallExecRaw | ConvertFrom-Json
-if ($uninstallExec.plan.command -ne 'uninstall') {
-  throw "expected uninstall command in execution envelope"
-}
+Assert-PlanCommand -Plan $uninstallExec.plan -Expected 'uninstall'
 if (-not $uninstallExec.result.items) {
   throw "expected uninstall execution results"
 }
-if (-not ($uninstallExec.result.warnings -match 'Native uninstaller launched')) {
-  throw "expected native uninstall continuation warning, got $($uninstallExec.result | ConvertTo-Json -Compress)"
-}
-if (-not ($uninstallExec.result.follow_up_commands -match 'Settings > Apps > Startup')) {
-  throw "expected startup aftercare follow-up after native uninstall"
-}
+Assert-WarningContains -Warnings $uninstallExec.result.warnings -Expected 'Native uninstaller launched'
+Assert-FollowUpContains -Commands $uninstallExec.result.follow_up_commands -Expected 'Settings > Apps > Startup'
+Assert-ExecutionResult -Execution $uninstallExec -PathPattern 'uninstall\.exe' -ExpectedStatus 'completed'
 for ($i = 0; $i -lt 100 -and -not (Test-Path $NativeSentinel); $i++) {
   Start-Sleep -Milliseconds 100
 }
@@ -205,20 +249,19 @@ if (Test-Path $installedAppPath) {
 $uninstallRerunRaw = & $Binary uninstall --json "Example App"
 $uninstallRerunRaw | Out-File -Encoding utf8 (Join-Path $Root "uninstall-rerun.json")
 $uninstallRerun = $uninstallRerunRaw | ConvertFrom-Json
-if ($uninstallRerun.command -ne 'uninstall') {
-  throw "expected uninstall command in rerun plan"
-}
-if (-not ($uninstallRerunRaw -match 'No installed app or leftover files were found for Example App\.')) {
-  throw "expected empty uninstall rerun after native uninstall"
-}
+Assert-PlanCommand -Plan $uninstallRerun -Expected 'uninstall'
+Assert-WarningContains -Warnings $uninstallRerun.warnings -Expected 'No installed app or leftover files were found for Example App.'
 
 $status = & $Binary status --plain
 $status | Out-File -Encoding utf8 (Join-Path $Root "status.txt")
 if (-not ($status -match '(?m)^System:')) {
   throw "expected status system output"
 }
-if (-not ($status -match '(?m)^Operator alerts:')) {
-  throw "expected operator alerts in status output"
+if (-not ($status -match '(?m)^Health ')) {
+  throw "expected status health output"
+}
+if (-not ($status -match '(?m)^Audit log:')) {
+  throw "expected audit log in status output"
 }
 & $Binary completion bash | Out-File -Encoding utf8 (Join-Path $Root "completions\sift.bash")
 & $Binary completion zsh | Out-File -Encoding utf8 (Join-Path $Root "completions\_sift")

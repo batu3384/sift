@@ -1,6 +1,8 @@
 APP := sift
+TOOLS_DIR ?= $(CURDIR)/.tmp/tools
+TOOLS_BIN := $(TOOLS_DIR)/bin
 
-.PHONY: build test race cross-build tidy vet smoke smoke-macos smoke-live-macos integration-live-macos smoke-windows completions install-local security-check release-dry-run package-manifests release-preflight quality-gate quality-gate-full refresh-mole-upstream
+.PHONY: build test race cross-build tidy vet lint lint-go lint-shell install-dev-tools smoke smoke-macos smoke-live-macos integration-live-macos smoke-windows completions install-local security-check release-dry-run package-manifests release-preflight quality-gate quality-gate-full refresh-mole-upstream
 
 build:
 	go build -o $(APP) ./cmd/sift
@@ -20,6 +22,22 @@ cross-build:
 
 vet:
 	go vet ./...
+
+install-dev-tools:
+	chmod +x ./hack/install_dev_tools.sh
+	./hack/install_dev_tools.sh all
+
+lint: lint-go lint-shell
+
+lint-go:
+	chmod +x ./hack/install_dev_tools.sh
+	./hack/install_dev_tools.sh staticcheck
+	PATH="$(TOOLS_BIN):$$PATH" staticcheck ./...
+
+lint-shell:
+	chmod +x ./hack/install_dev_tools.sh
+	./hack/install_dev_tools.sh shellcheck
+	PATH="$(TOOLS_BIN):$$PATH" shellcheck -x $$(find . -path './.tmp' -prune -o -name '*.sh' -print | sort)
 
 security-check:
 	./hack/security_check.sh
@@ -45,6 +63,7 @@ smoke-windows:
 
 quality-gate:
 	./hack/security_check.sh
+	$(MAKE) lint
 	go test ./...
 	go vet ./...
 	$(MAKE) smoke

@@ -9,14 +9,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/batu3384/sift/internal/domain"
 	"github.com/shirou/gopsutil/v4/cpu"
-	"github.com/shirou/gopsutil/v4/disk"
-	"github.com/shirou/gopsutil/v4/host"
-	"github.com/shirou/gopsutil/v4/load"
-	"github.com/shirou/gopsutil/v4/mem"
 	netio "github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/process"
 )
@@ -127,109 +122,6 @@ type SystemSnapshot struct {
 }
 
 var enrichPlatformSnapshot = func(context.Context, *SystemSnapshot) {}
-
-func Snapshot(ctx context.Context) (*SystemSnapshot, error) {
-	info, err := host.InfoWithContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	snapshot := &SystemSnapshot{
-		Platform:        runtime.GOOS,
-		Architecture:    runtime.GOARCH,
-		Hostname:        info.Hostname,
-		OS:              info.OS,
-		PlatformFamily:  info.PlatformFamily,
-		PlatformVersion: info.PlatformVersion,
-		KernelVersion:   info.KernelVersion,
-		BootTimeSeconds: info.BootTime,
-		UptimeSeconds:   info.Uptime,
-		CPUCores:        runtime.NumCPU(),
-		CollectedAt:     time.Now().UTC().Format(time.RFC3339),
-	}
-	if physicalCores, err := cpu.CountsWithContext(ctx, false); err == nil && physicalCores > 0 {
-		snapshot.CPUPhysicalCores = physicalCores
-	}
-	if infoStats, err := cpu.InfoWithContext(ctx); err == nil && len(infoStats) > 0 {
-		snapshot.CPUModel = strings.TrimSpace(infoStats[0].ModelName)
-	}
-	if values, err := safeCPUPercentWithContext(ctx, false); err == nil && len(values) > 0 {
-		snapshot.CPUPercent = values[0]
-	} else if err != nil {
-		snapshot.Warnings = append(snapshot.Warnings, "cpu: "+err.Error())
-	}
-	if perCore, err := safeCPUPercentWithContext(ctx, true); err == nil {
-		snapshot.CPUPerCore = perCore
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "cpu_per_core: "+err.Error())
-	}
-	if vm, err := mem.VirtualMemoryWithContext(ctx); err == nil {
-		snapshot.MemoryUsedPercent = vm.UsedPercent
-		snapshot.MemoryUsedBytes = vm.Used
-		snapshot.MemoryTotalBytes = vm.Total
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "memory: "+err.Error())
-	}
-	if swap, err := mem.SwapMemoryWithContext(ctx); err == nil {
-		snapshot.SwapUsedPercent = swap.UsedPercent
-		snapshot.SwapUsedBytes = swap.Used
-		snapshot.SwapTotalBytes = swap.Total
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "swap: "+err.Error())
-	}
-	if usage, err := disk.UsageWithContext(ctx, systemDiskRoot()); err == nil {
-		snapshot.DiskUsedPercent = usage.UsedPercent
-		snapshot.DiskFreeBytes = usage.Free
-		snapshot.DiskTotalBytes = usage.Total
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "disk: "+err.Error())
-	}
-	if counters, err := netio.IOCountersWithContext(ctx, false); err == nil && len(counters) > 0 {
-		snapshot.NetworkRxBytes = counters[0].BytesRecv
-		snapshot.NetworkTxBytes = counters[0].BytesSent
-	} else if err != nil {
-		snapshot.Warnings = append(snapshot.Warnings, "network: "+err.Error())
-	}
-	if interfaces, err := netio.InterfacesWithContext(ctx); err == nil {
-		snapshot.ActiveNetworkIfaces, snapshot.NetworkInterfaceCount = activeNetworkInterfaces(interfaces)
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "network_interfaces: "+err.Error())
-	}
-	if ioCounters, err := disk.IOCountersWithContext(ctx); err == nil {
-		var io DiskIOSnapshot
-		for _, counter := range ioCounters {
-			io.ReadBytes += counter.ReadBytes
-			io.WriteBytes += counter.WriteBytes
-		}
-		if io.ReadBytes > 0 || io.WriteBytes > 0 {
-			snapshot.DiskIO = &io
-		}
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "disk_io: "+err.Error())
-	}
-	if avg, err := load.AvgWithContext(ctx); err == nil {
-		snapshot.Load1 = avg.Load1
-	} else if runtime.GOOS != "windows" {
-		snapshot.Warnings = append(snapshot.Warnings, "load: "+err.Error())
-	}
-	if snapshot.CPUCores > 0 {
-		snapshot.LoadPerCPU = snapshot.Load1 / float64(snapshot.CPUCores)
-	}
-	if users, err := host.UsersWithContext(ctx); err == nil {
-		snapshot.LoggedInUsers = len(users)
-	} else {
-		snapshot.Warnings = append(snapshot.Warnings, "users: "+err.Error())
-	}
-	if system, role, err := host.VirtualizationWithContext(ctx); err == nil {
-		snapshot.VirtualizationSystem = system
-		snapshot.VirtualizationRole = role
-	}
-	enrichPlatformSnapshot(ctx, snapshot)
-	snapshot.TopProcesses, snapshot.ProcessCount = captureTopProcesses(ctx)
-	snapshot.HealthScore, snapshot.HealthLabel = deriveHealth(snapshot)
-	snapshot.OperatorAlerts = deriveOperatorAlerts(snapshot)
-	snapshot.Highlights = deriveHighlights(snapshot)
-	return snapshot, nil
-}
 
 func captureTopProcesses(ctx context.Context) ([]ProcessSnapshot, int) {
 	processProbeMu.Lock()

@@ -70,9 +70,9 @@ need_cmd curl
 need_cmd tar
 need_cmd install
 
-set -- $(detect_platform)
-os="$1"
-arch="$2"
+platform="$(detect_platform)"
+os="${platform%% *}"
+arch="${platform##* }"
 
 if [ -z "$VERSION" ]; then
   VERSION="$(latest_version)"

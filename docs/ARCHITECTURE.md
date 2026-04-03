@@ -28,6 +28,9 @@ CLI/TUI entrypoint
 - `internal/cli` defines the Cobra command tree and shared flags.
 - Running `sift` without a subcommand enters the Bubble Tea application when the
   terminal supports it.
+- Output policy is centralized so the same rules decide whether a command stays
+  plain, switches to JSON, or opens the TUI. That keeps `--json`, `--plain`,
+  piped `status/analyze/check`, and destructive `--yes` requirements aligned.
 
 ### TUI shell
 
@@ -40,6 +43,15 @@ CLI/TUI entrypoint
 - The TUI never bypasses the engine. It requests plans, shows task-native
   previews, optionally runs permission preflight, and then executes an approved
   plan.
+- The TUI shell is intentionally split into seams:
+  - `app.go` keeps the top-level Bubble Tea router
+  - `app_bootstrap.go` seeds initial state and callbacks
+  - `app_plan_flow.go` owns review, preflight, and execution handoff
+  - `app_runtime.go` owns shared runtime event handling
+  - `app_view.go` focuses route-level rendering dispatch
+- Render files such as `status_render.go`, `progress_render.go`, and
+  `result_render.go` are expected to stay presentation-focused while route
+  models carry the view state.
 
 ### Engine and policy
 
@@ -48,6 +60,14 @@ CLI/TUI entrypoint
   protection policy, sorts them, and produces an `ExecutionPlan`.
 - Execution converts reviewed plan items into an `ExecutionResult`, emits
   section/phase events for task-native progress, and persists outcomes.
+- Execution orchestration is isolated behind an internal runner layer so the
+  service entrypoint stays small while queue/check/apply/verify events remain a
+  single engine-owned contract.
+- Native command parsing and launch are also split so trust/validation rules
+  stay separate from process start behavior.
+- Health and telemetry collection are also split into focused probe helpers so
+  live snapshot assembly stays readable without changing the `StatusReport`
+  contract.
 - Policy evaluation decides whether an item is planned, protected, skipped, or
   requires stronger confirmation.
 
@@ -67,6 +87,13 @@ CLI/TUI entrypoint
 - Adapters provide curated roots, diagnostics, installed app discovery,
   remnant discovery, native uninstall hints, admin session handling, and
   platform-specific protection.
+- Larger Darwin and Windows responsibilities are intentionally split by
+  concern: roots, diagnostics, maintenance task catalogs, app discovery, and
+  remnant discovery live in separate files so platform-specific behavior can
+  evolve without turning one adapter file into a monolith.
+- Admin session orchestration is also split between a public warmup/keepalive
+  layer and runtime primitives so TTY, GUI prompt, and `sudo` refresh behavior
+  can be tested independently.
 - This is what keeps the rest of the application largely platform-agnostic.
 
 ### Persistence and reporting
@@ -117,6 +144,8 @@ SIFT relies on multiple test layers:
 - macOS and Windows smoke scripts that run the built binary against isolated
   fixture roots
 - cross-build and package-manifest validation for release readiness
+- JSON-first smoke assertions for plan/result contracts, with plain-text checks
+  reserved for stable headings and human summaries
 
 See [`docs/TESTING.md`](TESTING.md) for the concrete commands.
 

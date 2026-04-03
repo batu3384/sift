@@ -51,9 +51,7 @@ func (m doctorModel) View() string {
 		renderStatCard("checks", fmt.Sprintf("%d %s", len(m.diagnostics), pl(len(m.diagnostics), "item", "items")), "safe", 24),
 	}
 	if width >= 120 {
-		for _, card := range doctorGroupStatCards(m.diagnostics, 22) {
-			stats = append(stats, card)
-		}
+		stats = append(stats, doctorGroupStatCards(m.diagnostics, 22)...)
 	}
 	leftWidth := 42
 	if width >= 132 {
