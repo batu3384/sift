@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/shirou/gopsutil/v4 v4.25.2
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/sys v0.42.0
+	golang.org/x/sys v0.43.0
 	modernc.org/sqlite v1.35.0
 )
 
