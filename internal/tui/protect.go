@@ -141,6 +141,7 @@ func (m protectModel) View() string {
 		lines = append(lines, mutedStyle.Render(m.message), "")
 	}
 	lines = append(lines, railStyle.Render("USER PROTECTED PATHS"))
+	lines[len(lines)-1] = railStyle.Render("USER RAILS")
 	focusLine := len(lines)
 	if len(m.paths) == 0 {
 		lines = append(lines, mutedStyle.Render("No user-defined protected paths yet."))
@@ -156,13 +157,13 @@ func (m protectModel) View() string {
 		}
 	}
 	if len(m.activeFamilies) > 0 {
-		lines = append(lines, renderSectionRule(leftWidth-4), railStyle.Render("ACTIVE FAMILIES"))
+		lines = append(lines, renderSectionRule(leftWidth-4), railStyle.Render("FAMILY WATCH"))
 		for _, family := range m.activeFamilies {
 			lines = append(lines, mutedStyle.Render("· "+family))
 		}
 	}
 	if len(m.commandScopes) > 0 {
-		lines = append(lines, renderSectionRule(leftWidth-4), railStyle.Render("COMMAND SCOPES"))
+		lines = append(lines, renderSectionRule(leftWidth-4), railStyle.Render("SCOPE WATCH"))
 		for _, scope := range m.commandScopes {
 			lines = append(lines, mutedStyle.Render(fmt.Sprintf("· %s  %d %s", scope.Command, len(scope.Paths), pl(len(scope.Paths), "path", "paths"))))
 		}
@@ -174,7 +175,7 @@ func (m protectModel) View() string {
 		rightBody = strings.Join([]string{
 			rightBody,
 			"",
-			railStyle.Render("ADD PATH"),
+			railStyle.Render("ADD GUARD"),
 			m.input.View(),
 			mutedStyle.Render("enter save  •  esc cancel"),
 		}, "\n")
@@ -182,61 +183,61 @@ func (m protectModel) View() string {
 	var body string
 	if compact {
 		body = strings.Join([]string{
-			renderPanel("PROTECTED PATHS", fmt.Sprintf("%d user %s", len(m.paths), pl(len(m.paths), "rule", "rules")), leftBody, width-4, true),
-			renderPanel("PROTECTION DETAIL", protectSubtitle(m), rightBody, width-4, false),
+			renderPanel("GUARD RAIL", fmt.Sprintf("%d user %s", len(m.paths), pl(len(m.paths), "rule", "rules")), leftBody, width-4, true),
+			renderPanel("POLICY DECK", protectSubtitle(m), rightBody, width-4, false),
 		}, "\n")
 	} else {
 		body = joinPanels(
-			renderPanel("PROTECTED PATHS", fmt.Sprintf("%d user %s", len(m.paths), pl(len(m.paths), "rule", "rules")), leftBody, leftWidth, true),
-			renderPanel("PROTECTION DETAIL", protectSubtitle(m), rightBody, rightWidth, false),
+			renderPanel("GUARD RAIL", fmt.Sprintf("%d user %s", len(m.paths), pl(len(m.paths), "rule", "rules")), leftBody, leftWidth, true),
+			renderPanel("POLICY DECK", protectSubtitle(m), rightBody, rightWidth, false),
 			width-4,
 		)
 	}
-	return renderChrome("SIFT / Protect Paths", "never-delete policy", protectStats(m, width), body, nil, width, false, m.height)
+	return renderChrome("SIFT / Guardrails", "preserve never-delete paths and policy scope", protectStats(m, width), body, nil, width, false, m.height)
 }
 
 func (m protectModel) detailView(width int, maxLines int) string {
 	path := m.selectedPath()
 	if path == "" {
 		if m.inputActive {
-			return mutedStyle.Render("Enter a path to protect.")
+			return mutedStyle.Render("Enter a guard path.")
 		}
-		lines := []string{mutedStyle.Render("Select a protected path or press a to add one.")}
+		lines := []string{mutedStyle.Render("Select a guard path or press a to add one.")}
 		if matrix := protectFamilyMatrixLines(m.activeFamilies, width); len(matrix) > 0 {
-			lines = append(lines, renderSectionRule(width), headerStyle.Render("Family Matrix"))
+			lines = append(lines, renderSectionRule(width), headerStyle.Render("Family Watch"))
 			lines = append(lines, matrix...)
 		}
 		if scopeLines := protectScopeMatrixLines(m.commandScopes, width); len(scopeLines) > 0 {
-			lines = append(lines, renderSectionRule(width), headerStyle.Render("Scope Matrix"))
+			lines = append(lines, renderSectionRule(width), headerStyle.Render("Scope Watch"))
 			lines = append(lines, scopeLines...)
 		}
 		lines = viewportLines(lines, 0, maxLines)
 		return strings.Join(lines, "\n")
 	}
 	lines := []string{
-		mutedStyle.Render("Path      ") + wrapText(path, width),
+		mutedStyle.Render("Guard     ") + wrapText(path, width),
 	}
 	if m.explanation == nil {
-		lines = append(lines, mutedStyle.Render("Press e to load protection details."))
+		lines = append(lines, mutedStyle.Render("Press e to trace the active guard decision."))
 		if len(m.commandScopes) > 0 {
 			lines = append(lines, mutedStyle.Render("Use `sift protect scope list` to review command-scoped exclusions."))
 		}
 		if matrix := protectFamilyMatrixLines(m.activeFamilies, width); len(matrix) > 0 {
-			lines = append(lines, renderSectionRule(width), headerStyle.Render("Family Matrix"))
+			lines = append(lines, renderSectionRule(width), headerStyle.Render("Family Watch"))
 			lines = append(lines, matrix...)
 		}
 		if scopeLines := protectScopeMatrixLines(m.commandScopes, width); len(scopeLines) > 0 {
-			lines = append(lines, renderSectionRule(width), headerStyle.Render("Scope Matrix"))
+			lines = append(lines, renderSectionRule(width), headerStyle.Render("Scope Watch"))
 			lines = append(lines, scopeLines...)
 		}
 		lines = viewportLines(lines, 0, maxLines)
 		return strings.Join(lines, "\n")
 	}
 	lines = append(lines,
-		mutedStyle.Render("State     ")+headerStyle.Render(strings.ReplaceAll(string(m.explanation.State), "_", " ")),
-		mutedStyle.Render("Why       ")+wrapText(m.explanation.Message, width),
+		mutedStyle.Render("Gate      ")+headerStyle.Render(strings.ReplaceAll(string(m.explanation.State), "_", " ")),
+		mutedStyle.Render("Watch     ")+wrapText(m.explanation.Message, width),
 	)
-	lines = append(lines, renderSectionRule(width), headerStyle.Render("Decision Path"))
+	lines = append(lines, renderSectionRule(width), headerStyle.Render("Decision Trace"))
 	lines = append(lines, protectDecisionPathLines(*m.explanation, width)...)
 	if len(m.explanation.UserMatches) > 0 {
 		lines = append(lines, mutedStyle.Render("User      ")+wrapText(strings.Join(m.explanation.UserMatches, ", "), width))
@@ -251,11 +252,11 @@ func (m protectModel) detailView(width int, maxLines int) string {
 		lines = append(lines, mutedStyle.Render("Exception ")+wrapText(strings.Join(m.explanation.ExceptionMatches, ", "), width))
 	}
 	if matrix := protectFamilyMatrixLines(m.activeFamilies, width); len(matrix) > 0 {
-		lines = append(lines, renderSectionRule(width), headerStyle.Render("Family Matrix"))
+		lines = append(lines, renderSectionRule(width), headerStyle.Render("Family Watch"))
 		lines = append(lines, matrix...)
 	}
 	if scopeLines := protectScopeMatrixLines(m.commandScopes, width); len(scopeLines) > 0 {
-		lines = append(lines, renderSectionRule(width), headerStyle.Render("Scope Matrix"))
+		lines = append(lines, renderSectionRule(width), headerStyle.Render("Scope Watch"))
 		lines = append(lines, scopeLines...)
 	}
 	lines = viewportLines(lines, 0, maxLines)
@@ -264,15 +265,15 @@ func (m protectModel) detailView(width int, maxLines int) string {
 
 func protectSubtitle(m protectModel) string {
 	if m.inputActive {
-		return "add a protected path"
+		return "add guard path"
 	}
 	if m.explanation != nil && m.explanation.State != "" {
-		return strings.ReplaceAll(string(m.explanation.State), "_", " ")
+		return "decision trace"
 	}
 	if m.selectedPath() != "" {
-		return "selected path"
+		return "selected guard"
 	}
-	return "manage never-delete rules"
+	return "manage never-delete guardrails"
 }
 
 func protectStats(m protectModel, width int) []string {
@@ -286,14 +287,14 @@ func protectStats(m protectModel, width int) []string {
 		mode = "adding"
 		tone = "safe"
 	} else if m.explanation != nil {
-		mode = "explain"
+		mode = "trace"
 		tone = "safe"
 	}
 	return []string{
-		renderStatCard("user rules", fmt.Sprintf("%d %s", len(m.paths), pl(len(m.paths), "path", "paths")), "safe", cardWidth),
-		renderStatCard("families", fmt.Sprintf("%d active", len(m.activeFamilies)), "review", cardWidth),
-		renderStatCard("scopes", fmt.Sprintf("%d %s", len(m.commandScopes), pl(len(m.commandScopes), "command", "commands")), "review", cardWidth),
-		renderStatCard("mode", mode, tone, cardWidth),
+		renderRouteStatCard("protect", "guard", fmt.Sprintf("%d %s", len(m.paths), pl(len(m.paths), "path", "paths")), "safe", cardWidth),
+		renderRouteStatCard("protect", "families", fmt.Sprintf("%d active", len(m.activeFamilies)), "review", cardWidth),
+		renderRouteStatCard("protect", "scopes", fmt.Sprintf("%d %s", len(m.commandScopes), pl(len(m.commandScopes), "command", "commands")), "review", cardWidth),
+		renderRouteStatCard("protect", "gate", mode, tone, cardWidth),
 	}
 }
 
@@ -328,11 +329,11 @@ func protectScopeMatrixLines(scopes []domain.ProtectionScope, width int) []strin
 
 func protectDecisionPathLines(explanation domain.ProtectionExplanation, width int) []string {
 	lines := []string{
-		wrapText(mutedStyle.Render("Path normalized -> command scopes -> user paths -> system roots -> protected families -> safe exceptions"), width),
+		wrapText(mutedStyle.Render("Guard normalized -> command scopes -> user paths -> system roots -> protected families -> safe exceptions"), width),
 	}
 	if explanation.Command != "" {
 		lines = append(lines, wrapText(mutedStyle.Render("Command  "+explanation.Command), width))
 	}
-	lines = append(lines, wrapText(mutedStyle.Render("State    "+strings.ReplaceAll(string(explanation.State), "_", " ")), width))
+	lines = append(lines, wrapText(mutedStyle.Render("Gate     "+strings.ReplaceAll(string(explanation.State), "_", " ")), width))
 	return lines
 }

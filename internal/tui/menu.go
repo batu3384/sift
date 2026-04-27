@@ -39,6 +39,7 @@ func (m menuModel) View() string {
 		rightWidth = 30
 	}
 	panelLines := bodyLineBudget(height, 14, 7)
+	leftTitle, rightTitle := menuPanelTitles(m)
 	leftBody := []string{}
 	if m.hint != "" {
 		leftBody = append(leftBody, mutedStyle.Render(m.hint), "")
@@ -47,19 +48,19 @@ func (m menuModel) View() string {
 	var body string
 	if compact {
 		body = strings.Join([]string{
-			renderPanel("MENU", fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "choice", "choices")), strings.Join(leftBody, "\n"), width-4, true),
-			renderPanel("DETAIL", menuDetailSubtitle(m.actions, m.cursor), menuDetailView(m, width-8, max(panelLines/2, 5)), width-4, false),
+			renderPanel(leftTitle, fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "choice", "choices")), strings.Join(leftBody, "\n"), width-4, true),
+			renderPanel(rightTitle, menuDetailSubtitle(m.actions, m.cursor), menuDetailView(m, width-8, max(panelLines/2, 5)), width-4, false),
 		}, "\n")
 	} else {
 		body = joinPanels(
-			renderPanel("MENU", fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "choice", "choices")), strings.Join(leftBody, "\n"), leftWidth, true),
-			renderPanel("DETAIL", menuDetailSubtitle(m.actions, m.cursor), menuDetailView(m, rightWidth-4, panelLines), rightWidth, false),
+			renderPanel(leftTitle, fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "choice", "choices")), strings.Join(leftBody, "\n"), leftWidth, true),
+			renderPanel(rightTitle, menuDetailSubtitle(m.actions, m.cursor), menuDetailView(m, rightWidth-4, panelLines), rightWidth, false),
 			width-4,
 		)
 	}
 	stats := menuStats(m.actions, m.cursor, width)
 	return renderChrome(
-		"SIFT / "+m.title,
+		menuChromeTitle(m),
 		m.subtitle,
 		stats,
 		body,
@@ -68,6 +69,20 @@ func (m menuModel) View() string {
 		false,
 		m.height,
 	)
+}
+
+func menuChromeTitle(m menuModel) string {
+	if strings.EqualFold(strings.TrimSpace(m.title), "More Tools") {
+		return "SIFT / Tool Deck"
+	}
+	return "SIFT / " + m.title
+}
+
+func menuPanelTitles(m menuModel) (string, string) {
+	if strings.EqualFold(strings.TrimSpace(m.title), "More Tools") {
+		return "UTILITY RAIL", "TOOL DECK"
+	}
+	return "MENU", "DETAIL"
 }
 
 func menuDetailSubtitle(actions []homeAction, cursor int) string {
@@ -180,9 +195,9 @@ func menuPreviewSummaryLines(action homeAction, preview menuPreviewState) []stri
 	case preview.loaded:
 		lines := []string{
 			mutedStyle.Render(func() string {
-			mods := planModuleCount(preview.plan)
-			return fmt.Sprintf("Plan    %d ready  •  %d %s  •  %s", actionableCount(preview.plan), mods, pl(mods, "module", "modules"), domain.HumanBytes(planDisplayBytes(preview.plan)))
-		}()),
+				mods := planModuleCount(preview.plan)
+				return fmt.Sprintf("Plan    %d ready  •  %d %s  •  %s", actionableCount(preview.plan), mods, pl(mods, "module", "modules"), domain.HumanBytes(planDisplayBytes(preview.plan)))
+			}()),
 		}
 		mix := []string{}
 		if preview.plan.Totals.SafeBytes > 0 {
@@ -268,12 +283,20 @@ func menuStats(actions []homeAction, cursor int, width int) []string {
 		selected = actions[cursor].Title
 		tone = actions[cursor].Tone
 	}
+	optionsLabel := "options"
+	selectedLabel := "selected"
+	modulesLabel := "modules"
+	if len(actions) > 0 && actions[0].ID == "check" {
+		optionsLabel = "utilities"
+		selectedLabel = "focus"
+		modulesLabel = "lanes"
+	}
 	stats := []string{
-		renderStatCard("options", fmt.Sprintf("%d enabled", enabled), "safe", cardWidth),
-		renderStatCard("selected", selected, tone, cardWidth+6),
+		renderRouteStatCard("tools", optionsLabel, fmt.Sprintf("%d enabled", enabled), "safe", cardWidth),
+		renderRouteStatCard("tools", selectedLabel, selected, tone, cardWidth+6),
 	}
 	if cursor >= 0 && cursor < len(actions) && len(actions[cursor].Modules) > 0 {
-		stats = append(stats, renderStatCard("modules", fmt.Sprintf("%d covered", len(actions[cursor].Modules)), tone, cardWidth))
+		stats = append(stats, renderRouteStatCard("tools", modulesLabel, fmt.Sprintf("%d covered", len(actions[cursor].Modules)), tone, cardWidth))
 	}
 	return stats
 }

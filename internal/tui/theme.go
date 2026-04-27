@@ -6,6 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/batu3384/sift/internal/tui/design"
 )
 
 const (
@@ -13,39 +15,107 @@ const (
 	defaultViewHeight = 34
 )
 
+// Theme styles - now using design package colors
 var (
-	titleStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
-	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#50FA7B"))
-	panelTitleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#8BE9FD"))
-	panelMetaStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
-	safeStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B"))
-	reviewStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFB86C"))
-	highStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555"))
-	mutedStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
-	footerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#8BE9FD"))
-	footerBarStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#A8C6C0")).Background(lipgloss.Color("#282A36")).BorderTop(true).BorderForeground(lipgloss.Color("#44475A")).Padding(0, 1)
-	infoBarStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#F8F8F2")).Background(lipgloss.Color("#44475A")).Padding(0, 1)
-	errorBarStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Background(lipgloss.Color("#2D1F1F")).Padding(0, 1)
-	selectedLine     = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#50FA7B")).Bold(true)
+	// Text styles using design tokens
+	titleStyle       = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextPrimary)
+	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(design.ColorAccentSecondary)
+	panelTitleStyle  = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextSecondary)
+	panelMetaStyle   = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+
+	// Semantic tone styles using design tokens
+	safeStyle        = lipgloss.NewStyle().Foreground(design.ColorSuccess)
+	reviewStyle      = lipgloss.NewStyle().Foreground(design.ColorWarning)
+	highStyle        = lipgloss.NewStyle().Foreground(design.ColorDanger)
+	mutedStyle       = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+	footerStyle      = lipgloss.NewStyle().Foreground(design.ColorTextSecondary)
+
+	// Bar styles using design tokens
+	footerBarStyle   = lipgloss.NewStyle().
+				Foreground(design.ColorTextSecondary).
+				Background(design.ColorBackground).
+				BorderTop(true).
+				BorderForeground(design.ColorBorderMuted).
+				Padding(0, 1)
+	infoBarStyle     = lipgloss.NewStyle().
+				Foreground(design.ColorTextPrimary).
+				Background(design.ColorSurface).
+				Padding(0, 1)
+	errorBarStyle    = lipgloss.NewStyle().
+				Foreground(design.ColorDanger).
+				Background(lipgloss.Color("#241614")).
+				Padding(0, 1)
+
+	// Selection style
+	selectedLine     = lipgloss.NewStyle().
+				Foreground(design.ColorBackground).
+				Background(design.ColorSelectionBg).
+				Bold(true)
+
+	// Layout styles
 	appStyle         = lipgloss.NewStyle().Padding(0, 1)
-	topBarStyle      = lipgloss.NewStyle().BorderBottom(true).BorderForeground(lipgloss.Color("#44475A")).PaddingBottom(0)
-	panelStyle       = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#2F6860")).Background(lipgloss.Color("#1A1A2E")).Padding(0, 1)
-	activePanelStyle = panelStyle.BorderForeground(lipgloss.Color("#50FA7B")).Background(lipgloss.Color("#21222C"))
-	cardStyle        = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#44475A")).Background(lipgloss.Color("#21222C")).Padding(0, 1)
+	topBarStyle      = lipgloss.NewStyle().
+				BorderBottom(true).
+				BorderForeground(design.ColorBorderMuted).
+				PaddingBottom(0)
+
+	// Panel styles using design tokens
+	panelStyle       = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(design.ColorBorderDefault).
+				Background(design.ColorSurface).
+				Padding(0, 1)
+	activePanelStyle = panelStyle.
+				BorderForeground(design.ColorBorderAccent).
+				Background(design.ColorOverlay)
+	cardStyle        = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(design.ColorBorderMuted).
+				Background(design.ColorSurface).
+				Padding(0, 1)
 	compactCardStyle = lipgloss.NewStyle().Padding(0, 1)
-	keyStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#50FA7B")).Bold(true).Padding(0, 1)
-	keyTextStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
-	wordmarkStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F8F8F2"))
-	railStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#BD93F9")).Bold(true)
-	brandBoxStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#6272A4")).Padding(0, 1)
-	safeBadgeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#50FA7B")).Bold(true).Padding(0, 1)
-	reviewBadgeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#FFB86C")).Bold(true).Padding(0, 1)
-	highBadgeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#282A36")).Background(lipgloss.Color("#FF5555")).Bold(true).Padding(0, 1)
-	safeTokenStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B")).Bold(true)
-	reviewTokenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFB86C")).Bold(true)
-	highTokenStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Bold(true)
-	cardLabelStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
-	accentFrameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#BD93F9"))
+
+	// Key binding styles using design tokens
+	keyStyle         = lipgloss.NewStyle().
+				Foreground(design.ColorBackground).
+				Background(design.ColorAccentSecondary).
+				Bold(true).
+				Padding(0, 1)
+	keyTextStyle     = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+
+	// Brand styles
+	wordmarkStyle    = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextPrimary)
+	railStyle        = lipgloss.NewStyle().Foreground(design.ColorTextSecondary).Bold(true)
+	brandBoxStyle    = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(design.ColorBorderDefault).
+				Padding(0, 1)
+
+	// Badge styles using design tokens
+	safeBadgeStyle   = lipgloss.NewStyle().
+				Foreground(design.ColorSurface).
+				Background(design.ColorSuccess).
+				Bold(true).
+				Padding(0, 1)
+	reviewBadgeStyle = lipgloss.NewStyle().
+				Foreground(design.ColorSurface).
+				Background(design.ColorWarning).
+				Bold(true).
+				Padding(0, 1)
+	highBadgeStyle   = lipgloss.NewStyle().
+				Foreground(design.ColorSurface).
+				Background(design.ColorDanger).
+				Bold(true).
+				Padding(0, 1)
+
+	// Token styles (bold tone indicators)
+	safeTokenStyle   = lipgloss.NewStyle().Foreground(design.ColorSuccess).Bold(true)
+	reviewTokenStyle = lipgloss.NewStyle().Foreground(design.ColorWarning).Bold(true)
+	highTokenStyle   = lipgloss.NewStyle().Foreground(design.ColorDanger).Bold(true)
+
+	// Label and accent styles
+	cardLabelStyle   = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+	accentFrameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#54717B"))
 )
 
 func newProgram(model tea.Model) *tea.Program {
@@ -142,28 +212,28 @@ func renderWordmark(width, height int) string {
 	}
 	if width < 124 || height < 28 {
 		return strings.Join([]string{
-			"██████  ██ ███████ ████████",
-			"██      ██ ██         ██   ",
-			"██████  ██ █████      ██   ",
-			"     ██ ██ ██         ██   ",
-			"██████  ██ ██         ██   ",
+			"######  ## ####### #######",
+			"##      ## ##         ##   ",
+			"######  ## #####     ##   ",
+			"     ## ## ##         ##   ",
+			"######  ## ##         ##   ",
 		}, "\n")
 	}
 	return strings.Join([]string{
-		"███████ ██ ███████ ████████",
-		"██      ██ ██         ██   ",
-		"███████ ██ █████      ██   ",
-		"     ██ ██ ██         ██   ",
-		"███████ ██ ██         ██   ",
+		"####### ## ####### #######",
+		"##      ## ##         ##   ",
+		"####### ## #####     ##   ",
+		"     ## ## ##         ##   ",
+		"####### ## ##         ##   ",
 	}, "\n")
 }
 
 func renderMonogram(large bool) string {
 	if large {
 		return strings.Join([]string{
-			"╭────╮",
-			"│  S │",
-			"╰────╯",
+			"+----+",
+			"|  S |",
+			"+----+",
 		}, "\n")
 	}
 	return "S"
@@ -188,15 +258,25 @@ func renderPanel(title, subtitle, body string, width int, active bool) string {
 	if subtitle != "" {
 		header += "  " + panelMetaStyle.Render(singleLine(subtitle, max(width-18, 10)))
 	}
-	rule := accentFrameStyle.Foreground(borderColor).Render(strings.Repeat("─", max(width-6, 8)))
+	rule := renderPanelRule(borderColor, width)
 	return style.Width(width).Render(header + "\n" + rule + "\n" + body)
 }
 
+func renderPanelRule(borderColor lipgloss.Color, width int) string {
+	ruleWidth := max(width-10, 8)
+	core := strings.Repeat("─", ruleWidth)
+	return accentFrameStyle.Foreground(borderColor).Render("╺" + core + "╸")
+}
+
 func renderStatCard(label, value, tone string, width int) string {
+	return renderRouteStatCard("", label, value, tone, width)
+}
+
+func renderRouteStatCard(route, label, value, tone string, width int) string {
 	style := cardStyle.Width(width)
 	valueStyle := headerStyle
 	labelStyle := cardLabelStyle
-	borderColor, labelColor, valueColor, backgroundColor := cardTonePalette(label, tone)
+	borderColor, labelColor, valueColor, backgroundColor := routeCardTonePalette(route, label, tone)
 	style = style.BorderForeground(borderColor).Background(backgroundColor)
 	labelStyle = labelStyle.Foreground(labelColor)
 	valueStyle = valueStyle.Foreground(valueColor).Bold(true)
@@ -205,7 +285,55 @@ func renderStatCard(label, value, tone string, width int) string {
 		compact = compact.Foreground(valueColor).Background(backgroundColor)
 		return compact.Render(labelStyle.Render(strings.ToUpper(label)) + "  " + valueStyle.Render(value))
 	}
-	return style.Render(labelStyle.Render(strings.ToUpper(label)) + "\n" + valueStyle.Render(value))
+	labelLine := renderRouteStatLabelLine(route, borderColor, labelStyle, label)
+	valueLine := renderRouteStatValueLine(borderColor, valueStyle, value)
+	return style.Render(labelLine + "\n" + valueLine)
+}
+
+func renderRouteStatLabelLine(route string, borderColor lipgloss.Color, labelStyle lipgloss.Style, label string) string {
+	accent := accentFrameStyle.Foreground(borderColor).Render("╺━")
+	token := routeCardLabelToken(route)
+	if token != "" {
+		tokenStyle := labelStyle.Bold(true)
+		return accent + " " + tokenStyle.Render(token) + " " + labelStyle.Render(strings.ToUpper(label))
+	}
+	return accent + " " + labelStyle.Render(strings.ToUpper(label))
+}
+
+func renderRouteStatValueLine(borderColor lipgloss.Color, valueStyle lipgloss.Style, value string) string {
+	accent := accentFrameStyle.Foreground(borderColor).Render("╰─")
+	return accent + " " + valueStyle.Render(value)
+}
+
+func routeCardLabelToken(route string) string {
+	switch normalizeCardRoute(route) {
+	case "home":
+		return "SCOUT"
+	case "status":
+		return "OBS"
+	case "clean":
+		return "FORGE"
+	case "uninstall":
+		return "COURIER"
+	case "analyze":
+		return "ORACLE"
+	case "progress":
+		return "ACTION"
+	case "result":
+		return "SETTLED"
+	case "review":
+		return "GATE"
+	case "preflight":
+		return "ACCESS"
+	case "tools":
+		return "UTILITY"
+	case "doctor":
+		return "DIAG"
+	case "protect":
+		return "GUARD"
+	default:
+		return ""
+	}
 }
 
 func renderKeyBar(items ...string) string {
@@ -475,34 +603,139 @@ func compactHomeSubtitle(subtitle string, width int) string {
 
 func panelTheme(panelName string, active bool) (borderColor lipgloss.Color, backgroundColor lipgloss.Color, titleStyle lipgloss.Style, marker lipgloss.Style) {
 	upper := strings.ToUpper(strings.TrimSpace(panelName))
-	borderColor = lipgloss.Color("#2F6860")
-	backgroundColor = lipgloss.Color("#1A1A2E")
+	borderColor = lipgloss.Color("#39505A")
+	backgroundColor = lipgloss.Color("#11181C")
 	titleStyle = panelTitleStyle
-	marker = mutedStyle.Foreground(lipgloss.Color("#5FAEA2"))
+	marker = mutedStyle.Foreground(lipgloss.Color("#91A4AD"))
 	if active {
-		borderColor = lipgloss.Color("#7BE2D2")
-		backgroundColor = lipgloss.Color("#21222C")
-		marker = railStyle.Foreground(lipgloss.Color("#50FA7B"))
+		borderColor = lipgloss.Color("#6C909D")
+		backgroundColor = lipgloss.Color("#152027")
+		marker = railStyle.Foreground(design.ColorWarning)
 	}
 	switch upper {
 	case "SPOTLIGHT", "OVERVIEW":
-		borderColor = lipgloss.Color("#3C8D84")
-		backgroundColor = lipgloss.Color("#0C1918")
-		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#D8FFF7"))
-		marker = railStyle.Foreground(lipgloss.Color("#BD93F9"))
+		borderColor = lipgloss.Color("#44616C")
+		backgroundColor = lipgloss.Color("#111A1E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#D9E7EB"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
+	case "COMMAND DECK":
+		borderColor = lipgloss.Color("#6A7553")
+		backgroundColor = lipgloss.Color("#141812")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E5E0C8"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "ROUTE RAIL":
+		borderColor = lipgloss.Color("#4A6A74")
+		backgroundColor = lipgloss.Color("#10191D")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DCE8EC"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
+	case "ROUTE DECK":
+		borderColor = lipgloss.Color("#596D61")
+		backgroundColor = lipgloss.Color("#121816")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DFE8E1"))
+		marker = safeStyle.Foreground(design.ColorSuccess)
+	case "OBSERVATORY":
+		borderColor = lipgloss.Color("#4A6972")
+		backgroundColor = lipgloss.Color("#10191D")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DAE7EB"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
+	case "LIVE RAIL":
+		borderColor = lipgloss.Color("#6B745C")
+		backgroundColor = lipgloss.Color("#131813")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E0E5D2"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "STORAGE RAIL":
+		borderColor = lipgloss.Color("#566E60")
+		backgroundColor = lipgloss.Color("#121814")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE8DE"))
+		marker = safeStyle.Foreground(design.ColorSuccess)
+	case "POWER RAIL":
+		borderColor = lipgloss.Color("#7A6646")
+		backgroundColor = lipgloss.Color("#18140F")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F0DFC2"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "SESSION RAIL":
+		borderColor = lipgloss.Color("#765F54")
+		backgroundColor = lipgloss.Color("#171312")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E5D4CF"))
+		marker = highStyle.Foreground(design.ColorDanger)
+	case "UTILITY RAIL":
+		borderColor = lipgloss.Color("#566C61")
+		backgroundColor = lipgloss.Color("#111814")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#D9E4DC"))
+		marker = safeStyle.Foreground(design.ColorSuccess)
+	case "PROGRESS RAIL":
+		borderColor = lipgloss.Color("#7B6742")
+		backgroundColor = lipgloss.Color("#17130E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F0DEC0"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "REVIEW RAIL":
+		borderColor = lipgloss.Color("#7A6541")
+		backgroundColor = lipgloss.Color("#17130E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#EFDDBD"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "SETTLED RAIL":
+		borderColor = lipgloss.Color("#58705F")
+		backgroundColor = lipgloss.Color("#111712")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE7DF"))
+		marker = safeStyle.Foreground(design.ColorSuccess)
+	case "TOOL DECK", "DIAGNOSIS DECK", "POLICY DECK":
+		borderColor = lipgloss.Color("#45606A")
+		backgroundColor = lipgloss.Color("#121B20")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE9ED"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
+	case "FOCUS DECK", "ACTION DECK", "OUTCOME DECK":
+		borderColor = lipgloss.Color("#45606A")
+		backgroundColor = lipgloss.Color("#121B20")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE9ED"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
+	case "RUN GATE":
+		borderColor = lipgloss.Color("#745B3C")
+		backgroundColor = lipgloss.Color("#18120D")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F1DFC5"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "SETTLED GATE":
+		borderColor = lipgloss.Color("#58705F")
+		backgroundColor = lipgloss.Color("#111712")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE7DF"))
+		marker = safeStyle.Foreground(design.ColorSuccess)
+	case "CHECK RAIL":
+		borderColor = lipgloss.Color("#7B6742")
+		backgroundColor = lipgloss.Color("#17130E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F0DEC0"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "GUARD RAIL":
+		borderColor = lipgloss.Color("#7A6541")
+		backgroundColor = lipgloss.Color("#17130E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#EFDDBD"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "CONTROL DECK":
+		borderColor = lipgloss.Color("#4F6470")
+		backgroundColor = lipgloss.Color("#12191E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E0EAEC"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
+	case "SWEEP LANES":
+		borderColor = lipgloss.Color("#8A6C44")
+		backgroundColor = lipgloss.Color("#18130D")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F1D3AE"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
+	case "SWEEP DECK":
+		borderColor = lipgloss.Color("#466069")
+		backgroundColor = lipgloss.Color("#121B20")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE9ED"))
+		marker = railStyle.Foreground(design.ColorAccentPrimary)
 	case "DETAIL", "INSPECT", "FOLLOW-UP":
-		borderColor = lipgloss.Color("#4D7C75")
-		backgroundColor = lipgloss.Color("#21222C")
-		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E8F7F3"))
+		borderColor = lipgloss.Color("#45606A")
+		backgroundColor = lipgloss.Color("#121B20")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#DDE9ED"))
 	case "QUEUE", "OPERATIONS":
-		borderColor = lipgloss.Color("#8A7B3E")
-		backgroundColor = lipgloss.Color("#17150D")
-		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F7E6B1"))
-		marker = reviewStyle.Foreground(lipgloss.Color("#FFB86C"))
+		borderColor = lipgloss.Color("#7B6742")
+		backgroundColor = lipgloss.Color("#17130E")
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#F0DEC0"))
+		marker = reviewStyle.Foreground(design.ColorWarning)
 	case "RESCAN", "COMPLETE":
-		borderColor = lipgloss.Color("#6D6351")
+		borderColor = lipgloss.Color("#6C6454")
 		backgroundColor = lipgloss.Color("#151411")
-		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E8DCC2"))
+		titleStyle = panelTitleStyle.Foreground(lipgloss.Color("#E6DAC5"))
 	}
 	if active {
 		backgroundColor = brightenTone(backgroundColor)
@@ -511,47 +744,183 @@ func panelTheme(panelName string, active bool) (borderColor lipgloss.Color, back
 }
 
 func cardTonePalette(label string, tone string) (borderColor lipgloss.Color, labelColor lipgloss.Color, valueColor lipgloss.Color, backgroundColor lipgloss.Color) {
-	borderColor = lipgloss.Color("#44475A")
-	labelColor = lipgloss.Color("#6272A4")
-	valueColor = lipgloss.Color("#50FA7B")
-	backgroundColor = lipgloss.Color("#21222C")
+	borderColor = lipgloss.Color("#485A63")
+	labelColor = lipgloss.Color("#8EA2AC")
+	valueColor = lipgloss.Color("#A7C5CF")
+	backgroundColor = lipgloss.Color("#141C22")
 	switch tone {
 	case "safe":
-		borderColor = lipgloss.Color("#2E6B4C")
-		labelColor = lipgloss.Color("#98C9A9")
-		valueColor = lipgloss.Color("#50FA7B")
-		backgroundColor = lipgloss.Color("#102019")
+		borderColor = lipgloss.Color("#50685A")
+		labelColor = lipgloss.Color("#A7C0B1")
+		valueColor = design.ColorSuccess
+		backgroundColor = lipgloss.Color("#121A16")
 	case "review":
-		borderColor = lipgloss.Color("#7C6831")
-		labelColor = lipgloss.Color("#CBB782")
-		valueColor = lipgloss.Color("#FFB86C")
-		backgroundColor = lipgloss.Color("#221B11")
+		borderColor = lipgloss.Color("#7A6847")
+		labelColor = lipgloss.Color("#C9B48A")
+		valueColor = design.ColorWarning
+		backgroundColor = lipgloss.Color("#1C1711")
 	case "high":
-		borderColor = lipgloss.Color("#844A3D")
-		labelColor = lipgloss.Color("#D9A394")
-		valueColor = lipgloss.Color("#FF5555")
-		backgroundColor = lipgloss.Color("#271611")
+		borderColor = lipgloss.Color("#865649")
+		labelColor = lipgloss.Color("#D5A28F")
+		valueColor = design.ColorDanger
+		backgroundColor = lipgloss.Color("#211613")
 	}
 	switch strings.ToUpper(strings.TrimSpace(label)) {
 	case "UPDATE", "ALERTS", "OPERATOR":
-		borderColor = lipgloss.Color("#4E8D84")
+		borderColor = lipgloss.Color("#55707B")
 		if tone == "review" {
-			borderColor = lipgloss.Color("#9F8444")
+			borderColor = lipgloss.Color("#8A734E")
+		}
+		if tone == "high" {
+			borderColor = lipgloss.Color("#8D5F53")
 		}
 	case "HEALTH", "STATE", "SESSION":
-		labelColor = lipgloss.Color("#B4DDD5")
+		labelColor = lipgloss.Color("#B7C9CF")
 	}
 	return borderColor, labelColor, valueColor, backgroundColor
 }
 
+func routeCardTonePalette(route, label, tone string) (borderColor lipgloss.Color, labelColor lipgloss.Color, valueColor lipgloss.Color, backgroundColor lipgloss.Color) {
+	borderColor, labelColor, valueColor, backgroundColor = cardTonePalette(label, tone)
+	switch normalizeCardRoute(route) {
+	case "clean":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#4E6B5D"), lipgloss.Color("#B8D0C1"), lipgloss.Color("#9FD7AF"), lipgloss.Color("#111915"),
+			lipgloss.Color("#8A7048"), lipgloss.Color("#E1C796"), lipgloss.Color("#E6B36F"), lipgloss.Color("#1D1710"),
+			lipgloss.Color("#8A5A4C"), lipgloss.Color("#E0AE9B"), lipgloss.Color("#E08A74"), lipgloss.Color("#251713"),
+		)
+	case "uninstall":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#54695E"), lipgloss.Color("#C0D1C9"), lipgloss.Color("#9CC6AD"), lipgloss.Color("#121817"),
+			lipgloss.Color("#876445"), lipgloss.Color("#E2C099"), lipgloss.Color("#E2A66B"), lipgloss.Color("#1E1510"),
+			lipgloss.Color("#93584D"), lipgloss.Color("#E2AB98"), lipgloss.Color("#E07667"), lipgloss.Color("#251612"),
+		)
+	case "analyze":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#4B6E74"), lipgloss.Color("#B9D5DA"), lipgloss.Color("#90D0DB"), lipgloss.Color("#10191C"),
+			lipgloss.Color("#6F7864"), lipgloss.Color("#D7D1B8"), lipgloss.Color("#D7B57C"), lipgloss.Color("#141612"),
+			lipgloss.Color("#7C5B56"), lipgloss.Color("#D8B1A5"), lipgloss.Color("#DB8B7D"), lipgloss.Color("#211513"),
+		)
+	case "home", "status":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#4C7075"), lipgloss.Color("#B7D5DA"), lipgloss.Color("#A7C5CF"), lipgloss.Color("#10191C"),
+			lipgloss.Color("#5E6F78"), lipgloss.Color("#CBD6DD"), lipgloss.Color("#D4B27C"), lipgloss.Color("#12181D"),
+			lipgloss.Color("#7A5D55"), lipgloss.Color("#D7B6AC"), lipgloss.Color("#D79283"), lipgloss.Color("#1B1513"),
+		)
+	case "progress":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#546C5E"), lipgloss.Color("#C0D1C2"), lipgloss.Color("#9FD1AD"), lipgloss.Color("#121816"),
+			lipgloss.Color("#816C48"), lipgloss.Color("#DBC69B"), lipgloss.Color("#E1AF72"), lipgloss.Color("#19150F"),
+			lipgloss.Color("#895E4E"), lipgloss.Color("#DAB09E"), lipgloss.Color("#DE846D"), lipgloss.Color("#221713"),
+		)
+	case "result":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#5C725F"), lipgloss.Color("#C7D5C7"), lipgloss.Color("#A7D1A2"), lipgloss.Color("#121712"),
+			lipgloss.Color("#6E7159"), lipgloss.Color("#D5D4B7"), lipgloss.Color("#CFCB9B"), lipgloss.Color("#151610"),
+			lipgloss.Color("#855E51"), lipgloss.Color("#DBB3A7"), lipgloss.Color("#DD8C79"), lipgloss.Color("#1F1513"),
+		)
+	case "review":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#57706A"), lipgloss.Color("#C0D7CF"), lipgloss.Color("#97CEBF"), lipgloss.Color("#101816"),
+			lipgloss.Color("#806A43"), lipgloss.Color("#E0CB9B"), lipgloss.Color("#E3B779"), lipgloss.Color("#19150E"),
+			lipgloss.Color("#8C5C50"), lipgloss.Color("#DEB0A3"), lipgloss.Color("#DE8776"), lipgloss.Color("#221612"),
+		)
+	case "preflight":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#567066"), lipgloss.Color("#C0D6CC"), lipgloss.Color("#95CDBA"), lipgloss.Color("#101715"),
+			lipgloss.Color("#826A46"), lipgloss.Color("#E0C8A0"), lipgloss.Color("#E2B57C"), lipgloss.Color("#1A150E"),
+			lipgloss.Color("#8E604E"), lipgloss.Color("#DFB39E"), lipgloss.Color("#E28A73"), lipgloss.Color("#211611"),
+		)
+	case "tools", "doctor", "protect":
+		return routePaletteForTone(tone,
+			lipgloss.Color("#557168"), lipgloss.Color("#BCD7CE"), lipgloss.Color("#97CFBF"), lipgloss.Color("#101817"),
+			lipgloss.Color("#766C52"), lipgloss.Color("#D6CEB0"), lipgloss.Color("#D9BF88"), lipgloss.Color("#161610"),
+			lipgloss.Color("#7A6159"), lipgloss.Color("#D8BAB0"), lipgloss.Color("#D58E84"), lipgloss.Color("#1B1514"),
+		)
+	default:
+		return borderColor, labelColor, valueColor, backgroundColor
+	}
+}
+
+func normalizeCardRoute(route string) string {
+	switch strings.ToLower(strings.TrimSpace(route)) {
+	case "home", "command deck":
+		return "home"
+	case "status", "observatory":
+		return "status"
+	case "clean", "sweep":
+		return "clean"
+	case "uninstall", "removal":
+		return "uninstall"
+	case "analyze", "inspect":
+		return "analyze"
+	case "progress":
+		return "progress"
+	case "result", "settled":
+		return "result"
+	case "review":
+		return "review"
+	case "preflight", "access":
+		return "preflight"
+	case "tools", "menu":
+		return "tools"
+	case "doctor", "diagnosis":
+		return "doctor"
+	case "protect", "guard":
+		return "protect"
+	default:
+		return strings.ToLower(strings.TrimSpace(route))
+	}
+}
+
+func routePaletteForTone(
+	tone string,
+	safeBorder, safeLabel, safeValue, safeBackground lipgloss.Color,
+	reviewBorder, reviewLabel, reviewValue, reviewBackground lipgloss.Color,
+	highBorder, highLabel, highValue, highBackground lipgloss.Color,
+) (borderColor lipgloss.Color, labelColor lipgloss.Color, valueColor lipgloss.Color, backgroundColor lipgloss.Color) {
+	switch tone {
+	case "safe":
+		return safeBorder, safeLabel, safeValue, safeBackground
+	case "high":
+		return highBorder, highLabel, highValue, highBackground
+	default:
+		return reviewBorder, reviewLabel, reviewValue, reviewBackground
+	}
+}
+
 func brightenTone(color lipgloss.Color) lipgloss.Color {
 	switch string(color) {
-	case "#0C1918":
-		return lipgloss.Color("#10201F")
-	case "#21222C":
-		return lipgloss.Color("#0E1B1A")
-	case "#17150D":
-		return lipgloss.Color("#1C1910")
+	case "#11181C":
+		return lipgloss.Color("#152027")
+	case "#111A1E":
+		return lipgloss.Color("#162229")
+	case "#111814":
+		return lipgloss.Color("#151E19")
+	case "#17130E":
+		return lipgloss.Color("#1C1711")
+	case "#111712":
+		return lipgloss.Color("#161C17")
+	case "#121B20":
+		return lipgloss.Color("#172229")
+	case "#18120D":
+		return lipgloss.Color("#1D1711")
+	case "#12191E":
+		return lipgloss.Color("#172128")
+	case "#121816":
+		return lipgloss.Color("#17201B")
+	case "#141712":
+		return lipgloss.Color("#191C16")
+	case "#10191C":
+		return lipgloss.Color("#152126")
+	case "#12181D":
+		return lipgloss.Color("#172026")
+	case "#101816":
+		return lipgloss.Color("#151F1B")
+	case "#1A150E":
+		return lipgloss.Color("#201912")
+	case "#101817":
+		return lipgloss.Color("#15201C")
 	case "#151411":
 		return lipgloss.Color("#1A1815")
 	default:

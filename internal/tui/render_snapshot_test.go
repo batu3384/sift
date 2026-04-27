@@ -41,6 +41,40 @@ func requireSnapshotPrefix(t *testing.T, rendered string, expected []string) {
 	}
 }
 
+func TestHomeMenuSnapshot(t *testing.T) {
+	t.Parallel()
+
+	actions := []homeAction{
+		{ID: "clean", Title: "Clean", Tone: "safe", Enabled: true},
+		{ID: "uninstall", Title: "Uninstall", Tone: "review", Enabled: true},
+		{ID: "analyze", Title: "Analyze", Tone: "review", Enabled: true},
+		{ID: "status", Title: "Status", Tone: "safe", Enabled: true},
+		{ID: "optimize", Title: "Optimize", Tone: "safe", Enabled: true},
+	}
+
+	rendered := homeMenuView(actions, 0, 50, 10)
+	lines := snapshotNormalizeLines(rendered)
+
+	// Verify cursor is on first item and shows color border
+	if len(lines) < 1 {
+		t.Fatalf("expected at least 1 menu line, got %d", len(lines))
+	}
+
+	// First line should be highlighted CLEAN with [SAFE] badge
+	firstLine := lines[0]
+	if !strings.Contains(firstLine, "CLEAN") || !strings.Contains(firstLine, "SAFE") {
+		t.Fatalf("first line should have CLEAN and SAFE badge, got: %q", firstLine)
+	}
+
+	// Other lines should show disabled marker
+	if len(lines) > 1 {
+		secondLine := lines[1]
+		if !strings.Contains(secondLine, "UNINSTALL") || !strings.Contains(secondLine, "REVIEW") {
+			t.Fatalf("second line should have UNINSTALL and REVIEW badge, got: %q", secondLine)
+		}
+	}
+}
+
 func TestHomeSpotlightSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -71,12 +105,12 @@ func TestHomeSpotlightSnapshot(t *testing.T) {
 	)
 
 	requireSnapshotPrefix(t, rendered, []string{
-		"Signal A1 alert • needs attention ╭─────╮",
-		"Focus Analyze • sift analyze REVIEW │ ◈ ◈ │",
-		"Alerts 1 doctor issue • V9.9.9 ready • thermal warm 61.5°C │ ∧ │",
-		"Activity 2 completed • 1 deleted • 1 protected • 1 scope • 1 purge root ╰──┬──╯",
-		"Live 87 (HEALTHY) • CPU 14.2% • Mem 61.4% • Free 1.0 GB │",
-		"Next run sift update • t opens check ▃▁▄▁▃",
+		"SCOUT RAIL • route launch discipline • Command A1 alert • needs attention +-----+",
+		"Status command deck ready • trace rail ready | X X |",
+		"Focus Analyze • sift analyze REVIEW | ^ |",
+		"Watch 1 doctor issue • V9.9.9 ready • thermal warm 61.5°C `--+--'",
+		"Carry 2 completed • 1 deleted • 1 protected • 1 scope • 1 purge root |",
+		"Next run sift update • t opens check ▃▁▅▁▄",
 	})
 }
 
@@ -116,12 +150,12 @@ func TestStatusOverviewSnapshot(t *testing.T) {
 	}, 180, 12)
 
 	requireSnapshotPrefix(t, rendered, []string{
-		"Signal A1 alert • companion ✦ upgrade watch (g mute) ╭─────╮",
-		"Now 87 / HEALTHY • Pressure steady • Battery 84% charging • 42W system • Thermal warm │ ◈ ◈ │",
-		"Risk 1 doctor issue • V9.9.9 ready • thermal warm 30.6°C • alert load • 30.6°C • 42W system │ ∧ │",
-		"Recent just now • 1 deleted • ANALYZE / SAFE • 0 B • just now ╰──┬──╯",
-		"Host macOS • ARM64 • 8p/10l cores • Interfaces en0, utun4 • 3 total │",
-		"Next apply update window • rerun doctor after upgrade ▄▂▅▂▄",
+		"PULSE RAIL • live observatory focus • Observatory A1 alert • companion * upgrade watch (g mute) +-----+",
+		"Status observatory live • upgrade watch active | X X |",
+		"Watch 1 doctor issue • V9.9.9 ready • thermal warm 30.6°C • alert load • 30.6°C • 42W system | ^ |",
+		"Session just now • 1 deleted • ANALYZE / SAFE • 0 B • just now `--+--'",
+		"Host macOS • ARM64 • 8p/10l cores • Interfaces en0, utun4 • 3 total |",
+		"Next apply update window • rerun doctor after upgrade ▄▂▆▂▅",
 	})
 }
 
@@ -183,12 +217,12 @@ func TestProgressDetailSnapshot(t *testing.T) {
 	}, 160, 10)
 
 	requireSnapshotPrefix(t, rendered, []string{
-		"◌ APPLYING MAINTENANCE [░░░░░░░░░░░░] 0/1 • 0 B / 1.0 KB • stage 1/1 ╭─────╮",
-		"Summary task 1/1 • 0/1 settled • 1 task • 1 phase │ ◉ ● │",
-		"Status running task • /tmp/optimize • no completed operations yet │ ○ │",
-		"Step maintenance • running task • /tmp/optimize ╰──┬──╯",
-		"Freed 0 B / 1.0 KB │",
-		"Done [····················] 0% ▁▂▃▂▁",
+		"Progress 0% • 0/1 settled • 0 B / 1.0 KB +-----+",
+		"Meter [····················] 0% | O o |",
+		"Phase TASK 1/1 • MAINTENANCE • queued | 0 |",
+		"Current running task • /tmp/optimize `--+--'",
+		"Next result review after this lane settles |",
+		"Status no completed operations yet ▁▂▃▂▁",
 	})
 }
 
@@ -221,11 +255,11 @@ func TestResultDetailSnapshot(t *testing.T) {
 	}, 160, 10)
 
 	requireSnapshotPrefix(t, rendered, []string{
-		"Summary 1 item • 1 module • 1 issue • 1 warning • 1 follow-up command • 1 failed",
+		"FORGE RAIL SETTLED RAIL item-first reclaim discipline",
+		"Result 0% changed • 0/1 changed • 0 B freed",
+		"Status 1 issue • 1 warning • 1 follow-up command • lane needs review",
 		"Scope Quick Clean • 1 module • 0 B",
-		"Focus 1 failed • r retries failed first",
-		"Outcome 0 sections settled • 0 reclaimed • 1 open",
-		"Track 0 sections • 0 reclaimed • 1 open",
+		"Rail 0 sections • 0 reclaimed • 1 open",
 		"Next r retries failed • x reopens recovery batch",
 		"────────────────────────────────────────────────",
 		"Selected",

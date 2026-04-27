@@ -47,8 +47,8 @@ func (m doctorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m doctorModel) View() string {
 	width, height := effectiveSize(m.width, m.height)
 	stats := []string{
-		renderStatCard("doctor", doctorSummary(m.diagnostics), doctorOverallTone(m.diagnostics), 28),
-		renderStatCard("checks", fmt.Sprintf("%d %s", len(m.diagnostics), pl(len(m.diagnostics), "item", "items")), "safe", 24),
+		renderRouteStatCard("doctor", "signal", doctorSummary(m.diagnostics), doctorOverallTone(m.diagnostics), 28),
+		renderRouteStatCard("doctor", "checks", fmt.Sprintf("%d %s", len(m.diagnostics), pl(len(m.diagnostics), "item", "items")), "safe", 24),
 	}
 	if width >= 120 {
 		stats = append(stats, doctorGroupStatCards(m.diagnostics, 22)...)
@@ -63,13 +63,13 @@ func (m doctorModel) View() string {
 	}
 	panelLines := bodyLineBudget(height, 14, 7)
 	body := joinPanels(
-		renderPanel("Checks", "Runtime, config, report, and audit diagnostics", doctorListView(m.diagnostics, m.cursor, leftWidth-4, panelLines), leftWidth, true),
-		renderPanel("Details", doctorDetailSubtitle(m.diagnostics, m.cursor), doctorDetailView(m.diagnostics, m.cursor, rightWidth-4, panelLines), rightWidth, false),
+		renderPanel("CHECK RAIL", "runtime, config, report, and audit diagnostics", doctorListView(m.diagnostics, m.cursor, leftWidth-4, panelLines), leftWidth, true),
+		renderPanel("DIAGNOSIS DECK", doctorDetailSubtitle(m.diagnostics, m.cursor), doctorDetailView(m.diagnostics, m.cursor, rightWidth-4, panelLines), rightWidth, false),
 		width-4,
 	)
 	return renderChrome(
-		"SIFT / Doctor",
-		"Inspect runtime health and operational safety paths.",
+		"SIFT / Doctor Deck",
+		"watch runtime posture and operational safety rails.",
 		stats,
 		body,
 		nil,
@@ -149,7 +149,7 @@ func doctorDetailSubtitle(diagnostics []platform.Diagnostic, cursor int) string 
 	if cursor < 0 || cursor >= len(diagnostics) {
 		return ""
 	}
-	return strings.ToUpper(diagnostics[cursor].Status)
+	return "watch " + strings.ToUpper(diagnostics[cursor].Status)
 }
 
 func doctorDetailView(diagnostics []platform.Diagnostic, cursor int, width int, maxLines int) string {
@@ -164,19 +164,19 @@ func doctorDetailView(diagnostics []platform.Diagnostic, cursor int, width int, 
 	case "error":
 		statusLine = highStyle.Render("ERROR")
 	}
-	guidance := "Everything looks healthy."
+	guidance := "Watch rail is clear."
 	switch diagnostic.Status {
 	case "warn":
-		guidance = "Review this item before running destructive cleanup."
+		guidance = "Review this rail before running destructive cleanup."
 	case "error":
-		guidance = "Fix this before relying on automated cleanup or reports."
+		guidance = "Fix this rail before relying on automated cleanup or reports."
 	}
 	lines := []string{
 		headerStyle.Render(diagnostic.Name),
 		"",
 		statusLine,
 		"",
-		mutedStyle.Render("Lane   " + doctorLaneLabel(diagnostic.Name)),
+		mutedStyle.Render("Rail   " + doctorLaneLabel(diagnostic.Name)),
 	}
 	lines = append(lines,
 		wrapText(diagnostic.Message, width),
@@ -184,7 +184,7 @@ func doctorDetailView(diagnostics []platform.Diagnostic, cursor int, width int, 
 		mutedStyle.Render(guidance),
 	)
 	if fix := doctorFixHint(diagnostic.Name, diagnostic.Status); fix != "" {
-		lines = append(lines, renderSectionRule(width), headerStyle.Render("Next"), mutedStyle.Render(fix))
+		lines = append(lines, renderSectionRule(width), headerStyle.Render("Response"), mutedStyle.Render(fix))
 	}
 	lines = viewportLines(lines, 0, maxLines)
 	return strings.Join(lines, "\n")
@@ -209,7 +209,7 @@ func doctorGroupStatCards(diagnostics []platform.Diagnostic, cardWidth int) []st
 		if counts[key] > 0 {
 			tone = "review"
 		}
-		cards = append(cards, renderStatCard(key, fmt.Sprintf("%d active", counts[key]), tone, cardWidth))
+		cards = append(cards, renderRouteStatCard("doctor", key, fmt.Sprintf("%d active", counts[key]), tone, cardWidth))
 	}
 	return cards
 }

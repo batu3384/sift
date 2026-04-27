@@ -23,6 +23,7 @@ func (m *appModel) applyDashboard(data DashboardData) {
 	m.home.cfg = m.cfg
 	m.home.actions = buildHomeActions(m.cfg)
 	m.clean.actions = buildCleanActions()
+	m.cleanFlow.actions = buildCleanActions()
 	m.tools.actions = buildToolsActions(m.cfg)
 	m.status.live = data.Report.Live
 	m.status.networkRxRate, m.status.networkTxRate = rxRate, txRate

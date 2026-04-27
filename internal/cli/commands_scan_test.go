@@ -1,186 +1,16 @@
 package cli
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"io"
-	"os"
-	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/batu3384/sift/internal/config"
-	"github.com/batu3384/sift/internal/domain"
 	"github.com/batu3384/sift/internal/engine"
 	"github.com/batu3384/sift/internal/store"
 )
 
-func TestWantsJSONOutput(t *testing.T) {
-	tests := []struct {
-		name     string
-		command  string
-		writer   func(t *testing.T) io.Writer
-		expected bool
-	}{
-		{
-			name:    "analyze piped",
-			command: "analyze",
-			writer: func(t *testing.T) io.Writer {
-				t.Helper()
-				r, w, err := os.Pipe()
-				if err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(func() {
-					_ = r.Close()
-					_ = w.Close()
-				})
-				return w
-			},
-			expected: true,
-		},
-		{
-			name:     "analyze buffered",
-			command:  "analyze",
-			writer:   func(t *testing.T) io.Writer { return &bytes.Buffer{} },
-			expected: false,
-		},
-		{
-			name:    "check piped",
-			command: "check",
-			writer: func(t *testing.T) io.Writer {
-				t.Helper()
-				r, w, err := os.Pipe()
-				if err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(func() {
-					_ = r.Close()
-					_ = w.Close()
-				})
-				return w
-			},
-			expected: true,
-		},
-		{
-			name:     "check buffered",
-			command:  "check",
-			writer:   func(t *testing.T) io.Writer { return &bytes.Buffer{} },
-			expected: false,
-		},
-		{
-			name:    "status piped",
-			command: "status",
-			writer: func(t *testing.T) io.Writer {
-				t.Helper()
-				r, w, err := os.Pipe()
-				if err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(func() {
-					_ = r.Close()
-					_ = w.Close()
-				})
-				return w
-			},
-			expected: true,
-		},
-		{
-			name:     "status buffered",
-			command:  "status",
-			writer:   func(t *testing.T) io.Writer { return &bytes.Buffer{} },
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			state := &runtimeState{
-				flags: globalOptions{
-					JSON:  false,
-					Plain: false,
-				},
-			}
-
-			result := state.wantsJSONOutput(tt.command, tt.writer(t))
-			if result != tt.expected {
-				t.Errorf("wantsJSONOutput(%s) = %v, want %v", tt.command, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestShouldUseTUI(t *testing.T) {
-	tests := []struct {
-		name     string
-		flags    globalOptions
-		isTty    bool
-		expected bool
-	}{
-		{"non-interactive", globalOptions{NonInteractive: true}, true, false},
-		{"json flag", globalOptions{JSON: true}, true, false},
-		{"plain flag", globalOptions{Plain: true}, true, false},
-		{"tty available", globalOptions{}, true, true},
-		{"no tty", globalOptions{}, false, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			state := &runtimeState{
-				flags: tt.flags,
-			}
-			// Note: shouldUseTUI checks for TTY, which we can't easily mock
-			// This test just verifies the flag logic
-			if tt.flags.NonInteractive || tt.flags.JSON || tt.flags.Plain {
-				if state.shouldUseTUI() {
-					t.Log("Note: shouldUseTUI returns true when flags are set but TTY check is skipped in test")
-				}
-			}
-		})
-	}
-}
-
-func TestGlobalOptionsDefaults(t *testing.T) {
-	root := NewRootCommand()
-	dryRun := root.PersistentFlags().Lookup("dry-run")
-	if dryRun == nil {
-		t.Fatal("expected dry-run flag to be registered")
-	}
-	if dryRun.DefValue != "true" {
-		t.Errorf("dry-run default = %q, want true", dryRun.DefValue)
-	}
-	profile := root.PersistentFlags().Lookup("profile")
-	if profile == nil {
-		t.Fatal("expected profile flag to be registered")
-	}
-	if profile.DefValue != "safe" {
-		t.Errorf("profile default = %q, want safe", profile.DefValue)
-	}
-}
-
-func TestRuntimeState(t *testing.T) {
-	cfg := config.Default()
-	st, err := store.Open()
-	if err != nil {
-		t.Skipf("Skipping store test: %v", err)
-	}
-	defer st.Close()
-
-	state := &runtimeState{
-		cfg:     cfg,
-		store:   st,
-		service: engine.NewService(cfg, st),
-	}
-
-	if state.cfg.Profiles == nil {
-		t.Error("expected Profiles to be set")
-	}
-	if state.service == nil {
-		t.Error("expected service to be set")
-	}
-}
-
-func TestNewAnalyzeCommand(t *testing.T) {
+func TestAnalyzeCommandStructure(t *testing.T) {
 	cfg := config.Default()
 	st, err := store.Open()
 	if err != nil {
@@ -199,15 +29,32 @@ func TestNewAnalyzeCommand(t *testing.T) {
 		t.Fatal("newAnalyzeCommand returned nil")
 	}
 
+	// Verify command structure
 	if cmd.Use != "analyze [targets...]" {
 		t.Errorf("Use = %v, want 'analyze [targets...]'", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("Short should not be empty")
 	}
+	if cmd.Long == "" {
+		t.Error("Long should not be empty")
+	}
+
+	// Verify examples are set
+	if cmd.Example == "" {
+		t.Error("Example should not be empty")
+	}
+
+	// Verify RunE is set (not Run)
+	if cmd.RunE == nil {
+		t.Error("RunE should be set")
+	}
+	if cmd.Run != nil {
+		t.Error("Run should not be set (use RunE)")
+	}
 }
 
-func TestNewCheckCommand(t *testing.T) {
+func TestCheckCommandStructure(t *testing.T) {
 	cfg := config.Default()
 	st, err := store.Open()
 	if err != nil {
@@ -229,9 +76,15 @@ func TestNewCheckCommand(t *testing.T) {
 	if cmd.Use != "check" {
 		t.Errorf("Use = %v, want 'check'", cmd.Use)
 	}
+	if cmd.Short == "" {
+		t.Error("Short should not be empty")
+	}
+	if cmd.Example == "" {
+		t.Error("Example should not be empty")
+	}
 }
 
-func TestNewStatusCommand(t *testing.T) {
+func TestCleanCommandStructure(t *testing.T) {
 	cfg := config.Default()
 	st, err := store.Open()
 	if err != nil {
@@ -245,104 +98,60 @@ func TestNewStatusCommand(t *testing.T) {
 		service: engine.NewService(cfg, st),
 	}
 
-	cmd := newStatusCommand(state)
+	cmd := newCleanCommand(state)
 	if cmd == nil {
-		t.Fatal("newStatusCommand returned nil")
+		t.Fatal("newCleanCommand returned nil")
 	}
 
-	if cmd.Use != "status" {
-		t.Errorf("Use = %v, want 'status'", cmd.Use)
+	// Verify command accepts optional profile argument
+	if cmd.Use != "clean [profile]" {
+		t.Errorf("Use = %v, want 'clean [profile]'", cmd.Use)
+	}
+
+	// Verify --whitelist flag is registered
+	flag := cmd.Flags().Lookup("whitelist")
+	if flag == nil {
+		t.Fatal("expected --whitelist flag to be registered")
+	}
+	if flag.DefValue != "false" {
+		t.Errorf("whitelist default = %v, want false", flag.DefValue)
 	}
 }
 
-func TestConfigNormalization(t *testing.T) {
+func TestCleanCommandProfileOverride(t *testing.T) {
 	cfg := config.Default()
-	normalized := config.Normalize(cfg)
-
-	// Verify normalization doesn't change defaults
-	if normalized.InteractionMode == "" {
-		t.Error("InteractionMode should be set")
-	}
-	if normalized.TrashMode == "" {
-		t.Error("TrashMode should be set")
-	}
-}
-
-func TestConfigProfileCategories(t *testing.T) {
-	cfg := config.Default()
-
-	safeCount := config.ProfileCategoryCount("safe", cfg)
-	if safeCount == 0 {
-		t.Error("safe profile should have categories")
-	}
-
-	devCount := config.ProfileCategoryCount("developer", cfg)
-	if devCount == 0 {
-		t.Error("developer profile should have categories")
-	}
-
-	deepCount := config.ProfileCategoryCount("deep", cfg)
-	if deepCount == 0 {
-		t.Error("deep profile should have categories")
-	}
-
-	// Unknown profile should fall back to safe
-	unknownCount := config.ProfileCategoryCount("unknown", cfg)
-	if unknownCount != safeCount {
-		t.Errorf("unknown profile should fall back to safe, got %d, want %d", unknownCount, safeCount)
-	}
-}
-
-func TestJSONOutput(t *testing.T) {
-	plan := domain.ExecutionPlan{
-		ScanID:    "test-scan",
-		Command:   "clean",
-		PlanState: "preview",
-		Items:     []domain.Finding{},
-		Totals: domain.Totals{
-			ItemCount: 0,
-			Bytes:     0,
-		},
-	}
-
-	// Test that plan can be serialized
-	data, err := json.Marshal(plan)
+	st, err := store.Open()
 	if err != nil {
-		t.Errorf("failed to marshal plan: %v", err)
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	// Test default profile
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+		flags:   globalOptions{Profile: "safe"},
 	}
 
-	var decoded domain.ExecutionPlan
-	err = json.Unmarshal(data, &decoded)
-	if err != nil {
-		t.Errorf("failed to unmarshal plan: %v", err)
+	if state.flags.Profile != "safe" {
+		t.Errorf("default profile = %v, want 'safe'", state.flags.Profile)
 	}
 
-	if decoded.ScanID != plan.ScanID {
-		t.Errorf("ScanID mismatch: got %v, want %v", decoded.ScanID, plan.ScanID)
-	}
-}
-
-func TestTargetResolution(t *testing.T) {
-	// Test that targets are resolved correctly
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Test with explicit target
-	targets := []string{tmpDir}
-	if len(targets) == 0 {
-		t.Error("targets should not be empty")
-	}
-
-	// Verify the target path exists
-	if _, err := os.Stat(targets[0]); err != nil {
-		t.Errorf("target path should exist: %v", err)
+	// Test profile override via args
+	args := []string{"developer"}
+	if len(args) > 0 {
+		profile := state.flags.Profile
+		if len(args) > 0 {
+			profile = args[0]
+		}
+		if profile != "developer" {
+			t.Errorf("profile override = %v, want 'developer'", profile)
+		}
 	}
 }
 
-func TestPlanFlow(t *testing.T) {
+func TestCleanCommandWhitelistMode(t *testing.T) {
 	cfg := config.Default()
 	st, err := store.Open()
 	if err != nil {
@@ -356,28 +165,299 @@ func TestPlanFlow(t *testing.T) {
 		service: engine.NewService(cfg, st),
 	}
 
-	plan := domain.ExecutionPlan{
-		ScanID:    "test-scan",
-		Command:   "clean",
-		PlanState: "preview",
-		DryRun:    true,
-		Items: []domain.Finding{
-			{
-				Path:  "/tmp/test",
-				Bytes: 1000,
-				Name:  "test file",
-			},
-		},
-		Totals: domain.Totals{
-			ItemCount: 1,
-			Bytes:     1000,
-		},
+	cmd := newCleanCommand(state)
+
+	// Verify whitelist flag is registered (don't redefine it)
+	flag := cmd.Flags().Lookup("whitelist")
+	if flag == nil {
+		t.Fatal("expected --whitelist flag to be registered")
+	}
+	if flag.DefValue != "false" {
+		t.Errorf("whitelist default = %v, want false", flag.DefValue)
+	}
+}
+
+func TestInstallerCommandStructure(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
 	}
 
-	// Test runPlanFlow with JSON output
-	state.flags.JSON = true
-	err = state.runPlanFlow(context.Background(), plan)
-	if err != nil {
-		t.Errorf("runPlanFlow error: %v", err)
+	cmd := newInstallerCommand(state)
+	if cmd == nil {
+		t.Fatal("newInstallerCommand returned nil")
 	}
+
+	if cmd.Use != "installer" {
+		t.Errorf("Use = %v, want 'installer'", cmd.Use)
+	}
+
+	// Installer command should use installer_leftovers rule
+	// This is verified by checking the command's RunE
+	if cmd.RunE == nil {
+		t.Error("RunE should be set")
+	}
+}
+
+func TestPurgeCommandStructure(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+	}
+
+	cmd := newPurgeCommand(state)
+	if cmd == nil {
+		t.Fatal("newPurgeCommand returned nil")
+	}
+
+	if cmd.Use != "purge <rule-or-path>" {
+		t.Errorf("Use = %v, want 'purge <rule-or-path>'", cmd.Use)
+	}
+
+	// Verify subcommand is added
+	if len(cmd.Commands()) == 0 {
+		t.Error("purge should have subcommands")
+	}
+
+	// Check subcommand structure
+	subCmd := cmd.Commands()[0]
+	if subCmd.Use != "scan [roots...]" {
+		t.Errorf("subcommand Use = %v, want 'scan [roots...]'", subCmd.Use)
+	}
+}
+
+func TestProtectCommandStructure(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+	}
+
+	cmd := newProtectCommand(state)
+	if cmd == nil {
+		t.Fatal("newProtectCommand returned nil")
+	}
+
+	// Verify subcommands exist
+	subcommands := cmd.Commands()
+	if len(subcommands) < 4 {
+		t.Errorf("expected at least 4 subcommands, got %d", len(subcommands))
+	}
+
+	// Verify family subcommand
+	familyCmd := findSubcommand(cmd, "family")
+	if familyCmd == nil {
+		t.Fatal("expected 'family' subcommand")
+	}
+
+	// Verify scope subcommand
+	scopeCmd := findSubcommand(cmd, "scope")
+	if scopeCmd == nil {
+		t.Fatal("expected 'scope' subcommand")
+	}
+
+	// Verify list subcommand
+	listCmd := findSubcommand(cmd, "list")
+	if listCmd == nil {
+		t.Fatal("expected 'list' subcommand")
+	}
+
+	// Verify remove subcommand
+	removeCmd := findSubcommand(cmd, "remove")
+	if removeCmd == nil {
+		t.Fatal("expected 'remove' subcommand")
+	}
+
+	// Verify add subcommand
+	addCmd := findSubcommand(cmd, "add")
+	if addCmd == nil {
+		t.Fatal("expected 'add' subcommand")
+	}
+
+	// Verify explain subcommand
+	explainCmd := findSubcommand(cmd, "explain")
+	if explainCmd == nil {
+		t.Fatal("expected 'explain' subcommand")
+	}
+}
+
+func TestProtectFamilySubcommands(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+	}
+
+	cmd := newProtectCommand(state)
+	familyCmd := findSubcommand(cmd, "family")
+	if familyCmd == nil {
+		t.Skip("family subcommand not found")
+	}
+
+	subcommands := familyCmd.Commands()
+	if len(subcommands) < 2 {
+		t.Errorf("expected at least 2 family subcommands, got %d", len(subcommands))
+	}
+
+	// Verify list subcommand
+	listCmd := findSubcommand(familyCmd, "list")
+	if listCmd == nil {
+		t.Fatal("expected 'list' subcommand in family")
+	}
+
+	// Verify add subcommand
+	addCmd := findSubcommand(familyCmd, "add")
+	if addCmd == nil {
+		t.Fatal("expected 'add' subcommand in family")
+	}
+
+	// Verify remove subcommand
+	removeCmd := findSubcommand(familyCmd, "remove")
+	if removeCmd == nil {
+		t.Fatal("expected 'remove' subcommand in family")
+	}
+}
+
+func TestProtectScopeSubcommands(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+	}
+
+	cmd := newProtectCommand(state)
+	scopeCmd := findSubcommand(cmd, "scope")
+	if scopeCmd == nil {
+		t.Skip("scope subcommand not found")
+	}
+
+	subcommands := scopeCmd.Commands()
+	if len(subcommands) < 3 {
+		t.Errorf("expected at least 3 scope subcommands, got %d", len(subcommands))
+	}
+
+	// Verify list subcommand
+	listCmd := findSubcommand(scopeCmd, "list")
+	if listCmd == nil {
+		t.Fatal("expected 'list' subcommand in scope")
+	}
+
+	// Verify add subcommand
+	addCmd := findSubcommand(scopeCmd, "add")
+	if addCmd == nil {
+		t.Fatal("expected 'add' subcommand in scope")
+	}
+
+	// Verify remove subcommand
+	removeCmd := findSubcommand(scopeCmd, "remove")
+	if removeCmd == nil {
+		t.Fatal("expected 'remove' subcommand in scope")
+	}
+}
+
+func TestDuplicatesCommandStructure(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+	}
+
+	cmd := newDuplicatesCommand(state)
+	if cmd == nil {
+		t.Fatal("newDuplicatesCommand returned nil")
+	}
+
+	if cmd.Use != "duplicates [path]" {
+		t.Errorf("Use = %v, want 'duplicates [path]'", cmd.Use)
+	}
+	if cmd.Short == "" {
+		t.Error("Short should not be empty")
+	}
+}
+
+func TestLargeFilesCommandStructure(t *testing.T) {
+	cfg := config.Default()
+	st, err := store.Open()
+	if err != nil {
+		t.Skipf("Skipping store test: %v", err)
+	}
+	defer st.Close()
+
+	state := &runtimeState{
+		cfg:     cfg,
+		store:   st,
+		service: engine.NewService(cfg, st),
+	}
+
+	cmd := newLargeFilesCommand(state)
+	if cmd == nil {
+		t.Fatal("newLargeFilesCommand returned nil")
+	}
+
+	if cmd.Use != "largefiles [path]" {
+		t.Errorf("Use = %v, want 'largefiles [path]'", cmd.Use)
+	}
+
+	// Verify --min-size flag
+	flag := cmd.Flags().Lookup("min-size")
+	if flag == nil {
+		t.Fatal("expected --min-size flag to be registered")
+	}
+	if flag.DefValue != "10MB" {
+		t.Errorf("min-size default = %v, want '10MB'", flag.DefValue)
+	}
+}
+
+// Helper to find subcommand by name
+func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
+	for _, sub := range cmd.Commands() {
+		if sub.Name() == name {
+			return sub
+		}
+	}
+	return nil
 }

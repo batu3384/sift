@@ -29,14 +29,17 @@ func newAppModel(opts AppOptions, callbacks AppCallbacks) appModel {
 			hint:     "Quick for routine cleanup, workstation for cache-heavy days, deep for maximum reclaim.",
 			actions:  buildCleanActions(),
 		},
+		cleanFlow: newCleanFlowModel(),
 		tools: menuModel{
 			title:    "More Tools",
 			subtitle: "more tools",
 			hint:     "Check, fixes, installer cleanup, protect, purge, and diagnostics live here.",
 			actions:  buildToolsActions(config.Normalize(opts.Config)),
 		},
-		protect:   newProtectModel(config.Normalize(opts.Config).ProtectedPaths),
-		uninstall: newUninstallModel(),
+		protect:       newProtectModel(config.Normalize(opts.Config).ProtectedPaths),
+		uninstall:     newUninstallModel(),
+		uninstallFlow: newUninstallFlowModel(),
+		analyzeFlow:   newAnalyzeFlowModel(),
 	}
 	model.syncMotionSettings()
 	model.protect.syncFamilies(model.cfg.ProtectedFamilies)

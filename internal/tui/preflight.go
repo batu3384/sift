@@ -86,15 +86,15 @@ func preflightActionableCount(items []domain.Finding) int {
 }
 
 func (m permissionPreflightModel) stats(width int) []string {
-	stats := []string{renderStatCard("scope", m.scopeLabel(), "safe", 30)}
+	stats := []string{renderRouteStatCard("preflight", "launch", m.scopeLabel(), "safe", 30)}
 	if m.needsAdmin {
-		stats = append(stats, renderStatCard("admin", formatPreflightCount(m.adminItems, "step"), "review", 24))
+		stats = append(stats, renderRouteStatCard("preflight", "admin", formatPreflightCount(m.adminItems, "step"), "review", 24))
 	}
 	if m.needsDialogs {
-		stats = append(stats, renderStatCard("dialogs", formatPreflightCount(m.dialogItems, "prompt"), "review", 24))
+		stats = append(stats, renderRouteStatCard("preflight", "dialogs", formatPreflightCount(m.dialogItems, "prompt"), "review", 24))
 	}
 	if m.needsNative {
-		stats = append(stats, renderStatCard("native", formatPreflightCount(m.nativeItems, "handoff"), "review", 24))
+		stats = append(stats, renderRouteStatCard("preflight", "native", formatPreflightCount(m.nativeItems, "handoff"), "review", 24))
 	}
 	return trimStatsForHeight(stats, m.height, false)
 }
@@ -169,21 +169,21 @@ func (m permissionPreflightModel) accessLines(width int) string {
 
 func (m permissionPreflightModel) flowLines(width int) string {
 	lines := []string{
-		"Run     " + m.scopeLabel(),
+		paddedLabel(reviewScopeKey(m.plan.Command), 8) + m.scopeLabel(),
 		"Keys    y run • esc back",
 	}
 	if m.focusPath != "" {
 		lines = append(lines, wrapText("Focus   "+m.focusPath, width))
 	}
 	if m.needsAdmin {
-		lines = append(lines, wrapText("Step 1   warm admin access", width))
-		lines = append(lines, wrapText("Step 2   keep access alive while execution runs", width))
+		lines = append(lines, wrapText("Lift 1   warm admin access", width))
+		lines = append(lines, wrapText("Lift 2   keep access alive while execution runs", width))
 	}
 	if m.needsDialogs {
-		lines = append(lines, wrapText("Step     approve system prompts if macOS asks", width))
+		lines = append(lines, wrapText("Prompt   approve system prompts if macOS asks", width))
 	}
 	if m.needsNative {
-		lines = append(lines, wrapText("Step     native app opens outside SIFT and returns to result tracking", width))
+		lines = append(lines, wrapText("Handoff  native app opens outside SIFT and returns to result tracking", width))
 	}
 	if !m.needsAdmin && !m.needsDialogs && !m.needsNative {
 		lines = append(lines, wrapText("State   run starts immediately with no extra prompts.", width))
@@ -218,7 +218,7 @@ func (m permissionPreflightModel) manifestLines(width int) string {
 }
 
 func (m permissionPreflightModel) trackLine() string {
-	parts := []string{"Track"}
+	parts := []string{preflightAccessKey(m.plan.Command)}
 	if m.needsAdmin {
 		parts = append(parts, fmt.Sprintf("%d admin", m.adminItems))
 	}
@@ -235,7 +235,7 @@ func (m permissionPreflightModel) trackLine() string {
 }
 
 func (m permissionPreflightModel) accessSummaryLine() string {
-	parts := []string{"Access"}
+	parts := []string{preflightAccessKey(m.plan.Command)}
 	if m.needsAdmin {
 		parts = append(parts, fmt.Sprintf("%d admin", m.adminItems))
 	}
@@ -293,19 +293,19 @@ func (m permissionPreflightModel) View() string {
 	contentWidth := width - 6
 	leftWidth, rightWidth := splitColumns(contentWidth-2, 0.52, 40, 34)
 	body := joinPanels(
-		renderPanel("ACCESS", "before run", m.accessLines(leftWidth-4), leftWidth, true),
+		renderPanel("ACCESS RAIL", "before launch", m.accessLines(leftWidth-4), leftWidth, true),
 		strings.Join([]string{
-			renderPanel("MANIFEST", "items that need access", m.manifestLines(rightWidth-4), rightWidth, false),
-			renderPanel("FLOW", "y run • esc back", m.flowLines(rightWidth-4), rightWidth, false),
+			renderPanel("MANIFEST DECK", "items that need access", m.manifestLines(rightWidth-4), rightWidth, false),
+			renderPanel("LAUNCH FLOW", "y run • esc back", m.flowLines(rightWidth-4), rightWidth, false),
 		}, "\n"),
 		width-4,
 	)
 	return renderChrome(
-		"SIFT / Permissions",
-		"access before run",
+		"SIFT / Access Check",
+		"review access rails before launch",
 		m.stats(width),
 		strings.Join([]string{
-			wrapText(mutedStyle.Render("Scope   "+m.scopeLabel()), width-4),
+			wrapText(mutedStyle.Render(paddedLabel(reviewScopeKey(m.plan.Command), 8)+m.scopeLabel()), width-4),
 			wrapText(mutedStyle.Render(m.trackLine()), width-4),
 			body,
 		}, "\n"),

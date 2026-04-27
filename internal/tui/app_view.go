@@ -7,7 +7,8 @@ func (m appModel) routeView() string {
 		return m.home.View()
 	case RouteClean:
 		m.clean.width, m.clean.height = m.width, m.height
-		return m.clean.View()
+		m.cleanFlow.width, m.cleanFlow.height = m.width, m.height
+		return m.cleanFlow.View()
 	case RouteTools:
 		m.tools.width, m.tools.height = m.width, m.height
 		return m.tools.View()
@@ -16,7 +17,8 @@ func (m appModel) routeView() string {
 		return m.protect.View()
 	case RouteUninstall:
 		m.uninstall.width, m.uninstall.height = m.width, m.height
-		return m.uninstall.View()
+		m.uninstallFlow.width, m.uninstallFlow.height = m.width, m.height
+		return m.uninstallFlow.View(m.uninstall)
 	case RouteStatus:
 		m.status.width, m.status.height = m.width, m.height
 		return m.status.View()
@@ -25,7 +27,8 @@ func (m appModel) routeView() string {
 		return m.doctor.View()
 	case RouteAnalyze:
 		m.analyze.width, m.analyze.height = m.width, m.height
-		return m.analyze.View()
+		m.analyzeFlow.width, m.analyzeFlow.height = m.width, m.height
+		return m.analyzeFlow.View(m.analyze)
 	case RouteReview:
 		m.review.width, m.review.height = m.width, m.height
 		return m.review.View()

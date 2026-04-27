@@ -47,11 +47,11 @@ type homeModel struct {
 
 func buildHomeActions(_ config.Config) []homeAction {
 	return []homeAction{
-		{ID: "clean", Title: "🧹 Clean", Description: "Remove unnecessary files to free up disk space", Command: "Clean", Safety: "Safe", When: "To reclaim disk space", Tone: "safe", Enabled: true},
-		{ID: "uninstall", Title: "🗑️ Uninstall", Description: "Remove applications and clean leftovers", Command: "Uninstall", Safety: "Requires confirmation", When: "To fully remove an application", Tone: "review", Enabled: true},
-		{ID: "analyze", Title: "📊 Analyze", Description: "Analyze disk usage and find large files", Command: "Analyze", Safety: "Read-only", When: "To see what's taking up space", Tone: "review", Enabled: true},
-		{ID: "status", Title: "💻 Status", Description: "Check system health and diagnostics", Command: "Status", Safety: "Read-only", When: "To check system health", Tone: "safe", Enabled: true},
-		{ID: "optimize", Title: "⚡ Optimize", Description: "Optimize system performance", Command: "Optimize", Safety: "Safe", When: "To improve system performance", Tone: "safe", Enabled: true},
+		{ID: "clean", Title: "Clean", Description: "Remove unnecessary files to free up disk space", Command: "Clean", Safety: "Safe", When: "To reclaim disk space", Tone: "safe", Enabled: true},
+		{ID: "uninstall", Title: "Uninstall", Description: "Remove applications and clean leftovers", Command: "Uninstall", Safety: "Requires confirmation", When: "To fully remove an application", Tone: "review", Enabled: true},
+		{ID: "analyze", Title: "Analyze", Description: "Analyze disk usage and find large files", Command: "Analyze", Safety: "Read-only", When: "To see what's taking up space", Tone: "review", Enabled: true},
+		{ID: "status", Title: "Status", Description: "Check system health and diagnostics", Command: "Status", Safety: "Read-only", When: "To check system health", Tone: "safe", Enabled: true},
+		{ID: "optimize", Title: "Optimize", Description: "Optimize system performance", Command: "Optimize", Safety: "Safe", When: "To improve system performance", Tone: "safe", Enabled: true},
 	}
 }
 
@@ -109,18 +109,18 @@ func (m homeModel) View() string {
 	} else {
 		spotlightLines = 9
 	}
-	overview := renderPanel("HOME", homeSpotlightSubtitle(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.updateNotice), homeSpotlightView(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.updateNotice, m.cfg, homeMotionState(m), width-8, spotlightLines), width-4, false)
+	overview := renderPanel("COMMAND DECK", homeSpotlightSubtitle(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.updateNotice), homeSpotlightView(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.updateNotice, m.cfg, homeMotionState(m), width-8, spotlightLines), width-4, false)
 	var panels string
 	if compact {
 		detailLines := max(panelLines/2, 5)
 		panels = strings.Join([]string{
-			renderPanel("MENU", fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "action", "actions")), homeMenuView(m.actions, m.cursor, width-8, panelLines), width-4, true),
-			renderPanel("DETAIL", homeDetailSubtitle(m.actions, m.cursor), homeDetailCompactView(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.cfg, width-8, detailLines), width-4, false),
+			renderPanel("ROUTE RAIL", fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "action", "actions")), homeMenuView(m.actions, m.cursor, width-8, panelLines), width-4, true),
+			renderPanel("ROUTE DECK", homeDetailSubtitle(m.actions, m.cursor), homeDetailCompactView(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.cfg, width-8, detailLines), width-4, false),
 		}, "\n")
 	} else {
 		panels = joinPanels(
-			renderPanel("MENU", fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "action", "actions")), homeMenuView(m.actions, m.cursor, leftWidth-4, panelLines), leftWidth, true),
-			renderPanel("DETAIL", homeDetailSubtitle(m.actions, m.cursor), homeDetailView(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.cfg, rightWidth-4, panelLines), rightWidth, false),
+			renderPanel("ROUTE RAIL", fmt.Sprintf("%d %s", len(m.actions), pl(len(m.actions), "action", "actions")), homeMenuView(m.actions, m.cursor, leftWidth-4, panelLines), leftWidth, true),
+			renderPanel("ROUTE DECK", homeDetailSubtitle(m.actions, m.cursor), homeDetailView(m.actions, m.cursor, m.live, m.lastExecution, m.diagnostics, m.cfg, rightWidth-4, panelLines), rightWidth, false),
 			width-4,
 		)
 	}

@@ -64,6 +64,24 @@ func (r *runtimeState) runInteractive(ctx context.Context, route tui.Route, plan
 		LoadAnalyzePreviews: func(paths []string) map[string]domain.DirectoryPreview {
 			return r.service.AnalyzePreviews(paths)
 		},
+		LoadCleanProfileWithProgress: func(profile string, emit func(ruleID string, ruleName string, itemsFound int, bytesFound int64)) (domain.ExecutionPlan, error) {
+			return r.service.Scan(ctx, engine.ScanOptions{
+				Command:          "clean",
+				Profile:          profile,
+				DryRun:           r.flags.DryRun,
+				AllowAdmin:       r.flags.Admin,
+				CategoryCallback: emit,
+			})
+		},
+		LoadCleanProfileWithFindingProgress: func(profile string, emit func(ruleID string, ruleName string, item domain.Finding)) (domain.ExecutionPlan, error) {
+			return r.service.Scan(ctx, engine.ScanOptions{
+				Command:         "clean",
+				Profile:         profile,
+				DryRun:          r.flags.DryRun,
+				AllowAdmin:      r.flags.Admin,
+				FindingCallback: emit,
+			})
+		},
 		LoadCleanProfile: func(profile string) (domain.ExecutionPlan, error) {
 			return r.service.Scan(ctx, engine.ScanOptions{
 				Command:    "clean",

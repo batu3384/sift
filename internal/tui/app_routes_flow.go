@@ -48,6 +48,23 @@ func (m appModel) updateAnalyze(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.analyze.errMsg = ""
 		m.analyze.loading = false
 		previewDirty = true
+	case msg.Type == tea.KeyPgUp:
+		if m.analyzeFlow.scrollLedgerUp(m.analyzeFlow.ledgerScrollPageSize()) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyPgDown:
+		if m.analyzeFlow.scrollLedgerDown(m.analyzeFlow.ledgerScrollPageSize()) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyHome:
+		if m.analyzeFlow.scrollLedgerToOldest() {
+			return m, nil
+		}
+	case msg.Type == tea.KeyEnd:
+		if m.analyzeFlow.scrollOffset > 0 || !m.analyzeFlow.autoFollow {
+			m.analyzeFlow.scrollLedgerToLatest()
+			return m, nil
+		}
 	case m.matchesFocus(msg):
 		m.analyze.cyclePane()
 		previewDirty = true
@@ -269,6 +286,13 @@ func (m appModel) updateReview(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m appModel) updatePreflight(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.matchesQuit(msg), m.matchesBack(msg), m.matchesCancel(msg):
+		if m.reviewReturnRoute == RouteAnalyze {
+			m.analyzeFlow.markReviewReady(m.preflight.plan)
+		} else if m.preflight.plan.Command == "clean" {
+			m.cleanFlow.markReviewReady(m.preflight.plan)
+		} else if m.preflight.plan.Command == "uninstall" {
+			m.uninstallFlow.markReviewReady(m.preflight.plan)
+		}
 		m.preflight = permissionPreflightModel{}
 		m.route = RouteReview
 		return m, nil
@@ -385,5 +409,12 @@ func (m appModel) leaveAnalyze() (tea.Model, tea.Cmd) {
 }
 
 func (m appModel) leaveReview() (tea.Model, tea.Cmd) {
+	if m.reviewReturnRoute == RouteAnalyze {
+		m.analyzeFlow.markReviewReady(m.review.effectivePlan())
+	} else if m.reviewReturnRoute == RouteClean && m.review.plan.Command == "clean" {
+		m.cleanFlow.markReviewReady(m.review.effectivePlan())
+	} else if m.reviewReturnRoute == RouteUninstall && m.review.plan.Command == "uninstall" {
+		m.uninstallFlow.markReviewReady(m.review.effectivePlan())
+	}
 	return m.navigate(m.reviewReturnRoute, m.reviewReturnRoute == RouteHome)
 }

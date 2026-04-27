@@ -275,8 +275,8 @@ func (m progressModel) View() string {
 	leftWidth, rightWidth := splitColumns(contentWidth-2, 0.58, 46, 32)
 	panelLines := bodyLineBudget(height, 18, 7)
 	body := joinPanels(
-		renderPanel("ITEMS", progressSummary(m), progressListView(m, leftWidth-4, panelLines), leftWidth, true),
-		renderPanel("DETAIL", progressDetailSubtitle(m), progressDetailView(m, rightWidth-4, panelLines), rightWidth, false),
+		renderPanel("PROGRESS RAIL", progressSummary(m), progressListView(m, leftWidth-4, panelLines), leftWidth, true),
+		renderPanel("ACTION DECK", progressDetailSubtitle(m), progressDetailView(m, rightWidth-4, panelLines), rightWidth, false),
 		width-4,
 	)
 	return renderChrome(
@@ -297,13 +297,13 @@ func (m resultModel) View() string {
 	leftWidth, rightWidth := splitColumns(contentWidth-2, 0.56, 46, 32)
 	panelLines := bodyLineBudget(height, 19, 7)
 	body := joinPanels(
-		renderPanel("RESULTS", resultListSubtitle(m), resultListView(m, leftWidth-4, panelLines), leftWidth, true),
-		renderPanel("DETAIL", resultDetailSubtitle(m), resultDetailView(m, rightWidth-4, panelLines), rightWidth, false),
+		renderPanel("SETTLED RAIL", resultListSubtitle(m), resultListView(m, leftWidth-4, panelLines), leftWidth, true),
+		renderPanel("OUTCOME DECK", resultDetailSubtitle(m), resultDetailView(m, rightWidth-4, panelLines), rightWidth, false),
 		width-4,
 	)
 	if m.flash {
 		body = strings.Join([]string{
-			renderPanel("DONE", "execution stream settled", safeStyle.Render("Operations finished. Review warnings and suggested commands before leaving this screen."), width-4, false),
+			renderPanel("SETTLED GATE", "execution stream settled", safeStyle.Render("Operations finished. Review warnings and suggested commands before leaving this screen."), width-4, false),
 			body,
 		}, "\n")
 	}
@@ -339,16 +339,16 @@ func (m statusModel) View() string {
 		}
 		panelLines = max((height-26)/2, 6)
 	}
-	overview := renderPanel("OVERVIEW", statusOverviewSubtitle(m.live, m.lastExecution, m.scans), statusOverviewView(m, width-8, overviewLines), width-4, false)
+	overview := renderPanel("OBSERVATORY", statusOverviewSubtitle(m.live, m.lastExecution, m.scans), statusOverviewView(m, width-8, overviewLines), width-4, false)
 	if compact {
 		body := strings.Join([]string{
 			overview,
-			renderPanel("SYSTEM", statusLiveSubtitle(m.live), statusSystemViewWithTrends(m, width-8, panelLines), width-4, true),
-			renderPanel("ACTIVITY", statusActivitySubtitle(m.scans, m.lastExecution), statusActivityView(m.scans, m.lastExecution, width-8, max(panelLines-1, 4)), width-4, false),
+			renderPanel("LIVE RAIL", statusLiveSubtitle(m.live), statusSystemViewWithTrends(m, width-8, panelLines), width-4, true),
+			renderPanel("SESSION RAIL", statusActivitySubtitle(m.scans, m.lastExecution), statusActivityView(m.scans, m.lastExecution, width-8, max(panelLines-1, 4)), width-4, false),
 		}, "\n")
 		return renderChrome(
 			"SIFT / Status",
-			"live",
+			"observatory",
 			statusStats(m.live, m.lastExecution, m.scans, m.diagnostics, m.updateNotice, width),
 			body,
 			nil,
@@ -360,12 +360,12 @@ func (m statusModel) View() string {
 	if width < 112 || height < 24 {
 		body := strings.Join([]string{
 			overview,
-			renderPanel("SYSTEM", statusLiveSubtitle(m.live), statusSystemViewWithTrends(m, width-8, panelLines), width-4, true),
-			renderPanel("ACTIVITY", statusActivitySubtitle(m.scans, m.lastExecution), statusActivityView(m.scans, m.lastExecution, width-8, panelLines), width-4, false),
+			renderPanel("LIVE RAIL", statusLiveSubtitle(m.live), statusSystemViewWithTrends(m, width-8, panelLines), width-4, true),
+			renderPanel("SESSION RAIL", statusActivitySubtitle(m.scans, m.lastExecution), statusActivityView(m.scans, m.lastExecution, width-8, panelLines), width-4, false),
 		}, "\n")
 		return renderChrome(
 			"SIFT / Status",
-			"live",
+			"observatory",
 			statusStats(m.live, m.lastExecution, m.scans, m.diagnostics, m.updateNotice, width),
 			body,
 			nil,
@@ -375,17 +375,17 @@ func (m statusModel) View() string {
 		)
 	}
 	leftColumn := strings.Join([]string{
-		renderPanel("SYSTEM", statusLiveSubtitle(m.live), statusSystemViewWithTrends(m, leftWidth-4, panelLines), leftWidth, true),
-		renderPanel("STORAGE", statusStorageSubtitle(m.live), statusStorageView(m, leftWidth-4, panelLines), leftWidth, false),
+		renderPanel("LIVE RAIL", statusLiveSubtitle(m.live), statusSystemViewWithTrends(m, leftWidth-4, panelLines), leftWidth, true),
+		renderPanel("STORAGE RAIL", statusStorageSubtitle(m.live), statusStorageView(m, leftWidth-4, panelLines), leftWidth, false),
 	}, "\n")
 	rightColumn := strings.Join([]string{
-		renderPanel("POWER", statusPowerSubtitle(m.live), statusPowerView(m, rightWidth-4, panelLines), rightWidth, false),
-		renderPanel("ACTIVITY", statusActivitySubtitle(m.scans, m.lastExecution), statusActivityView(m.scans, m.lastExecution, rightWidth-4, panelLines), rightWidth, false),
+		renderPanel("POWER RAIL", statusPowerSubtitle(m.live), statusPowerView(m, rightWidth-4, panelLines), rightWidth, false),
+		renderPanel("SESSION RAIL", statusActivitySubtitle(m.scans, m.lastExecution), statusActivityView(m.scans, m.lastExecution, rightWidth-4, panelLines), rightWidth, false),
 	}, "\n")
 	body := strings.Join([]string{overview, joinPanels(leftColumn, rightColumn, width-4)}, "\n")
 	return renderChrome(
 		"SIFT / Status",
-		"live",
+		"observatory",
 		statusStats(m.live, m.lastExecution, m.scans, m.diagnostics, m.updateNotice, width),
 		body,
 		nil,

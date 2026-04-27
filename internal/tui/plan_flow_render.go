@@ -56,6 +56,9 @@ func planDetailView(model planModel, width int, maxLines int) string {
 		}
 		lines = append(lines,
 			iconStyle.Render(fmt.Sprintf("%s  %s", icon, label))+"  "+headerStyle.Render(bytesLabel),
+			mutedStyle.Render("Status   "+planDetailStatusLine(plan, item)),
+			mutedStyle.Render("Scope    "+planDetailScopeLine(model, item)),
+			mutedStyle.Render("Next     "+planDetailNextLine(plan, item)),
 			mutedStyle.Render(resultStatusLabel(item.Status))+riskPart+mutedStyle.Render("  •  "+planActionLabel(item.Action)),
 		)
 		if item.Action == domain.ActionSkip {
@@ -104,11 +107,6 @@ func planDetailView(model planModel, width int, maxLines int) string {
 			lines = append(lines, renderSectionRule(width), headerStyle.Render(planCommandBoardTitle(plan.Command)))
 			lines = append(lines, boardLines...)
 		}
-		if group := model.currentGroupSummary(); group.total > 0 {
-			lines = append(lines, renderSectionRule(width), headerStyle.Render(planCurrentGroupTitle(plan.Command)))
-			lines = append(lines, mutedStyle.Render(planCurrentGroupSummaryLine(plan.Command, group)))
-			lines = append(lines, mutedStyle.Render(planCurrentGroupActionLine(plan.Command)))
-		}
 		if plan.Command == "uninstall" {
 			lines = append(lines, renderSectionRule(width), headerStyle.Render("Target Batch"))
 			lines = append(lines, uninstallTargetSummaryLines(plan, width)...)
@@ -131,13 +129,16 @@ func planDetailView(model planModel, width int, maxLines int) string {
 func decisionView(model planModel, width int) string {
 	plan := model.effectivePlan()
 	lines := []string{
-		reviewStyle.Render("Keys    space toggle  •  m toggle module  •  y run  •  esc back"),
+		mutedStyle.Render("Status   " + planDecisionStatusLine(plan)),
 	}
 	if scope := planReviewScopeLine(plan); scope != "" {
-		lines = append(lines, wrapText(mutedStyle.Render("Scope   "+scope), width))
+		lines = append(lines, wrapText(mutedStyle.Render("Scope    "+scope), width))
 	}
 	if outcome := planReviewOutcomeLine(plan); outcome != "" {
-		lines = append(lines, wrapText(mutedStyle.Render("Run     "+outcome), width))
+		lines = append(lines, wrapText(mutedStyle.Render("Next     "+outcome), width))
+	}
+	if gate := planDecisionGateLine(plan); gate != "" {
+		lines = append(lines, wrapText(mutedStyle.Render("Gate     "+gate), width))
 	}
 	preflight := buildPermissionPreflight(plan, "")
 	if preflight.required() {

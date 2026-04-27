@@ -25,7 +25,7 @@ func TestDoctorViewIncludesSummary(t *testing.T) {
 
 	view := model.View()
 	lowerView := strings.ToLower(view)
-	for _, needle := range []string{"DOCTOR", "OK 2  WARN 1", "ERROR 1", "▸ ✓ OK", "Checks", "Everything looks healthy", "permission", "ci-safe", "guards active", "security", "updates", "config", "health"} {
+	for _, needle := range []string{"DOCTOR", "OK 2  WARN 1", "ERROR 1", "> ✓ OK config ready", "CHECK RAIL", "DIAGNOSIS DECK", "permission", "ci-safe", "guards active", "security", "updates", "config", "health"} {
 		target := needle
 		if needle == "security" || needle == "updates" || needle == "config" || needle == "health" || needle == "permission" || needle == "ci-safe" || needle == "guards active" {
 			target = strings.ToLower(needle)
@@ -47,7 +47,7 @@ func TestDoctorDetailShowsLaneAndFixHint(t *testing.T) {
 		{Name: "firewall", Status: "warn", Message: "disabled"},
 	}, 0, 64, 16)
 
-	for _, needle := range []string{"Lane", "security", "Next", "sift autofix"} {
+	for _, needle := range []string{"Rail", "security", "Response", "sift autofix"} {
 		if !strings.Contains(strings.ToLower(view), strings.ToLower(needle)) {
 			t.Fatalf("expected %q in doctor detail, got %s", needle, view)
 		}
@@ -97,7 +97,7 @@ func TestDoctorViewRenderMatrix(t *testing.T) {
 		model.width = tc.width
 		model.height = tc.height
 		view := model.View()
-		for _, needle := range []string{"DOCTOR", "Checks", "firewall"} {
+		for _, needle := range []string{"DOCTOR", "CHECK RAIL", "firewall"} {
 			if !strings.Contains(strings.ToLower(view), strings.ToLower(needle)) {
 				t.Fatalf("expected %q in doctor view for %dx%d, got %s", needle, tc.width, tc.height, view)
 			}

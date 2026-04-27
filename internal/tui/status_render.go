@@ -24,14 +24,19 @@ func statusOverviewView(model statusModel, width int, maxLines int) string {
 		return strings.Join(lines, "\n")
 	}
 	if width < 110 || maxLines <= 4 {
-		lines = append(lines, mutedStyle.Render(singleLine(fmt.Sprintf("Signal %s  •  %s", signalRailLabelForMotion(motion), statusCompanionLabel(model)), width)))
-		lines = append(lines, mutedStyle.Render(singleLine(statusHealthLine(live), width)))
+		signature := routeSignalSignatureForRoute("status")
+		lead := signature.Mascot
+		if signature.Doctrine != "" {
+			lead += "  •  " + signature.Doctrine
+		}
+		lines = append(lines, mutedStyle.Render(singleLine(fmt.Sprintf("%s  •  Observatory %s  •  %s", lead, signalRailLabelForMotion(motion), statusCompanionLabel(model)), width)))
+		lines = append(lines, mutedStyle.Render(singleLine("Status   "+statusOverviewStatusLine(model), width)))
 		lines = append(lines, mutedStyle.Render(singleLine(statusWatchLine(model, width), width)))
 		if maxLines >= 5 {
 			lines = append(lines, mutedStyle.Render(singleLine(statusRecentLine(model, width), width)))
 		}
 		if maxLines >= 6 {
-			lines = append(lines, mutedStyle.Render(singleLine(statusNextLine(model), width)))
+			lines = append(lines, mutedStyle.Render(singleLine("Next     "+statusOverviewNextLine(model), width)))
 		}
 		lines = viewportLines(lines, 0, maxLines)
 		return strings.Join(lines, "\n")
@@ -42,9 +47,13 @@ func statusOverviewView(model statusModel, width int, maxLines int) string {
 	if showMascot {
 		textWidth = width - 11
 	}
-	lines = append(lines, mutedStyle.Render(singleLine("Signal   "+signalRailLabelForMotion(motion)+"  •  "+statusCompanionLabel(model), textWidth)))
-	healthLine := statusHealthLine(live)
-	lines = append(lines, statusOverviewHealthStyle(live).Render(singleLine(healthLine, textWidth)))
+	signature := routeSignalSignatureForRoute("status")
+	lead := signature.Mascot
+	if signature.Doctrine != "" {
+		lead += "  •  " + signature.Doctrine
+	}
+	lines = append(lines, mutedStyle.Render(singleLine(lead+"  •  Observatory "+signalRailLabelForMotion(motion)+"  •  "+statusCompanionLabel(model), textWidth)))
+	lines = append(lines, statusOverviewHealthStyle(live).Render(singleLine("Status   "+statusOverviewStatusLine(model), textWidth)))
 	watchLine := statusWatchLine(model, textWidth)
 	lines = append(lines, statusOverviewAlertStyle(model).Render(singleLine(watchLine, textWidth)))
 	lines = append(lines, mutedStyle.Render(singleLine(statusRecentLine(model, textWidth), textWidth)))
@@ -55,7 +64,7 @@ func statusOverviewView(model statusModel, width int, maxLines int) string {
 		}
 		lines = append(lines, mutedStyle.Render(singleLine("Host     "+strings.Join(hostParts, "  •  "), textWidth)))
 	}
-	lines = append(lines, mutedStyle.Render(singleLine(statusNextLine(model), textWidth)))
+	lines = append(lines, mutedStyle.Render(singleLine("Next     "+statusOverviewNextLine(model), textWidth)))
 	if trendLine := statusOverviewTrendLine(model, textWidth); trendLine != "" && maxLines > len(lines) {
 		lines = append(lines, mutedStyle.Render(trendLine))
 	}
@@ -73,9 +82,9 @@ func statusSystemView(live *engine.SystemSnapshot, width int, maxLines int) stri
 	}
 	if width < 48 || maxLines < 7 {
 		lines := []string{
+			mutedStyle.Render(singleLine("Status   "+statusSystemStatusLine(live), width)),
 			mutedStyle.Render(fmt.Sprintf("CPU %.1f%%  •  MEM %.1f%%", live.CPUPercent, live.MemoryUsedPercent)),
-			mutedStyle.Render(fmt.Sprintf("Free %s  •  Proc %d", domain.HumanBytes(int64(live.DiskFreeBytes)), live.ProcessCount)),
-			mutedStyle.Render("Pressure " + statusPressureLabel(live)),
+			mutedStyle.Render(fmt.Sprintf("Free %s  •  Proc %d  •  Pressure %s", domain.HumanBytes(int64(live.DiskFreeBytes)), live.ProcessCount, statusPressureLabel(live))),
 		}
 		auxParts := make([]string, 0, 2)
 		if summary := statusCompactBatteryPowerSummary(live); summary != "" {
@@ -89,13 +98,18 @@ func statusSystemView(live *engine.SystemSnapshot, width int, maxLines int) stri
 		if len(auxParts) > 0 {
 			lines = append(lines, mutedStyle.Render(singleLine(strings.Join(auxParts, "  •  "), width)))
 		}
+		nextLine := "Next     " + statusSystemNextLine(live)
 		if live.Load1 > 0 {
-			lines = append(lines, mutedStyle.Render(fmt.Sprintf("Load %.2f", live.Load1)))
+			nextLine += fmt.Sprintf("  •  Load %.2f", live.Load1)
 		}
+		lines = append(lines, mutedStyle.Render(singleLine(nextLine, width)))
 		lines = viewportLines(lines, 0, maxLines)
 		return strings.Join(lines, "\n")
 	}
-	lines := []string{}
+	lines := []string{
+		mutedStyle.Render(singleLine("Status   "+statusSystemStatusLine(live), width)),
+		mutedStyle.Render(singleLine("Next     "+statusSystemNextLine(live), width)),
+	}
 	hostLine := statusHostSummary(live)
 	if hardware := statusHardwareSummary(live); hardware != "" {
 		combined := hardware
@@ -136,7 +150,9 @@ func statusSystemView(live *engine.SystemSnapshot, width int, maxLines int) stri
 		perfParts = append(perfParts, "Cores "+strings.Join(samples, " "))
 	}
 	if len(perfParts) > 0 {
-		lines = append(lines, mutedStyle.Render(singleLine(strings.Join(perfParts, "  •  "), width)))
+		if maxLines > 10 || len(live.TopProcesses) == 0 {
+			lines = append(lines, mutedStyle.Render(singleLine(strings.Join(perfParts, "  •  "), width)))
+		}
 	}
 	if len(live.TopProcesses) > 0 {
 		lines = append(lines, headerStyle.Render("Top"))
@@ -147,6 +163,9 @@ func statusSystemView(live *engine.SystemSnapshot, width int, maxLines int) stri
 		for _, proc := range live.TopProcesses[:min(len(live.TopProcesses), limit)] {
 			lines = append(lines, singleLine(fmt.Sprintf("%s  •  cpu %.1f%%  •  mem %.1f%%  •  rss %s", proc.Name, proc.CPUPercent, proc.MemoryPercent, domain.HumanBytes(int64(proc.MemoryRSSBytes))), width))
 		}
+	}
+	if len(perfParts) > 0 && maxLines <= 10 && len(live.TopProcesses) > 0 {
+		lines = append(lines, mutedStyle.Render(singleLine(strings.Join(perfParts, "  •  "), width)))
 	}
 	lines = viewportLines(lines, 0, maxLines)
 	return strings.Join(lines, "\n")
@@ -176,6 +195,7 @@ func statusStorageView(model statusModel, width int, maxLines int) string {
 		return mutedStyle.Render("No storage telemetry.")
 	}
 	lines := []string{
+		mutedStyle.Render(singleLine("Status   "+statusStorageStatusLine(model)+"  •  Next "+statusStorageNextLine(model), width)),
 		mutedStyle.Render(singleLine(fmt.Sprintf("Disk %.1f%% used  •  Free %s", live.DiskUsedPercent, domain.HumanBytes(int64(live.DiskFreeBytes))), width)),
 	}
 	if live.DiskIO != nil || model.diskReadRate > 0 || model.diskWriteRate > 0 {
@@ -202,6 +222,8 @@ func statusPowerView(model statusModel, width int, maxLines int) string {
 	}
 	if width < 48 || maxLines < 6 {
 		lines := []string{
+			mutedStyle.Render(singleLine("Status   "+statusPowerStatusLine(live), width)),
+			mutedStyle.Render(singleLine("Next     "+statusPowerNextLine(live), width)),
 			mutedStyle.Render(fmt.Sprintf("Net %s / %s", domain.HumanBytes(int64(live.NetworkRxBytes)), domain.HumanBytes(int64(live.NetworkTxBytes)))),
 		}
 		if live.Battery != nil {
@@ -217,6 +239,8 @@ func statusPowerView(model statusModel, width int, maxLines int) string {
 		return strings.Join(lines, "\n")
 	}
 	lines := []string{
+		mutedStyle.Render(singleLine("Status   "+statusPowerStatusLine(live), width)),
+		mutedStyle.Render(singleLine("Next     "+statusPowerNextLine(live), width)),
 		mutedStyle.Render(singleLine(statusNetworkOverviewLine(live, model.networkRxRate, model.networkTxRate), width)),
 	}
 	metaParts := make([]string, 0, 3)
@@ -291,7 +315,10 @@ func statusPowerView(model statusModel, width int, maxLines int) string {
 }
 
 func statusActivityView(scans []store.RecentScan, lastExecution *store.ExecutionSummary, width int, maxLines int) string {
-	lines := []string{}
+	lines := []string{
+		mutedStyle.Render(singleLine("Status   "+statusActivityStatusLine(scans, lastExecution), width)),
+		mutedStyle.Render(singleLine("Next     "+statusActivityNextLine(scans, lastExecution), width)),
+	}
 	if width < 48 || maxLines < 6 {
 		if lastExecution != nil {
 			lines = append(lines, mutedStyle.Render(fmt.Sprintf("Last run %s  •  %d deleted  •  %d failed", statusRelativeMoment(lastExecution.FinishedAt), lastExecution.Deleted, lastExecution.Failed)))

@@ -59,6 +59,9 @@ func (s *Service) Scan(ctx context.Context, opts ScanOptions) (domain.ExecutionP
 				item.Action = definition.Action
 			}
 			item = applyPolicy(item, evaluatePolicy(policy, item, false))
+			if opts.FindingCallback != nil {
+				opts.FindingCallback(definition.ID, definition.Name, item)
+			}
 			if prev, ok := findingsByPath[item.Path]; ok {
 				if item.Bytes > prev.Bytes {
 					findingsByPath[item.Path] = item

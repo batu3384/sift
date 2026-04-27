@@ -44,6 +44,11 @@ func (m appModel) compactRouteBindings(bindings []key.Binding) []key.Binding {
 
 func (m appModel) footerSecondaryHint(compact bool) string {
 	items := m.routeSecondaryBindings()
+	label := routeSecondaryLabel(m.route)
+	if history := m.routeHistoryBindings(compact); len(history) > 0 {
+		label = "History"
+		items = append(history, items...)
+	}
 	if len(items) == 0 {
 		return ""
 	}
@@ -69,12 +74,12 @@ func (m appModel) footerSecondaryHint(compact bool) string {
 	if limit > 0 && len(parts) > limit {
 		parts = parts[:limit]
 	}
-	label := "Also: " + strings.Join(parts, "  •  ")
+	line := label + ": " + strings.Join(parts, "  •  ")
 	maxWidth := max(m.width-24, 24)
 	if compact {
 		maxWidth = max(m.width-36, 20)
 	}
-	return truncateText(label, maxWidth)
+	return truncateText(line, maxWidth)
 }
 
 func (m appModel) secondaryHintLimit() int {
@@ -118,6 +123,29 @@ func (m appModel) routeSecondaryBindings() []key.Binding {
 	}
 }
 
+func (m appModel) routeHistoryBindings(compact bool) []key.Binding {
+	switch m.route {
+	case RouteClean:
+		if !m.cleanFlow.shouldUseLedgerScroll() {
+			return nil
+		}
+	case RouteUninstall:
+		if !m.uninstallFlow.shouldUseLedgerScroll(m.uninstall) {
+			return nil
+		}
+	case RouteAnalyze:
+		if !m.analyzeFlow.shouldUseLedgerScroll() {
+			return nil
+		}
+	default:
+		return nil
+	}
+	if compact {
+		return []key.Binding{historyPageBinding(), historyJumpBinding()}
+	}
+	return []key.Binding{historyPageBinding(), historyJumpBinding()}
+}
+
 func renderHelpSections(sections []helpSection, width int, maxLines int) string {
 	lines := make([]string, 0, len(sections)*4)
 	for _, section := range sections {
@@ -153,9 +181,9 @@ func routeHelpLabel(route Route) string {
 	case RouteClean:
 		return "Clean"
 	case RouteTools:
-		return "More Tools"
+		return "Tool deck"
 	case RouteProtect:
-		return "Protect"
+		return "Guardrails"
 	case RouteUninstall:
 		return "Uninstall"
 	case RouteStatus:
@@ -174,6 +202,49 @@ func routeHelpLabel(route Route) string {
 		return "Result"
 	default:
 		return "Current screen"
+	}
+}
+
+func routeHelpSubtitle(route Route, helpKey string, backKey string) string {
+	label := routeHelpLabel(route)
+	switch route {
+	case RouteClean:
+		return fmt.Sprintf("%s sweep rail • %s or %s closes", label, helpKey, backKey)
+	case RouteUninstall:
+		return fmt.Sprintf("%s removal rail • %s or %s closes", label, helpKey, backKey)
+	case RouteAnalyze:
+		return fmt.Sprintf("%s trace rail • %s or %s closes", label, helpKey, backKey)
+	case RouteReview:
+		return fmt.Sprintf("%s run gate • %s or %s closes", label, helpKey, backKey)
+	case RoutePreflight:
+		return fmt.Sprintf("%s access rail • %s or %s closes", label, helpKey, backKey)
+	case RouteProgress:
+		return fmt.Sprintf("%s action deck • %s or %s closes", label, helpKey, backKey)
+	case RouteResult:
+		return fmt.Sprintf("%s outcome deck • %s or %s closes", label, helpKey, backKey)
+	case RouteStatus:
+		return fmt.Sprintf("%s pulse rail • %s or %s closes", label, helpKey, backKey)
+	case RouteHome:
+		return fmt.Sprintf("%s scout rail • %s or %s closes", label, helpKey, backKey)
+	default:
+		return fmt.Sprintf("%s route • %s or %s closes", label, helpKey, backKey)
+	}
+}
+
+func routeSecondaryLabel(route Route) string {
+	switch route {
+	case RouteStatus:
+		return "Watch"
+	case RouteUninstall:
+		return "Removal"
+	case RouteAnalyze:
+		return "Trace"
+	case RouteReview:
+		return "Gate"
+	case RouteResult:
+		return "Recovery"
+	default:
+		return "Also"
 	}
 }
 
@@ -281,4 +352,12 @@ func relabeledBinding(binding key.Binding, desc string) key.Binding {
 		helpText = strings.Join(keys, "/")
 	}
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(helpText, desc))
+}
+
+func historyPageBinding() key.Binding {
+	return key.NewBinding(key.WithKeys("pgup", "pgdn"), key.WithHelp("pgup/pgdn", "page history"))
+}
+
+func historyJumpBinding() key.Binding {
+	return key.NewBinding(key.WithKeys("home", "end"), key.WithHelp("home/end", "oldest/live"))
 }

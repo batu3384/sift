@@ -17,10 +17,10 @@ func resultStats(plan domain.ExecutionPlan, result domain.ExecutionResult, width
 	completed, deleted, failed, _, protected := countResultStatuses(result)
 	totalFreed := resultFreedBytes(plan, result)
 	return []string{
-		renderStatCard(resultCompletedCardLabel(plan), fmt.Sprintf("%d", completed), "safe", cardWidth),
-		renderStatCard(resultChangedCardLabel(plan), fmt.Sprintf("%d", resultChangedCount(plan, completed, deleted)), "safe", cardWidth),
-		renderStatCard("issues", fmt.Sprintf("%d", protected+failed), "review", cardWidth),
-		renderStatCard("freed", domain.HumanBytes(totalFreed), "safe", cardWidth),
+		renderRouteStatCard("result", resultCompletedCardLabel(plan), fmt.Sprintf("%d", completed), "safe", cardWidth),
+		renderRouteStatCard("result", resultChangedCardLabel(plan), fmt.Sprintf("%d", resultChangedCount(plan, completed, deleted)), "safe", cardWidth),
+		renderRouteStatCard("result", "issues", fmt.Sprintf("%d", protected+failed), "review", cardWidth),
+		renderRouteStatCard("result", "freed", domain.HumanBytes(totalFreed), "safe", cardWidth),
 	}
 }
 
@@ -124,14 +124,16 @@ func resultDetailView(model resultModel, width int, maxLines int) string {
 	freed := resultFreedBytes(model.plan, result)
 	totalBytes := progressTotalBytes(model.plan)
 	lines := []string{}
+	if signal := resultRouteSignalLine(model); signal != "" {
+		lines = append(lines, signal)
+	}
 	if totalBytes > 0 || freed > 0 {
 		lines = append(lines, safeStyle.Render(fmt.Sprintf("Space freed: %s / %s", domain.HumanBytes(freed), domain.HumanBytes(totalBytes))))
 	}
 	lines = append(lines,
 		wrapText(mutedStyle.Render(resultSummaryLine(model)), width),
+		wrapText(mutedStyle.Render(resultStatusLine(model)), width),
 		wrapText(mutedStyle.Render(resultScopeLine(model)), width),
-		wrapText(mutedStyle.Render(resultFocusLine(model)), width),
-		wrapText(mutedStyle.Render(resultOutcomeLine(model)), width),
 		wrapText(mutedStyle.Render(resultTrackLine(model)), width),
 		wrapText(mutedStyle.Render(resultNextLine(model)), width),
 	)
@@ -176,6 +178,33 @@ func resultDetailView(model resultModel, width int, maxLines int) string {
 	lines = append(lines, resultCommandLines(result.FollowUpCommands, width)...)
 	lines = viewportLines(lines, 0, maxLines)
 	return strings.Join(lines, "\n")
+}
+
+func resultRouteSignalLine(model resultModel) string {
+	if !routeHasNamedSignal(model.plan.Command) {
+		return ""
+	}
+	signature := routeSignalSignatureForRoute(model.plan.Command)
+	if strings.TrimSpace(signature.Mascot) == "" {
+		return ""
+	}
+	parts := []string{
+		railStyle.Render(signature.Mascot),
+		panelMetaStyle.Render(resultRouteSignalLabel(model.plan.Command)),
+	}
+	if signature.Doctrine != "" {
+		parts = append(parts, mutedStyle.Render(signature.Doctrine))
+	}
+	return strings.Join(parts, "  ")
+}
+
+func resultRouteSignalLabel(command string) string {
+	switch strings.TrimSpace(strings.ToLower(command)) {
+	case "uninstall":
+		return "AFTERCARE RAIL"
+	default:
+		return "SETTLED RAIL"
+	}
 }
 
 // resultCategorySummaryLines builds a per-category breakdown of what was

@@ -62,23 +62,58 @@ func (m appModel) updateClean(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.matchesQuit(msg), m.matchesBack(msg):
 		return m.navigate(RouteHome, true)
+	case msg.Type == tea.KeyPgUp:
+		if m.cleanFlow.scrollLedgerUp(m.cleanFlow.ledgerScrollPageSize()) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyPgDown:
+		if m.cleanFlow.scrollLedgerDown(m.cleanFlow.ledgerScrollPageSize()) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyHome:
+		if m.cleanFlow.scrollLedgerToOldest() {
+			return m, nil
+		}
+	case msg.Type == tea.KeyEnd:
+		if m.cleanFlow.scrollOffset > 0 || !m.cleanFlow.autoFollow {
+			m.cleanFlow.scrollLedgerToLatest()
+			return m, nil
+		}
 	case m.matchesUp(msg):
-		if m.clean.cursor > 0 {
-			m.clean.cursor--
+		if m.cleanFlow.scrollLedgerUp(4) {
+			return m, nil
+		}
+		if m.cleanFlow.cursor > 0 {
+			m.cleanFlow.cursor--
+			m.clean.cursor = m.cleanFlow.cursor
 			return m, m.startCleanPreviewLoad()
 		}
 	case m.matchesDown(msg):
-		if m.clean.cursor < len(m.clean.actions)-1 {
-			m.clean.cursor++
+		if m.cleanFlow.scrollLedgerDown(4) {
+			return m, nil
+		}
+		if m.cleanFlow.cursor < len(m.cleanFlow.actions)-1 {
+			m.cleanFlow.cursor++
+			m.clean.cursor = m.cleanFlow.cursor
 			return m, m.startCleanPreviewLoad()
 		}
 	case m.matchesActivate(msg):
-		action := m.clean.actions[m.clean.cursor]
+		action, ok := m.cleanFlow.selectedAction()
+		if !ok {
+			return m, nil
+		}
 		switch action.ID {
 		case "back":
 			return m.navigate(RouteHome, true)
 		default:
 			if action.ProfileKey != "" {
+				if previewPlan, ok := m.cleanFlow.previewPlanForSelected(); ok {
+					m.setReviewPlan(previewPlan, shouldExecutePlan(previewPlan))
+					m.route = RouteReview
+					m.reviewReturnRoute = RouteClean
+					m.resultReturnRoute = RouteClean
+					return m, nil
+				}
 				if previewPlan, ok := m.clean.previewPlanForSelected(); ok {
 					m.setReviewPlan(previewPlan, shouldExecutePlan(previewPlan))
 					m.route = RouteReview
@@ -86,10 +121,7 @@ func (m appModel) updateClean(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.resultReturnRoute = RouteClean
 					return m, nil
 				}
-				label := strings.ToLower(strings.TrimSpace(action.Title)) + " review"
-				return m.startPlanLoad(label, RouteReview, RouteClean, RouteClean, loadPlanCmd(func() (domain.ExecutionPlan, error) {
-					return m.callbacks.LoadCleanProfile(action.ProfileKey)
-				}))
+				return m, m.startCleanPreviewLoad()
 			}
 		}
 	}
@@ -97,17 +129,29 @@ func (m appModel) updateClean(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *appModel) startCleanPreviewLoad() tea.Cmd {
-	if m.callbacks.LoadCleanProfile == nil || m.clean.cursor < 0 || m.clean.cursor >= len(m.clean.actions) {
+	if m.cleanFlow.cursor < 0 || m.cleanFlow.cursor >= len(m.cleanFlow.actions) {
 		return nil
 	}
-	action := m.clean.actions[m.clean.cursor]
+	if m.callbacks.LoadCleanProfile == nil && m.callbacks.LoadCleanProfileWithProgress == nil && m.callbacks.LoadCleanProfileWithFindingProgress == nil {
+		return nil
+	}
+	action := m.cleanFlow.actions[m.cleanFlow.cursor]
+	m.clean.cursor = m.cleanFlow.cursor
 	key := strings.TrimSpace(action.ProfileKey)
 	if key == "" {
 		m.clean.setPreviewLoading("")
+		m.cleanFlow.setPreviewLoading("")
 		m.activeCleanPreviewRequestID = 0
+		m.cleanPreviewStream = nil
+		return nil
+	}
+	if m.cleanFlow.preview.loaded && strings.TrimSpace(m.cleanFlow.preview.key) == key {
 		return nil
 	}
 	if m.clean.preview.loaded && strings.TrimSpace(m.clean.preview.key) == key {
+		return nil
+	}
+	if m.cleanFlow.preview.loading && strings.TrimSpace(m.cleanFlow.preview.key) == key {
 		return nil
 	}
 	if m.clean.preview.loading && strings.TrimSpace(m.clean.preview.key) == key {
@@ -116,6 +160,49 @@ func (m *appModel) startCleanPreviewLoad() tea.Cmd {
 	m.nextMenuPreviewRequestID++
 	m.activeCleanPreviewRequestID = m.nextMenuPreviewRequestID
 	m.clean.setPreviewLoading(key)
+	m.cleanFlow.setPreviewLoading(key)
+	if loader := m.callbacks.LoadCleanProfileWithFindingProgress; loader != nil {
+		stream := make(chan tea.Msg, 16)
+		m.cleanPreviewStream = stream
+		requestID := m.activeCleanPreviewRequestID
+		go func(profile string, requestID int, out chan<- tea.Msg) {
+			plan, err := loader(profile, func(ruleID string, ruleName string, item domain.Finding) {
+				out <- scanFindingMsg{
+					route:     RouteClean,
+					key:       profile,
+					ruleID:    ruleID,
+					ruleName:  ruleName,
+					item:      item,
+					requestID: requestID,
+				}
+			})
+			out <- menuPreviewLoadedMsg{route: RouteClean, key: profile, plan: plan, err: err, requestID: requestID}
+			close(out)
+		}(key, requestID, stream)
+		return batchWithUITick(waitForPreviewStreamCmd(stream))
+	}
+	if loader := m.callbacks.LoadCleanProfileWithProgress; loader != nil {
+		stream := make(chan tea.Msg, 16)
+		m.cleanPreviewStream = stream
+		requestID := m.activeCleanPreviewRequestID
+		go func(profile string, requestID int, out chan<- tea.Msg) {
+			plan, err := loader(profile, func(ruleID string, ruleName string, itemsFound int, bytesFound int64) {
+				out <- scanProgressMsg{
+					route:      RouteClean,
+					key:        profile,
+					ruleID:     ruleID,
+					ruleName:   ruleName,
+					itemsFound: itemsFound,
+					bytesFound: bytesFound,
+					requestID:  requestID,
+				}
+			})
+			out <- menuPreviewLoadedMsg{route: RouteClean, key: profile, plan: plan, err: err, requestID: requestID}
+			close(out)
+		}(key, requestID, stream)
+		return batchWithUITick(waitForPreviewStreamCmd(stream))
+	}
+	m.cleanPreviewStream = nil
 	return batchWithUITick(loadMenuPreviewCmd(RouteClean, key, m.activeCleanPreviewRequestID, func() (domain.ExecutionPlan, error) {
 		return m.callbacks.LoadCleanProfile(key)
 	}))
@@ -185,6 +272,23 @@ func (m appModel) updateUninstall(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.matchesQuit(msg), m.matchesBack(msg):
 		return m.navigate(RouteHome, true)
+	case msg.Type == tea.KeyPgUp:
+		if m.uninstallFlow.scrollLedgerUp(m.uninstall, m.uninstallFlow.ledgerScrollPageSize()) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyPgDown:
+		if m.uninstallFlow.scrollLedgerDown(m.uninstall, m.uninstallFlow.ledgerScrollPageSize()) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyHome:
+		if m.uninstallFlow.scrollLedgerToOldest(m.uninstall) {
+			return m, nil
+		}
+	case msg.Type == tea.KeyEnd:
+		if m.uninstallFlow.scrollOffset > 0 || !m.uninstallFlow.autoFollow {
+			m.uninstallFlow.scrollLedgerToLatest()
+			return m, nil
+		}
 	case m.matchesSearch(msg):
 		m.uninstall.startSearch()
 		return m, nil
@@ -260,12 +364,14 @@ func (m *appModel) startUninstallPreviewLoad() tea.Cmd {
 	item, ok := m.uninstall.selected()
 	if !ok {
 		m.uninstall.setPreviewLoading("")
+		m.uninstallFlow.setPreviewLoading("")
 		m.activeUninstallPreviewRequestID = 0
 		return nil
 	}
 	key := uninstallStageKey(item.Name)
 	if key == "" {
 		m.uninstall.setPreviewLoading("")
+		m.uninstallFlow.setPreviewLoading("")
 		m.activeUninstallPreviewRequestID = 0
 		return nil
 	}
@@ -278,6 +384,7 @@ func (m *appModel) startUninstallPreviewLoad() tea.Cmd {
 	m.nextMenuPreviewRequestID++
 	m.activeUninstallPreviewRequestID = m.nextMenuPreviewRequestID
 	m.uninstall.setPreviewLoading(key)
+	m.uninstallFlow.setPreviewLoading(key)
 	return batchWithUITick(loadMenuPreviewCmd(RouteUninstall, key, m.activeUninstallPreviewRequestID, func() (domain.ExecutionPlan, error) {
 		return m.callbacks.LoadUninstallPlan(item.Name)
 	}))

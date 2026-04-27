@@ -66,7 +66,7 @@ func TestStatusOverviewViewIncludesSummaryLines(t *testing.T) {
 		signalFrame: 1,
 	}, 140, 8)
 
-	for _, needle := range []string{"Signal", "Now", "Risk", "Recent", "companion"} {
+	for _, needle := range []string{"PULSE RAIL", "live observatory focus", "Observatory", "Status", "Watch", "Session", "Next", "companion"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in status overview, got %q", needle, view)
 		}
@@ -104,7 +104,7 @@ func TestStatusSystemAndActivityListsUseReadableRows(t *testing.T) {
 			MemoryRSSBytes: 512 * 1024 * 1024,
 		}},
 	}, 120, 12)
-	for _, needle := range []string{"Top", "Code • cpu 12.4%", "mem 8.3%", "rss 512.0 MB"} {
+	for _, needle := range []string{"Status", "Next", "Top", "Code • cpu 12.4%", "mem 8.3%", "rss 512.0 MB"} {
 		if !strings.Contains(system, needle) {
 			t.Fatalf("expected %q in system view, got %q", needle, system)
 		}
@@ -116,7 +116,7 @@ func TestStatusSystemAndActivityListsUseReadableRows(t *testing.T) {
 		120,
 		12,
 	)
-	for _, needle := range []string{"Recent", "History", "ANALYZE / SAFE • 2.0 KB • 3 items"} {
+	for _, needle := range []string{"Status", "Next", "Recent", "History", "ANALYZE / SAFE • 2.0 KB • 3 items"} {
 		if !strings.Contains(activity, needle) {
 			t.Fatalf("expected %q in activity view, got %q", needle, activity)
 		}

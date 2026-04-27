@@ -12,9 +12,9 @@ func pl(n int, singular, plural string) string {
 
 func selectionPrefix(selected bool) string {
 	if selected {
-		return "▸ "
+		return "> " // Active selection
 	}
-	return "· "
+	return "- " // Inactive item
 }
 
 // titleCase uppercases the first letter of s. Used instead of the deprecated

@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/batu3384/sift/internal/config"
 	"github.com/batu3384/sift/internal/domain"
@@ -177,7 +179,7 @@ func TestHelpToggleShowsOverlayAndBlocksRouteActions(t *testing.T) {
 	if !helped.helpVisible {
 		t.Fatal("expected help overlay to open")
 	}
-	if !strings.Contains(helped.View(), "Home • ? or esc closes") {
+	if !strings.Contains(helped.View(), "Home scout rail • ? or esc closes") {
 		t.Fatalf("expected help overlay view, got:\n%s", helped.View())
 	}
 
@@ -609,7 +611,7 @@ func TestReviewExecuteRoutesThroughPermissionsWhenAccessNeedsPreflight(t *testin
 		t.Fatalf("expected preflight route, got %s", preflight.route)
 	}
 	view := preflight.View()
-	for _, needle := range []string{"SIFT / PERMISSIONS", "macOS password", "MANIFEST", "Reset caches", "y run • esc back"} {
+	for _, needle := range []string{"SIFT / ACCESS CHECK", "macOS password", "MANIFEST DECK", "Reset caches", "y run • esc back"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in preflight view, got:\n%s", needle, view)
 		}
@@ -1995,17 +1997,21 @@ func TestAppRouterHomeCleanReviewClean(t *testing.T) {
 	}
 	model.home.cursor = findHomeAction(t, model.home.actions, "clean")
 
-	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected clean preview warmup command")
+	}
 	cleanRoute := next.(appModel)
 	if cleanRoute.route != RouteClean {
 		t.Fatalf("expected clean route, got %s", cleanRoute.route)
 	}
+	next, _ = cleanRoute.Update(deliverCmd(t, cmd))
+	cleanRoute = next.(appModel)
 
-	next, cmd := cleanRoute.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected quick clean plan load command")
+	next, cmd = cleanRoute.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("expected cached quick clean preview to open review without reload")
 	}
-	next, _ = next.(appModel).Update(deliverCmd(t, cmd))
 	review := next.(appModel)
 	if review.route != RouteReview {
 		t.Fatalf("expected review route, got %s", review.route)
@@ -2029,7 +2035,7 @@ func TestCleanMenuShowsModuleCoverage(t *testing.T) {
 		height:   30,
 	}
 	view := model.View()
-	for _, needle := range []string{"CLEAN", "Quick Clean", "Workstation Clean", "Deep Reclaim", "State", "Next", "Scope", "Temporary files", "Safe clutter"} {
+	for _, needle := range []string{"CLEAN", "QUICK CLEAN", "WORKSTATION CLEAN", "DEEP RECLAIM", "State", "Next", "Scope", "Temporary files", "Safe clutter"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in clean menu view, got %s", needle, view)
 		}
@@ -2062,7 +2068,7 @@ func TestHomeCleanEntryStartsScopePreviewLoad(t *testing.T) {
 	}
 }
 
-func TestCleanPlanLoadStartsAnimatedBatch(t *testing.T) {
+func TestCleanPreviewLoadStartsAnimatedBatch(t *testing.T) {
 	t.Parallel()
 
 	model := newTestAppModel(RouteClean)
@@ -2080,20 +2086,20 @@ func TestCleanPlanLoadStartsAnimatedBatch(t *testing.T) {
 		t.Fatalf("expected batched clean load command, got %T", msg)
 	}
 	foundTick := false
-	foundPlan := false
+	foundPreview := false
 	for _, item := range batch {
 		switch item().(type) {
 		case uiTickMsg:
 			foundTick = true
-		case planLoadedMsg:
-			foundPlan = true
+		case menuPreviewLoadedMsg:
+			foundPreview = true
 		}
 	}
-	if !foundTick || !foundPlan {
-		t.Fatalf("expected ui tick and plan load in batch, tick=%v plan=%v", foundTick, foundPlan)
+	if !foundTick || !foundPreview {
+		t.Fatalf("expected ui tick and preview load in batch, tick=%v preview=%v", foundTick, foundPreview)
 	}
-	if next.(appModel).loadingLabel == "" {
-		t.Fatal("expected loading label to be set")
+	if !next.(appModel).clean.preview.loading || !next.(appModel).cleanFlow.preview.loading {
+		t.Fatalf("expected clean preview loading state, got clean=%+v flow=%+v", next.(appModel).clean.preview, next.(appModel).cleanFlow.preview)
 	}
 }
 
@@ -2118,6 +2124,7 @@ func TestCleanUsesCachedPreviewPlanForImmediateReview(t *testing.T) {
 
 	model := newTestAppModel(RouteClean)
 	model.clean.applyPreview("safe", cachedPlan, nil)
+	model.cleanFlow.applyPreview("safe", cachedPlan, nil)
 
 	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
@@ -2132,16 +2139,217 @@ func TestCleanUsesCachedPreviewPlanForImmediateReview(t *testing.T) {
 	}
 }
 
-func TestPlanLoadStaysInlineBeforeTransitionDelayAndBlocksRouteInput(t *testing.T) {
+func TestCleanRouteUsesUpDownForLedgerScrollDuringActiveScan(t *testing.T) {
 	t.Parallel()
 
 	model := newTestAppModel(RouteClean)
 	model.width = 132
-	model.height = 30
-	model.callbacks.LoadCleanProfile = func(profile string) (domain.ExecutionPlan, error) {
-		return domain.ExecutionPlan{Command: "clean", DryRun: true}, nil
+	model.height = 26
+	model.clean.cursor = 1
+	model.cleanFlow.cursor = 1
+	model.cleanFlow.setPreviewLoading("developer")
+	for i := 0; i < 10; i++ {
+		model.cleanFlow.applyScanFinding("cache", "Developer cache", domain.Finding{
+			ID:          strings.Join([]string{"row", string(rune('A' + i))}, "-"),
+			Name:        strings.Join([]string{"Row", string(rune('A' + i))}, " "),
+			Path:        strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			DisplayPath: strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			Category:    domain.CategoryDeveloperCaches,
+			Bytes:       int64(i+1) << 20,
+		})
 	}
 
+	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if cmd != nil {
+		t.Fatal("did not expect profile reload while scrolling clean history")
+	}
+	scrolled := next.(appModel)
+	if scrolled.cleanFlow.cursor != 1 || scrolled.clean.cursor != 1 {
+		t.Fatalf("expected clean profile selection to stay put while scrolling, got flow=%d clean=%d", scrolled.cleanFlow.cursor, scrolled.clean.cursor)
+	}
+	if scrolled.cleanFlow.scrollOffset == 0 {
+		t.Fatalf("expected clean flow scroll offset to increase, got %+v", scrolled.cleanFlow)
+	}
+	if !strings.Contains(ansi.Strip(scrolled.View()), "scroll hold") {
+		t.Fatalf("expected clean view to advertise held scroll position, got %s", ansi.Strip(scrolled.View()))
+	}
+}
+
+func TestCleanRouteEndKeyReturnsLedgerToLiveTail(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteClean)
+	model.width = 132
+	model.height = 26
+	model.clean.cursor = 1
+	model.cleanFlow.cursor = 1
+	model.cleanFlow.setPreviewLoading("developer")
+	for i := 0; i < 10; i++ {
+		model.cleanFlow.applyScanFinding("cache", "Developer cache", domain.Finding{
+			ID:          strings.Join([]string{"row", string(rune('A' + i))}, "-"),
+			Name:        strings.Join([]string{"Row", string(rune('A' + i))}, " "),
+			Path:        strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			DisplayPath: strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			Category:    domain.CategoryDeveloperCaches,
+			Bytes:       int64(i+1) << 20,
+		})
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	scrolled := next.(appModel)
+	if scrolled.cleanFlow.scrollOffset == 0 {
+		t.Fatalf("expected clean flow scroll offset to increase, got %+v", scrolled.cleanFlow)
+	}
+
+	next, _ = scrolled.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	live := next.(appModel)
+	if live.cleanFlow.scrollOffset != 0 || !live.cleanFlow.autoFollow {
+		t.Fatalf("expected End to return clean ledger to live tail, got %+v", live.cleanFlow)
+	}
+	if strings.Contains(ansi.Strip(live.View()), "scroll hold") {
+		t.Fatalf("expected live tail view after End key, got %s", ansi.Strip(live.View()))
+	}
+}
+
+func TestCleanRouteHomeKeyPinsLedgerToOldestHistory(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteClean)
+	model.width = 132
+	model.height = 26
+	model.clean.cursor = 1
+	model.cleanFlow.cursor = 1
+	model.cleanFlow.setPreviewLoading("developer")
+	for i := 0; i < 10; i++ {
+		model.cleanFlow.applyScanFinding("cache", "Developer cache", domain.Finding{
+			ID:          strings.Join([]string{"row", string(rune('A' + i))}, "-"),
+			Name:        strings.Join([]string{"Row", string(rune('A' + i))}, " "),
+			Path:        strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			DisplayPath: strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			Category:    domain.CategoryDeveloperCaches,
+			Bytes:       int64(i+1) << 20,
+		})
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyHome})
+	oldest := next.(appModel)
+	if oldest.cleanFlow.scrollOffset == 0 || oldest.cleanFlow.autoFollow {
+		t.Fatalf("expected Home to pin clean ledger to oldest visible history, got %+v", oldest.cleanFlow)
+	}
+	view := ansi.Strip(oldest.View())
+	if !strings.Contains(view, "Row A") {
+		t.Fatalf("expected Home key to reveal earliest clean scan rows, got %s", view)
+	}
+}
+
+func TestCleanRoutePageKeysScrollLedgerHistory(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteClean)
+	model.width = 132
+	model.height = 26
+	model.clean.cursor = 1
+	model.cleanFlow.cursor = 1
+	model.cleanFlow.setPreviewLoading("developer")
+	for i := 0; i < 18; i++ {
+		model.cleanFlow.applyScanFinding("cache", "Developer cache", domain.Finding{
+			ID:          strings.Join([]string{"row", string(rune('A' + i))}, "-"),
+			Name:        strings.Join([]string{"Row", string(rune('A' + i))}, " "),
+			Path:        strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			DisplayPath: strings.Join([]string{"/tmp/row", string(rune('a' + i))}, "-"),
+			Category:    domain.CategoryDeveloperCaches,
+			Bytes:       int64(i+1) << 20,
+		})
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	pagedUp := next.(appModel)
+	if pagedUp.cleanFlow.scrollOffset == 0 || pagedUp.cleanFlow.autoFollow {
+		t.Fatalf("expected PageUp to enter held clean history, got %+v", pagedUp.cleanFlow)
+	}
+
+	next, _ = pagedUp.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	pagedDown := next.(appModel)
+	if pagedDown.cleanFlow.scrollOffset >= pagedUp.cleanFlow.scrollOffset {
+		t.Fatalf("expected PageDown to move clean history toward live tail, before=%d after=%d", pagedUp.cleanFlow.scrollOffset, pagedDown.cleanFlow.scrollOffset)
+	}
+}
+
+func TestUninstallRoutePageKeysScrollLedgerHistory(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteUninstall)
+	model.width = 132
+	model.height = 26
+	entries := make([]domain.AppEntry, 0, 12)
+	for i := 0; i < 12; i++ {
+		entries = append(entries, domain.AppEntry{
+			DisplayName:      fmt.Sprintf("Row %c", 'A'+i),
+			UninstallCommand: "/Applications/Example Uninstaller.app",
+		})
+	}
+	model.applyInstalledApps(entries)
+	model.uninstall.cursor = len(model.uninstall.filtered) - 1
+	model.uninstallFlow.phase = uninstallFlowInventory
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	pagedUp := next.(appModel)
+	if pagedUp.uninstall.cursor != len(model.uninstall.filtered)-1 {
+		t.Fatalf("expected uninstall selection to stay put while paging history, got %d", pagedUp.uninstall.cursor)
+	}
+	if pagedUp.uninstallFlow.scrollOffset == 0 || pagedUp.uninstallFlow.autoFollow {
+		t.Fatalf("expected PageUp to hold uninstall history, got %+v", pagedUp.uninstallFlow)
+	}
+
+	next, _ = pagedUp.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	live := next.(appModel)
+	if live.uninstallFlow.scrollOffset != 0 || !live.uninstallFlow.autoFollow {
+		t.Fatalf("expected End to return uninstall history to live tail, got %+v", live.uninstallFlow)
+	}
+}
+
+func TestAnalyzeRoutePageKeysScrollLedgerHistory(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteAnalyze)
+	model.width = 132
+	model.height = 26
+	model.analyzeFlow.phase = analyzeFlowInspecting
+	for i := 0; i < 12; i++ {
+		model.analyzeFlow.traceRows = append(model.analyzeFlow.traceRows, analyzeFlowTraceRow{
+			FindingID: fmt.Sprintf("row-%c", 'A'+i),
+			Path:      fmt.Sprintf("/tmp/row-%c", 'a'+i),
+			Label:     fmt.Sprintf("Row %c", 'A'+i),
+			Category:  domain.CategoryDiskUsage,
+			Bytes:     int64(i+1) << 20,
+			State:     "review",
+		})
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	pagedUp := next.(appModel)
+	if pagedUp.analyzeFlow.scrollOffset == 0 || pagedUp.analyzeFlow.autoFollow {
+		t.Fatalf("expected PageUp to hold analyze history, got %+v", pagedUp.analyzeFlow)
+	}
+
+	next, _ = pagedUp.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	live := next.(appModel)
+	if live.analyzeFlow.scrollOffset != 0 || !live.analyzeFlow.autoFollow {
+		t.Fatalf("expected End to return analyze history to live tail, got %+v", live.analyzeFlow)
+	}
+}
+
+func TestPlanLoadStaysInlineBeforeTransitionDelayAndBlocksRouteInput(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteHome)
+	model.width = 132
+	model.height = 30
+	model.applyDashboard(testDashboardData())
+	model.callbacks.LoadAnalyzeHome = func() (domain.ExecutionPlan, error) {
+		return domain.ExecutionPlan{Command: "analyze", DryRun: true}, nil
+	}
+	model.home.cursor = findHomeAction(t, model.home.actions, "analyze")
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	loading := next.(appModel)
 	if !loading.planLoadPending() {
@@ -2151,35 +2359,36 @@ func TestPlanLoadStaysInlineBeforeTransitionDelayAndBlocksRouteInput(t *testing.
 		t.Fatal("expected transition screen to remain hidden for short loads")
 	}
 	view := loading.View()
-	for _, needle := range []string{"CLEAN", "load review -> inspect -> open"} {
+	for _, needle := range []string{"Analyze disk usage", "loading next screen"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in inline loading view, got %s", needle, view)
 		}
 	}
-	for _, needle := range []string{"SIFT / REVIEW", "opening review", "esc cancels"} {
+	for _, needle := range []string{"SIFT / Analyze", "opening analysis", "esc cancels"} {
 		if strings.Contains(view, needle) {
 			t.Fatalf("did not expect %q before transition delay, got %s", needle, view)
 		}
 	}
 
-	loading.clean.cursor = 1
+	loading.home.cursor = findHomeAction(t, loading.home.actions, "clean")
 	next, _ = loading.Update(tea.KeyMsg{Type: tea.KeyDown})
 	blocked := next.(appModel)
-	if blocked.clean.cursor != 1 {
-		t.Fatalf("expected pending load to block route cursor changes, got %d", blocked.clean.cursor)
+	if blocked.home.cursor != findHomeAction(t, loading.home.actions, "clean") {
+		t.Fatalf("expected pending load to block route cursor changes, got %d", blocked.home.cursor)
 	}
 }
 
 func TestPlanLoadShowsTransitionScreenAfterDelay(t *testing.T) {
 	t.Parallel()
 
-	model := newTestAppModel(RouteClean)
+	model := newTestAppModel(RouteHome)
 	model.width = 132
 	model.height = 30
-	model.callbacks.LoadCleanProfile = func(profile string) (domain.ExecutionPlan, error) {
-		return domain.ExecutionPlan{Command: "clean", DryRun: true}, nil
+	model.applyDashboard(testDashboardData())
+	model.callbacks.LoadAnalyzeHome = func() (domain.ExecutionPlan, error) {
+		return domain.ExecutionPlan{Command: "analyze", DryRun: true}, nil
 	}
-
+	model.home.cursor = findHomeAction(t, model.home.actions, "analyze")
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	loading := next.(appModel)
 	if !loading.planLoadPending() {
@@ -2192,7 +2401,7 @@ func TestPlanLoadShowsTransitionScreenAfterDelay(t *testing.T) {
 		t.Fatal("expected delayed transition screen to become active")
 	}
 	view := transition.View()
-	for _, needle := range []string{"SIFT / REVIEW", "opening review", "esc cancels", "load review -> inspect -> open"} {
+	for _, needle := range []string{"SIFT / ANALYZE", "opening analysis", "esc cancels"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in transition view, got %s", needle, view)
 		}
@@ -2202,11 +2411,12 @@ func TestPlanLoadShowsTransitionScreenAfterDelay(t *testing.T) {
 func TestPlanLoadCanBeCancelledWithoutChangingScreen(t *testing.T) {
 	t.Parallel()
 
-	model := newTestAppModel(RouteClean)
-	model.callbacks.LoadCleanProfile = func(profile string) (domain.ExecutionPlan, error) {
-		return domain.ExecutionPlan{Command: "clean", DryRun: true}, nil
+	model := newTestAppModel(RouteHome)
+	model.applyDashboard(testDashboardData())
+	model.callbacks.LoadAnalyzeHome = func() (domain.ExecutionPlan, error) {
+		return domain.ExecutionPlan{Command: "analyze", DryRun: true}, nil
 	}
-
+	model.home.cursor = findHomeAction(t, model.home.actions, "analyze")
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	loading := next.(appModel)
 	if !loading.planLoadPending() {
@@ -2215,8 +2425,8 @@ func TestPlanLoadCanBeCancelledWithoutChangingScreen(t *testing.T) {
 
 	next, _ = loading.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	cancelled := next.(appModel)
-	if cancelled.route != RouteClean {
-		t.Fatalf("expected clean route to remain active, got %s", cancelled.route)
+	if cancelled.route != RouteHome {
+		t.Fatalf("expected home route to remain active, got %s", cancelled.route)
 	}
 	if cancelled.planLoadPending() || cancelled.currentLoadingLabel() != "" {
 		t.Fatalf("expected plan load to be cancelled, got pending=%v label=%q", cancelled.planLoadPending(), cancelled.currentLoadingLabel())
@@ -2224,7 +2434,7 @@ func TestPlanLoadCanBeCancelledWithoutChangingScreen(t *testing.T) {
 	if cancelled.errorMsg != "" {
 		t.Fatalf("expected cancellation to avoid error bar, got %q", cancelled.errorMsg)
 	}
-	if !strings.Contains(cancelled.noticeMsg, "Cancelled quick clean review.") {
+	if !strings.Contains(cancelled.noticeMsg, "Cancelled scanning files.") {
 		t.Fatalf("expected cancellation notice, got %q", cancelled.noticeMsg)
 	}
 }
@@ -2232,11 +2442,12 @@ func TestPlanLoadCanBeCancelledWithoutChangingScreen(t *testing.T) {
 func TestPlanLoadDoesNotOpenHelpWhilePending(t *testing.T) {
 	t.Parallel()
 
-	model := newTestAppModel(RouteClean)
-	model.callbacks.LoadCleanProfile = func(profile string) (domain.ExecutionPlan, error) {
-		return domain.ExecutionPlan{Command: "clean", DryRun: true}, nil
+	model := newTestAppModel(RouteHome)
+	model.applyDashboard(testDashboardData())
+	model.callbacks.LoadAnalyzeHome = func() (domain.ExecutionPlan, error) {
+		return domain.ExecutionPlan{Command: "analyze", DryRun: true}, nil
 	}
-
+	model.home.cursor = findHomeAction(t, model.home.actions, "analyze")
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	loading := next.(appModel)
 	if !loading.planLoadPending() {
@@ -3024,6 +3235,197 @@ func TestAppRouterToolsOptimizeReview(t *testing.T) {
 	}
 }
 
+func TestAnalyzeReviewExecuteMovesControllerToPermissions(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteReview)
+	plan := domain.ExecutionPlan{
+		Command:  "clean",
+		DryRun:   false,
+		Platform: "darwin",
+		Items: []domain.Finding{{
+			ID:            "secure-clean",
+			Name:          "Reset cache indexes",
+			Path:          "/Library/Caches/system",
+			DisplayPath:   "/usr/bin/sudo /usr/bin/true",
+			Status:        domain.StatusPlanned,
+			Action:        domain.ActionCommand,
+			CommandPath:   "/usr/bin/sudo",
+			CommandArgs:   []string{"/usr/bin/true"},
+			RequiresAdmin: true,
+			Category:      domain.CategoryMaintenance,
+		}},
+	}
+	model.setReviewPlan(plan, true)
+	model.reviewReturnRoute = RouteAnalyze
+	model.analyzeFlow.markReviewReady(plan)
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	routed := next.(appModel)
+	if routed.route != RoutePreflight {
+		t.Fatalf("expected preflight route, got %s", routed.route)
+	}
+	if routed.analyzeFlow.phase != analyzeFlowPermissions {
+		t.Fatalf("expected analyze flow permissions phase, got %s", routed.analyzeFlow.phase)
+	}
+}
+
+func TestAnalyzePreflightBackRestoresReviewReadyPhase(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteReview)
+	plan := domain.ExecutionPlan{
+		Command:  "clean",
+		DryRun:   false,
+		Platform: "darwin",
+		Items: []domain.Finding{{
+			ID:            "secure-clean",
+			Name:          "Reset cache indexes",
+			Path:          "/Library/Caches/system",
+			DisplayPath:   "/usr/bin/sudo /usr/bin/true",
+			Status:        domain.StatusPlanned,
+			Action:        domain.ActionCommand,
+			CommandPath:   "/usr/bin/sudo",
+			CommandArgs:   []string{"/usr/bin/true"},
+			RequiresAdmin: true,
+			Category:      domain.CategoryMaintenance,
+		}},
+	}
+	model.setReviewPlan(plan, true)
+	model.reviewReturnRoute = RouteAnalyze
+	model.analyzeFlow.markReviewReady(plan)
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	preflight := next.(appModel)
+	next, _ = preflight.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	review := next.(appModel)
+	if review.route != RouteReview {
+		t.Fatalf("expected review route after preflight back, got %s", review.route)
+	}
+	if review.analyzeFlow.phase != analyzeFlowReviewReady {
+		t.Fatalf("expected analyze flow review-ready phase, got %s", review.analyzeFlow.phase)
+	}
+}
+
+func TestAnalyzeReviewExecuteMovesControllerToReclaiming(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteReview)
+	plan := domain.ExecutionPlan{
+		Command:  "clean",
+		DryRun:   false,
+		Platform: "darwin",
+		Items: []domain.Finding{{
+			ID:          "cache-a",
+			Name:        "Chrome Code Cache/js",
+			Path:        "/tmp/cache-a",
+			DisplayPath: "/tmp/cache-a",
+			Status:      domain.StatusPlanned,
+			Action:      domain.ActionTrash,
+			Category:    domain.CategoryBrowserData,
+			Bytes:       48 << 20,
+		}},
+	}
+	model.setReviewPlan(plan, true)
+	model.reviewReturnRoute = RouteAnalyze
+	model.analyzeFlow.markReviewReady(plan)
+	model.callbacks.ExecutePlanWithProgress = func(ctx context.Context, plan domain.ExecutionPlan, emit func(domain.ExecutionProgress)) (domain.ExecutionResult, error) {
+		return domain.ExecutionResult{}, nil
+	}
+
+	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	if cmd == nil {
+		t.Fatal("expected execution stream command")
+	}
+	progress := next.(appModel)
+	if progress.route != RouteProgress {
+		t.Fatalf("expected progress route, got %s", progress.route)
+	}
+	if progress.analyzeFlow.phase != analyzeFlowReclaiming {
+		t.Fatalf("expected analyze flow reclaiming phase, got %s", progress.analyzeFlow.phase)
+	}
+}
+
+func TestAnalyzeExecutionFinishedMovesControllerToResult(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Command:  "clean",
+		DryRun:   false,
+		Platform: "darwin",
+		Totals:   domain.Totals{SafeBytes: 48 << 20, Bytes: 48 << 20, ItemCount: 1},
+		Items: []domain.Finding{{
+			ID:          "cache-a",
+			Name:        "Chrome Code Cache/js",
+			Path:        "/tmp/cache-a",
+			DisplayPath: "/tmp/cache-a",
+			Status:      domain.StatusPlanned,
+			Action:      domain.ActionTrash,
+			Category:    domain.CategoryBrowserData,
+			Bytes:       48 << 20,
+		}},
+	}
+	model := newTestAppModel(RouteProgress)
+	model.setProgressPlan(plan, "/tmp/cache-a")
+	model.activeExecutionSourceRoute = RouteAnalyze
+	model.analyzeFlow.markReclaiming(plan, permissionPreflightModel{})
+
+	next, _ := model.Update(executionFinishedMsg{
+		result: domain.ExecutionResult{
+			Items: []domain.OperationResult{{
+				Path:   "/tmp/cache-a",
+				Status: domain.StatusDeleted,
+				Bytes:  48 << 20,
+			}},
+		},
+	})
+	result := next.(appModel)
+	if result.route != RouteResult {
+		t.Fatalf("expected result route, got %s", result.route)
+	}
+	if result.analyzeFlow.phase != analyzeFlowResult {
+		t.Fatalf("expected analyze flow result phase, got %s", result.analyzeFlow.phase)
+	}
+}
+
+func TestAnalyzeExecutionProgressUpdatesControllerTraceRows(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Command: "clean",
+		DryRun:  false,
+		Totals:  domain.Totals{Bytes: 48 << 20, SafeBytes: 48 << 20, ItemCount: 1},
+		Items: []domain.Finding{{
+			ID:          "cache-a",
+			Name:        "Chrome Code Cache/js",
+			Path:        "/tmp/cache-a",
+			DisplayPath: "/tmp/cache-a",
+			Status:      domain.StatusPlanned,
+			Action:      domain.ActionTrash,
+			Category:    domain.CategoryBrowserData,
+			Bytes:       48 << 20,
+		}},
+	}
+	model := newTestAppModel(RouteProgress)
+	model.setProgressPlan(plan, "/tmp/cache-a")
+	model.activeExecutionSourceRoute = RouteAnalyze
+	model.analyzeFlow.markReclaiming(plan, permissionPreflightModel{})
+
+	next, _ := model.Update(executionProgressMsg{
+		progress: domain.ExecutionProgress{
+			Phase: domain.ProgressPhaseRunning,
+			Item:  plan.Items[0],
+		},
+	})
+	progress := next.(appModel)
+	if len(progress.analyzeFlow.traceRows) != 1 {
+		t.Fatalf("expected analyze trace row seeded from execution progress, got %+v", progress.analyzeFlow.traceRows)
+	}
+	if progress.analyzeFlow.traceRows[0].State != "reclaiming" {
+		t.Fatalf("expected analyze trace row state reclaiming, got %+v", progress.analyzeFlow.traceRows[0])
+	}
+}
+
 func newTestAppModel(initial Route) appModel {
 	return appModel{
 		route:                      initial,
@@ -3052,13 +3454,16 @@ func newTestAppModel(initial Route) appModel {
 			subtitle: "choose scope",
 			actions:  buildCleanActions(),
 		},
+		cleanFlow: newCleanFlowModel(),
 		tools: menuModel{
 			title:    "More Tools",
 			subtitle: "more tools",
 			actions:  buildToolsActions(config.Default()),
 		},
-		protect:   newProtectModel(nil),
-		uninstall: newUninstallModel(),
+		protect:       newProtectModel(nil),
+		uninstall:     newUninstallModel(),
+		uninstallFlow: newUninstallFlowModel(),
+		analyzeFlow:   newAnalyzeFlowModel(),
 	}
 }
 

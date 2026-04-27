@@ -13,14 +13,14 @@ func TestProtectViewShowsFamilyAndScopeMatrices(t *testing.T) {
 	model := newProtectModel([]string{"/tmp/keep"})
 	model.syncFamilies([]string{"browser_profiles", "ai_workspaces"})
 	model.syncScopes(map[string][]string{
-		"clean":     {"/tmp/keep", "/tmp/cache"},
+		"clean":      {"/tmp/keep", "/tmp/cache"},
 		"purge_scan": {"/Users/test/dev"},
 	})
 	model.width = 132
 	model.height = 30
 
 	view := model.View()
-	for _, needle := range []string{"Family Matrix", "Scope Matrix", "browser_profiles", "ai_workspaces", "clean", "purge_scan"} {
+	for _, needle := range []string{"GUARD RAIL", "POLICY DECK", "Family Watch", "Scope Watch", "browser_profiles", "ai_workspaces", "clean", "purge_scan"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in protect view, got %s", needle, view)
 		}
@@ -44,7 +44,7 @@ func TestProtectDetailShowsDecisionPath(t *testing.T) {
 	}
 
 	view := model.detailView(72, 20)
-	for _, needle := range []string{"Decision Path", "command scopes", "Command  clean", "State    user protected", "Family Matrix", "Scope Matrix"} {
+	for _, needle := range []string{"Decision Trace", "command scopes", "Command  clean", "Gate     user protected", "Family Watch", "Scope Watch"} {
 		if !strings.Contains(strings.ToLower(view), strings.ToLower(needle)) {
 			t.Fatalf("expected %q in protect detail, got %s", needle, view)
 		}
@@ -75,15 +75,15 @@ func TestProtectViewRenderMatrix(t *testing.T) {
 		model.width = tc.width
 		model.height = tc.height
 		view := model.View()
-		for _, needle := range []string{"PROTECT", "Family Matrix"} {
+		for _, needle := range []string{"GUARD", "Family Watch"} {
 			if !strings.Contains(strings.ToLower(view), strings.ToLower(needle)) {
 				t.Fatalf("expected %q in protect view for %dx%d, got %s", needle, tc.width, tc.height, view)
 			}
 		}
-		if tc.width >= 100 && !strings.Contains(strings.ToLower(view), "command scopes") {
+		if tc.width >= 100 && !strings.Contains(strings.ToLower(view), "scope watch") {
 			t.Fatalf("expected command scopes summary in wider protect view for %dx%d, got %s", tc.width, tc.height, view)
 		}
-		if tc.width >= 140 && !strings.Contains(strings.ToLower(view), "scope matrix") {
+		if tc.width >= 140 && !strings.Contains(strings.ToLower(view), "scope watch") {
 			t.Fatalf("expected scope matrix in widest protect view for %dx%d, got %s", tc.width, tc.height, view)
 		}
 		if got := len(strings.Split(view, "\n")); got > tc.height {

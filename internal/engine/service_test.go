@@ -258,6 +258,62 @@ func TestScanMarksProtectedPaths(t *testing.T) {
 	}
 }
 
+func TestScanEmitsFindingProgressForEachNormalizedItem(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cacheRoot := filepath.Join(root, "cache")
+	if err := os.MkdirAll(cacheRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	first := filepath.Join(cacheRoot, "first.bin")
+	second := filepath.Join(cacheRoot, "second.bin")
+	if err := os.WriteFile(first, []byte("payload-1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte("payload-2"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.Profiles["safe"] = []string{"temp_files"}
+	service := &Service{
+		Adapter: stubAdapter{
+			roots: platform.CuratedRoots{
+				Temp: []string{cacheRoot},
+			},
+		},
+		Config: cfg,
+	}
+
+	var seen []domain.Finding
+	plan, err := service.Scan(context.Background(), ScanOptions{
+		Command: "clean",
+		Profile: "safe",
+		DryRun:  true,
+		FindingCallback: func(ruleID string, ruleName string, item domain.Finding) {
+			seen = append(seen, item)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Items) != 2 {
+		t.Fatalf("expected two findings in plan, got %d", len(plan.Items))
+	}
+	if len(seen) != 2 {
+		t.Fatalf("expected two streamed findings, got %d", len(seen))
+	}
+	for _, item := range seen {
+		if item.Path == "" || item.DisplayPath == "" {
+			t.Fatalf("expected normalized streamed finding, got %+v", item)
+		}
+		if item.RuleID == "" || item.Name == "" || item.Category == "" {
+			t.Fatalf("expected streamed finding metadata, got %+v", item)
+		}
+	}
+}
+
 func TestTrashPathsMovesSelectedTargetsToTrash(t *testing.T) {
 	t.Parallel()
 

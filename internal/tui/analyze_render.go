@@ -24,13 +24,13 @@ func analyzeStats(plan domain.ExecutionPlan, stageOrder []string, loading bool, 
 		tone = "high"
 	}
 	cards := []string{
-		renderStatCard("children", fmt.Sprintf("%d mapped", len(diskUsage)), "safe", cardWidth),
-		renderStatCard("files", fmt.Sprintf("%d large", len(largeFiles)), "review", cardWidth),
-		renderStatCard("reclaim", domain.HumanBytes(plan.Totals.Bytes), "review", cardWidth),
-		renderStatCard("state", state, tone, cardWidth),
+		renderRouteStatCard("analyze", "children", fmt.Sprintf("%d mapped", len(diskUsage)), "safe", cardWidth),
+		renderRouteStatCard("analyze", "files", fmt.Sprintf("%d large", len(largeFiles)), "review", cardWidth),
+		renderRouteStatCard("analyze", "reclaim", domain.HumanBytes(plan.Totals.Bytes), "review", cardWidth),
+		renderRouteStatCard("analyze", "state", state, tone, cardWidth),
 	}
 	if width >= 128 {
-		cards = append(cards, renderStatCard("queued", fmt.Sprintf("%d staged", len(stageOrder)), "safe", cardWidth))
+		cards = append(cards, renderRouteStatCard("analyze", "queued", fmt.Sprintf("%d staged", len(stageOrder)), "safe", cardWidth))
 	}
 	return cards
 }

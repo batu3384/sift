@@ -86,33 +86,33 @@ func footerMotionLabel(motion motionState) string {
 	}
 	switch motion.Mode {
 	case motionModeAlert:
-		// Urgent pulse: double-ring ↔ asterisk
+		// Urgent pulse: X ↔ asterisk
 		if motion.Pulse {
-			return "◈ LIVE RAIL 15s"
+			return "X LIVE RAIL 15s"
 		}
-		return "◎ LIVE RAIL 15s"
+		return "x LIVE RAIL 15s"
 	case motionModeProgress:
-		// Active pulse: hollow ↔ filled circle
+		// Active pulse: o ↔ O
 		if motion.Pulse {
-			return "● LIVE RAIL 15s"
+			return "O LIVE RAIL 15s"
 		}
-		return "◌ LIVE RAIL 15s"
+		return "o LIVE RAIL 15s"
 	case motionModeReview:
-		// Deliberate pulse: hollow ↔ filled diamond
+		// Deliberate pulse: o ↔ *
 		if motion.Pulse {
-			return "◆ LIVE RAIL 15s"
+			return "* LIVE RAIL 15s"
 		}
-		return "◇ LIVE RAIL 15s"
+		return "o LIVE RAIL 15s"
 	case motionModeLoading:
 		if motion.Pulse {
-			return "◉ LIVE RAIL 15s"
+			return "O LIVE RAIL 15s"
 		}
-		return "◌ LIVE RAIL 15s"
+		return "o LIVE RAIL 15s"
 	default:
 		if motion.Pulse {
-			return "◉ LIVE RAIL 15s"
+			return "O LIVE RAIL 15s"
 		}
-		return "○ LIVE RAIL 15s"
+		return "o LIVE RAIL 15s"
 	}
 }
 
@@ -131,21 +131,22 @@ func loadingPulseLine(label string, motion motionState) string {
 
 func spinnerGlyph(motion motionState) string {
 	if motion.Reduced {
-		return "•"
+		return "*"
 	}
 	frames := spinnerFrames
 	switch motion.Mode {
 	case motionModeAlert:
-		frames = []string{"◴", "◷", "◶", "◵"}
+		// Alert mode: faster flashing indicator
+		frames = []string{"!", "!!", "!!!", "!!"}
 	case motionModeProgress:
-		// Pulsing circle: empty → outline → filled → outline
-		frames = []string{"◌", "◎", "●", "◎"}
+		// Progress mode: scanning animation
+		frames = []string{">", ">>", ">>>", ">>>>"}
 	case motionModeReview:
-		// Diamond sweep: empty → center-dot → filled → center-dot
-		frames = []string{"◇", "◈", "◆", "◈"}
+		// Review mode: thoughtful pulsing
+		frames = []string{"~", "~~", "~~~", "~~"}
 	}
 	if len(frames) == 0 {
-		return "•"
+		return "-"
 	}
 	index := motion.Frame % len(frames)
 	if index < 0 {

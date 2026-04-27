@@ -8,18 +8,23 @@ import (
 )
 
 func resultSummaryLine(model resultModel) string {
-	issues := len(resultRecoveryCandidates(model.plan, model.result, model.filter))
 	completed, deleted, _, _, _ := countResultStatuses(model.result)
-	itemCount := len(model.result.Items)
-	scopeCount := resultScopeCount(model.plan)
-	scopeSingular, scopePlural := resultScopeLabelPair(model.plan)
-	parts := []string{
-		fmt.Sprintf("%d %s", itemCount, pl(itemCount, "item", "items")),
-		fmt.Sprintf("%d %s", scopeCount, pl(scopeCount, scopeSingular, scopePlural)),
+	total := max(len(model.plan.Items), len(model.result.Items))
+	changed := resultChangedCount(model.plan, completed, deleted)
+	percent := 0
+	if total > 0 {
+		percent = changed * 100 / total
 	}
-	if changed := resultChangedCount(model.plan, completed, deleted); changed > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s", changed, resultChangedSummaryLabel(model.plan)))
-	}
+	return fmt.Sprintf("Result   %d%% changed  •  %d/%d changed  •  %s freed", percent, changed, total, domain.HumanBytes(resultFreedBytes(model.plan, model.result)))
+}
+
+func resultNextLine(model resultModel) string {
+	return "Next    " + strings.TrimPrefix(resultNextRail(model), "Next rail  •  ")
+}
+
+func resultStatusLine(model resultModel) string {
+	issues := len(resultRecoveryCandidates(model.plan, model.result, model.filter))
+	parts := make([]string, 0, 4)
 	if issues > 0 {
 		parts = append(parts, fmt.Sprintf("%d %s", issues, pl(issues, "issue", "issues")))
 	}
@@ -29,12 +34,12 @@ func resultSummaryLine(model resultModel) string {
 	if cmdCount := len(model.result.FollowUpCommands); cmdCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d follow-up %s", cmdCount, pl(cmdCount, "command", "commands")))
 	}
-	parts = append(parts, strings.TrimPrefix(resultWhatChangedLine(model.result), "What changed  •  "))
-	return "Summary  " + strings.Join(parts, "  •  ")
-}
-
-func resultNextLine(model resultModel) string {
-	return "Next    " + strings.TrimPrefix(resultNextRail(model), "Next rail  •  ")
+	if len(parts) == 0 {
+		parts = append(parts, "lane settled cleanly")
+	} else {
+		parts = append(parts, "lane needs review")
+	}
+	return "Status   " + strings.Join(parts, "  •  ")
 }
 
 func resultTrackLine(model resultModel) string {
@@ -42,10 +47,10 @@ func resultTrackLine(model resultModel) string {
 	switch model.plan.Command {
 	case "clean":
 		sections := resultSettledSections(model.plan, model.result)
-		return fmt.Sprintf("Track   %d %s  •  %d reclaimed  •  %d open", sections, pl(sections, "section", "sections"), deleted, failed+protected)
+		return fmt.Sprintf("Rail    %d %s  •  %d reclaimed  •  %d open", sections, pl(sections, "section", "sections"), deleted, failed+protected)
 	case "uninstall":
 		native, removed, aftercare := uninstallResultBuckets(model)
-		parts := []string{"Track", fmt.Sprintf("%d native", native), fmt.Sprintf("%d removed", removed)}
+		parts := []string{"Rail", fmt.Sprintf("%d native", native), fmt.Sprintf("%d removed", removed)}
 		if aftercare > 0 {
 			parts = append(parts, fmt.Sprintf("%d aftercare", aftercare))
 		}
@@ -54,57 +59,12 @@ func resultTrackLine(model resultModel) string {
 		}
 		return strings.Join(parts, "  •  ")
 	case "optimize":
-		return fmt.Sprintf("Track   %s  •  %d applied  •  %d open", resultPhaseTrackLabel(model.plan, model.result), completed, failed+protected)
+		return fmt.Sprintf("Rail    %s  •  %d applied  •  %d open", resultPhaseTrackLabel(model.plan, model.result), completed, failed+protected)
 	case "autofix":
-		return fmt.Sprintf("Track   %s  •  %d applied  •  %d open", resultPhaseTrackLabel(model.plan, model.result), completed, failed+protected)
+		return fmt.Sprintf("Rail    %s  •  %d applied  •  %d open", resultPhaseTrackLabel(model.plan, model.result), completed, failed+protected)
 	default:
 		items := len(model.result.Items)
-		return fmt.Sprintf("Track   %d %s  •  %d open", items, pl(items, "item", "items"), failed+protected)
-	}
-}
-
-func resultOutcomeLine(model resultModel) string {
-	completed, deleted, failed, _, protected := countResultStatuses(model.result)
-	open := failed + protected
-	switch model.plan.Command {
-	case "clean":
-		sections := resultSettledSections(model.plan, model.result)
-		return fmt.Sprintf("Outcome %d %s settled  •  %d reclaimed  •  %d open", sections, pl(sections, "section", "sections"), deleted, open)
-	case "uninstall":
-		native, removed, aftercare := uninstallResultBuckets(model)
-		parts := []string{"Outcome"}
-		if native > 0 {
-			parts = append(parts, fmt.Sprintf("%d handoff", native))
-		}
-		if removed > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s removed", removed, pl(removed, "remnant", "remnants")))
-		}
-		if aftercare > 0 {
-			parts = append(parts, fmt.Sprintf("%d aftercare done", aftercare))
-		}
-		if open > 0 {
-			parts = append(parts, fmt.Sprintf("%d open", open))
-		}
-		if len(parts) == 1 {
-			parts = append(parts, "no uninstall changes yet")
-		}
-		return strings.Join(parts, "  •  ")
-	case "optimize", "autofix":
-		phase := resultPhaseTrackLabel(model.plan, model.result)
-		parts := []string{"Outcome", phase}
-		if completed > 0 {
-			parts = append(parts, fmt.Sprintf("%d applied", completed))
-		}
-		if deleted > 0 {
-			parts = append(parts, fmt.Sprintf("%d changed", deleted))
-		}
-		if open > 0 {
-			parts = append(parts, fmt.Sprintf("%d open", open))
-		}
-		return strings.Join(parts, "  •  ")
-	default:
-		changed := resultChangedCount(model.plan, completed, deleted)
-		return fmt.Sprintf("Outcome %d changed  •  %d open", changed, open)
+		return fmt.Sprintf("Rail    %d %s  •  %d open", items, pl(items, "item", "items"), failed+protected)
 	}
 }
 
@@ -163,29 +123,6 @@ func resultScopeLine(model resultModel) string {
 		scope = fmt.Sprintf("%s  •  %d %s  •  %s reclaimable", titleCase(model.plan.Command), n, pl(n, "item", "items"), domain.HumanBytes(planDisplayBytes(model.plan)))
 	}
 	return "Scope   " + scope
-}
-
-func resultFocusLine(model resultModel) string {
-	failed := resultRecoveryCandidatesForStatuses(model.plan, model.result, model.filter, domain.StatusFailed)
-	protected := resultRecoveryCandidatesForStatuses(model.plan, model.result, model.filter, domain.StatusProtected)
-	group := resultCurrentGroupRecoveryCandidates(model)
-	candidates := resultRecoveryCandidates(model.plan, model.result, model.filter)
-	switch {
-	case len(failed) > 0 && len(protected) > 0:
-		return fmt.Sprintf("Focus   %d failed  •  %d protected  •  start with r or x", len(failed), len(protected))
-	case len(failed) > 0:
-		return fmt.Sprintf("Focus   %d failed  •  r retries failed first", len(failed))
-	case len(group) > 0:
-		return fmt.Sprintf("Focus   %d blocked in current module  •  m narrows recovery", len(group))
-	case len(candidates) == 1:
-		return "Focus   1 blocked item remains  •  x reopens recovery batch"
-	case len(candidates) > 1:
-		return fmt.Sprintf("Focus   %d blocked items remain  •  x reopens recovery batch", len(candidates))
-	case len(model.result.FollowUpCommands) > 0:
-		return "Focus   no blocking items  •  review suggested commands before leaving"
-	default:
-		return "Focus   no blocking items  •  lane settled cleanly"
-	}
 }
 
 func resultListSubtitle(model resultModel) string {
@@ -619,21 +556,6 @@ func resultScopeCount(plan domain.ExecutionPlan) int {
 		}
 	}
 	return planModuleCount(plan)
-}
-
-func resultChangedSummaryLabel(plan domain.ExecutionPlan) string {
-	switch plan.Command {
-	case "clean":
-		return "reclaimed"
-	case "uninstall":
-		return "removed"
-	case "optimize":
-		return "changed"
-	case "autofix":
-		return "fixed"
-	default:
-		return "changed"
-	}
 }
 
 func resultChangedCount(_ domain.ExecutionPlan, completed, deleted int) int {

@@ -53,19 +53,19 @@ func TestPermissionPreflightViewShowsAccessAndFlowBlocks(t *testing.T) {
 
 	view := model.View()
 	for _, needle := range []string{
-		"SIFT / PERMISSIONS",
-		"ACCESS",
-		"MANIFEST",
-		"FLOW",
-		"Scope   Uninstall",
-		"Track  •  1 admin  •  1 dialog  •  1 native",
+		"SIFT / ACCESS CHECK",
+		"ACCESS RAIL",
+		"MANIFEST DECK",
+		"LAUNCH FLOW",
+		"Removal Uninstall",
+		"Removal access  •  1 admin  •  1 dialog  •  1 native",
 		"Touch ID, your sudo password, or a macOS password dialog",
 		"macOS may show one or more system prompts",
 		"An uninstaller or external app may open outside SIFT.",
 		"ADMIN",
 		"DIALOGS",
 		"NATIVE",
-		"Step 1   warm admin access",
+		"Lift 1   warm admin access",
 		"keep access alive while execution runs",
 		"native app opens outside SIFT and returns to",
 	} {
@@ -108,7 +108,7 @@ func TestPermissionPreflightSummaryLinesStayCompact(t *testing.T) {
 		},
 	}, "")
 
-	if got := model.accessSummaryLine(); got != "Access  •  1 admin  •  1 dialog  •  2 native" {
+	if got := model.accessSummaryLine(); got != "Sweep access  •  1 admin  •  1 dialog  •  2 native" {
 		t.Fatalf("unexpected access summary: %q", got)
 	}
 	need := model.manifestSummaryLine(120)

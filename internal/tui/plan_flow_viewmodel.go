@@ -31,9 +31,9 @@ func planStats(plan domain.ExecutionPlan, width int) []string {
 	}
 	actionable, protected := planActionCounts(plan)
 	return []string{
-		renderStatCard("reclaim", domain.HumanBytes(plan.Totals.Bytes), "safe", cardWidth),
-		renderStatCard("ready", fmt.Sprintf("%d %s", actionable, pl(actionable, "item", "items")), "review", cardWidth),
-		renderStatCard("protected", fmt.Sprintf("%d %s", protected, pl(protected, "item", "items")), "high", cardWidth),
+		renderRouteStatCard("review", "reclaim", domain.HumanBytes(plan.Totals.Bytes), "safe", cardWidth),
+		renderRouteStatCard("review", "ready", fmt.Sprintf("%d %s", actionable, pl(actionable, "item", "items")), "review", cardWidth),
+		renderRouteStatCard("review", "protected", fmt.Sprintf("%d %s", protected, pl(protected, "item", "items")), "high", cardWidth),
 	}
 }
 
@@ -80,6 +80,66 @@ func planDetailSubtitle(plan domain.ExecutionPlan, cursor int) string {
 	return fmt.Sprintf("%s • %s", sectionTitle(plan, item.Category), item.Status)
 }
 
+func planDetailStatusLine(plan domain.ExecutionPlan, item domain.Finding) string {
+	if item.Status == domain.StatusProtected {
+		switch plan.Command {
+		case "uninstall":
+			return "target stays under watch"
+		case "analyze":
+			return "trace stays under watch"
+		case "optimize", "autofix":
+			return "task stays under watch"
+		default:
+			return "review item stays under watch"
+		}
+	}
+	if item.Action == domain.ActionSkip {
+		switch plan.Command {
+		case "uninstall":
+			return "target held outside this run"
+		case "analyze":
+			return "trace held outside this run"
+		case "optimize", "autofix":
+			return "task held outside this run"
+		default:
+			return "review item held outside this run"
+		}
+	}
+	switch plan.Command {
+	case "uninstall":
+		return "target handoff ready"
+	case "analyze":
+		return "trace review ready"
+	case "optimize", "autofix":
+		return "task review ready"
+	default:
+		return "review item ready"
+	}
+}
+
+func planDetailScopeLine(model planModel, item domain.Finding) string {
+	if group := model.currentGroupSummary(); group.total > 0 {
+		return planCurrentGroupSummaryLine(model.plan.Command, group)
+	}
+	label := groupedItemLabel(item)
+	if strings.TrimSpace(label) == "" {
+		label = sectionTitle(model.plan, item.Category)
+	}
+	return fmt.Sprintf("%s • %s", label, domain.HumanBytes(item.Bytes))
+}
+
+func planDetailNextLine(plan domain.ExecutionPlan, item domain.Finding) string {
+	groupAction := planCurrentGroupActionLine(plan.Command)
+	subject := planReviewSubject(plan.Command)
+	if canToggleReviewItem(item) {
+		return fmt.Sprintf("space toggles this %s • %s", subject, groupAction)
+	}
+	if item.Action == domain.ActionSkip {
+		return fmt.Sprintf("space restores this %s • %s", subject, groupAction)
+	}
+	return fmt.Sprintf("watch policy keeps this %s • %s", subject, groupAction)
+}
+
 func planActionLabel(action domain.Action) string {
 	switch action {
 	case domain.ActionTrash:
@@ -109,6 +169,39 @@ func decisionSubtitle(plan domain.ExecutionPlan) string {
 	}
 	mods := planModuleCount(plan)
 	return fmt.Sprintf("%d ready • %d %s • %s", actionableCount(plan), mods, pl(mods, scopeSingular, scopeLabel), domain.HumanBytes(plan.Totals.Bytes))
+}
+
+func planDecisionStatusLine(plan domain.ExecutionPlan) string {
+	switch strings.TrimSpace(plan.Command) {
+	case "clean", "installer", "purge":
+		return "review gate ready"
+	case "uninstall":
+		return "handoff gate ready"
+	case "analyze":
+		return "trace gate ready"
+	case "optimize", "autofix":
+		return "task gate ready"
+	default:
+		return "run gate ready"
+	}
+}
+
+func planDecisionGateLine(plan domain.ExecutionPlan) string {
+	subject := planReviewSubject(plan.Command)
+	return fmt.Sprintf("space toggles this %s • %s", subject, planCurrentGroupActionLine(plan.Command))
+}
+
+func planReviewSubject(command string) string {
+	switch strings.TrimSpace(command) {
+	case "uninstall":
+		return "target"
+	case "analyze":
+		return "trace"
+	case "optimize", "autofix":
+		return "task"
+	default:
+		return "item"
+	}
 }
 
 func planDecisionWarningLines(warnings []string, width int) []string {
@@ -214,17 +307,6 @@ func planModuleLines(plan domain.ExecutionPlan, width int, limit int) []string {
 	return lines
 }
 
-func planCurrentGroupTitle(command string) string {
-	switch command {
-	case "uninstall":
-		return "Target"
-	case "optimize", "autofix":
-		return "Phase"
-	default:
-		return "Module"
-	}
-}
-
 func planCurrentGroupSummaryLine(command string, group reviewGroupSummary) string {
 	switch command {
 	case "optimize", "autofix":
@@ -238,6 +320,8 @@ func planCurrentGroupActionLine(command string) string {
 	switch command {
 	case "uninstall":
 		return "m toggles current target"
+	case "analyze":
+		return "m toggles current trace"
 	case "optimize", "autofix":
 		return "m toggles current phase"
 	default:

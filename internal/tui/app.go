@@ -48,29 +48,31 @@ type AppOptions struct {
 }
 
 type AppCallbacks struct {
-	LoadDashboard           func() (DashboardData, error)
-	LoadCachedInstalledApps func() ([]domain.AppEntry, time.Time, error)
-	LoadInstalledApps       func() ([]domain.AppEntry, error)
-	LoadAnalyzeHome         func() (domain.ExecutionPlan, error)
-	LoadAnalyzeTarget       func(target string) (domain.ExecutionPlan, error)
-	LoadAnalyzePreviews     func(paths []string) map[string]domain.DirectoryPreview
-	LoadCleanProfile        func(profile string) (domain.ExecutionPlan, error)
-	LoadInstaller           func() (domain.ExecutionPlan, error)
-	LoadOptimize            func() (domain.ExecutionPlan, error)
-	LoadAutofix             func() (domain.ExecutionPlan, error)
-	LoadPurgeScan           func() (domain.ExecutionPlan, error)
-	LoadUninstallPlan       func(app string) (domain.ExecutionPlan, error)
-	LoadUninstallBatchPlan  func(apps []string) (domain.ExecutionPlan, error)
-	LoadReviewForPaths      func(paths []string) (domain.ExecutionPlan, error)
-	AddProtectedPath        func(path string) (config.Config, string, error)
-	RemoveProtectedPath     func(path string) (config.Config, string, bool, error)
-	ExplainProtection       func(path string) domain.ProtectionExplanation
-	ExecutePlan             func(plan domain.ExecutionPlan) (domain.ExecutionResult, error)
-	ExecutePlanWithProgress func(ctx context.Context, plan domain.ExecutionPlan, emit func(domain.ExecutionProgress)) (domain.ExecutionResult, error)
-	OpenPath                func(path string) error
-	RevealPath              func(path string) error
-	TrashPaths              func(paths []string) (domain.ExecutionResult, error)
-	OnScanProgress          func(ruleID string, ruleName string, itemsFound int, bytesFound int64)
+	LoadDashboard                       func() (DashboardData, error)
+	LoadCachedInstalledApps             func() ([]domain.AppEntry, time.Time, error)
+	LoadInstalledApps                   func() ([]domain.AppEntry, error)
+	LoadAnalyzeHome                     func() (domain.ExecutionPlan, error)
+	LoadAnalyzeTarget                   func(target string) (domain.ExecutionPlan, error)
+	LoadAnalyzePreviews                 func(paths []string) map[string]domain.DirectoryPreview
+	LoadCleanProfileWithProgress        func(profile string, emit func(ruleID string, ruleName string, itemsFound int, bytesFound int64)) (domain.ExecutionPlan, error)
+	LoadCleanProfileWithFindingProgress func(profile string, emit func(ruleID string, ruleName string, item domain.Finding)) (domain.ExecutionPlan, error)
+	LoadCleanProfile                    func(profile string) (domain.ExecutionPlan, error)
+	LoadInstaller                       func() (domain.ExecutionPlan, error)
+	LoadOptimize                        func() (domain.ExecutionPlan, error)
+	LoadAutofix                         func() (domain.ExecutionPlan, error)
+	LoadPurgeScan                       func() (domain.ExecutionPlan, error)
+	LoadUninstallPlan                   func(app string) (domain.ExecutionPlan, error)
+	LoadUninstallBatchPlan              func(apps []string) (domain.ExecutionPlan, error)
+	LoadReviewForPaths                  func(paths []string) (domain.ExecutionPlan, error)
+	AddProtectedPath                    func(path string) (config.Config, string, error)
+	RemoveProtectedPath                 func(path string) (config.Config, string, bool, error)
+	ExplainProtection                   func(path string) domain.ProtectionExplanation
+	ExecutePlan                         func(plan domain.ExecutionPlan) (domain.ExecutionResult, error)
+	ExecutePlanWithProgress             func(ctx context.Context, plan domain.ExecutionPlan, emit func(domain.ExecutionProgress)) (domain.ExecutionResult, error)
+	OpenPath                            func(path string) error
+	RevealPath                          func(path string) error
+	TrashPaths                          func(paths []string) (domain.ExecutionResult, error)
+	OnScanProgress                      func(ruleID string, ruleName string, itemsFound int, bytesFound int64)
 }
 
 type dashboardLoadedMsg struct {
@@ -142,7 +144,22 @@ type analyzeActionFinishedMsg struct {
 }
 
 type scanProgressMsg struct {
-	ruleName string
+	route      Route
+	key        string
+	ruleID     string
+	ruleName   string
+	itemsFound int
+	bytesFound int64
+	requestID  int
+}
+
+type scanFindingMsg struct {
+	route     Route
+	key       string
+	ruleID    string
+	ruleName  string
+	item      domain.Finding
+	requestID int
 }
 
 type dashboardTickMsg struct{}
@@ -163,12 +180,15 @@ type appModel struct {
 	permissionKeepalive             func(context.Context, permissionPreflightModel)
 	home                            homeModel
 	clean                           menuModel
+	cleanFlow                       cleanFlowModel
 	tools                           menuModel
 	protect                         protectModel
 	uninstall                       uninstallModel
+	uninstallFlow                   uninstallFlowModel
 	status                          statusModel
 	doctor                          doctorModel
 	analyze                         analyzeBrowserModel
+	analyzeFlow                     analyzeFlowModel
 	review                          planModel
 	preflight                       permissionPreflightModel
 	progress                        progressModel
@@ -185,6 +205,7 @@ type appModel struct {
 	activePlanRequestID             int
 	nextMenuPreviewRequestID        int
 	activeCleanPreviewRequestID     int
+	cleanPreviewStream              <-chan tea.Msg
 	activeUninstallPreviewRequestID int
 	activeAnalyzePreviewRequestID   int
 	nextInventoryRequestID          int
@@ -203,11 +224,12 @@ type appModel struct {
 	planLoadTransitionVisible       bool
 	executionStream                 <-chan tea.Msg
 	executionCancel                 context.CancelFunc
+	activeExecutionSourceRoute      Route
 	acceptedPermissionProfiles      map[string]struct{}
 }
 
 const dashboardRefreshInterval = 15 * time.Second
-const uiTickInterval = 250 * time.Millisecond
+const uiTickInterval = 100 * time.Millisecond // 10 FPS for smoother animation
 
 func RunApp(opts AppOptions, callbacks AppCallbacks) error {
 	model := newAppModel(opts, callbacks)
@@ -249,6 +271,8 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleUITick()
 	case scanProgressMsg:
 		return m.handleScanProgress(msg)
+	case scanFindingMsg:
+		return m.handleScanFinding(msg)
 	case planLoadedMsg:
 		return m.handlePlanLoaded(msg)
 	case planLoadTransitionMsg:
@@ -574,18 +598,55 @@ func waitForExecutionStreamCmd(stream <-chan tea.Msg) tea.Cmd {
 	}
 }
 
+func waitForPreviewStreamCmd(stream <-chan tea.Msg) tea.Cmd {
+	if stream == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		msg, ok := <-stream
+		if !ok {
+			return nil
+		}
+		return msg
+	}
+}
+
 func (m appModel) wantsUITick() bool {
 	if m.reducedMotion {
 		return m.noticeTicks > 0 || m.uninstall.messageTicks > 0 || m.protect.messageTicks > 0
 	}
 	return m.currentLoadingLabel() != "" || m.route == RouteProgress || m.route == RouteResult ||
-		m.route == RouteHome || m.route == RouteStatus || m.route == RouteDoctor
+		m.route == RouteHome || m.route == RouteStatus || m.route == RouteDoctor ||
+		(m.route == RouteClean && m.cleanFlow.wantsAnimation()) ||
+		(m.route == RouteUninstall && m.uninstallFlow.wantsAnimation()) ||
+		(m.route == RouteAnalyze && m.analyzeFlow.wantsAnimation())
 }
 
 func (m *appModel) syncMotionSettings() {
 	m.home.reducedMotion = m.reducedMotion
 	m.home.pulse = m.livePulse
 	m.home.signalFrame = m.spinnerFrame
+	m.cleanFlow.reducedMotion = m.reducedMotion
+	m.cleanFlow.pulse = m.livePulse
+	if m.reducedMotion {
+		m.cleanFlow.spinnerFrame = 0
+	} else {
+		m.cleanFlow.spinnerFrame = m.spinnerFrame
+	}
+	m.uninstallFlow.reducedMotion = m.reducedMotion
+	m.uninstallFlow.pulse = m.livePulse
+	if m.reducedMotion {
+		m.uninstallFlow.spinnerFrame = 0
+	} else {
+		m.uninstallFlow.spinnerFrame = m.spinnerFrame
+	}
+	m.analyzeFlow.reducedMotion = m.reducedMotion
+	m.analyzeFlow.pulse = m.livePulse
+	if m.reducedMotion {
+		m.analyzeFlow.spinnerFrame = 0
+	} else {
+		m.analyzeFlow.spinnerFrame = m.spinnerFrame
+	}
 	m.status.reducedMotion = m.reducedMotion
 	m.status.pulse = m.livePulse
 	m.status.signalFrame = m.spinnerFrame
@@ -619,7 +680,8 @@ func errorsIsCanceled(err error) bool {
 	return errors.Is(err, context.Canceled)
 }
 
-var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+// ASCII spinner frames for smooth animation
+var spinnerFrames = []string{"/", "-", "\\", "|", "/", "-", "\\", "|"}
 
 func loadingPulseSuffix(frame int, pulse bool) string {
 	dots := []string{" .", " ..", " ..."}

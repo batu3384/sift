@@ -46,7 +46,7 @@ func TestPlanViewContainsKeyDetails(t *testing.T) {
 		requiresDecision: true,
 	}
 	view := model.View()
-	if !strings.Contains(view, "CLEAN") || !strings.Contains(view, "darwin • review") || !strings.Contains(view, "/tmp/cache") || !strings.Contains(view, "SYSTEM CLUTTER") || !strings.Contains(view, "LOGS") || !strings.Contains(view, "Ready 1") || !strings.Contains(view, "Keys") || !strings.Contains(view, "space toggle") || !strings.Contains(view, "m toggle module") || !strings.Contains(view, "Modules") || !strings.Contains(view, "Chrome code cache") || !strings.Contains(view, "ITEMS") || !strings.Contains(view, "DETAIL") || !strings.Contains(view, "REVIEW") {
+	if !strings.Contains(view, "CLEAN") || !strings.Contains(view, "darwin • review") || !strings.Contains(view, "/tmp/cache") || !strings.Contains(view, "SYSTEM CLUTTER") || !strings.Contains(view, "LOGS") || !strings.Contains(view, "Ready 1") || !strings.Contains(view, "Status") || !strings.Contains(view, "Scope") || !strings.Contains(view, "Next") || !strings.Contains(view, "Gate") || !strings.Contains(view, "Modules") || !strings.Contains(view, "Chrome code cache") || !strings.Contains(view, "REVIEW RAIL") || !strings.Contains(view, "FOCUS DECK") || !strings.Contains(view, "RUN GATE") {
 		t.Fatalf("unexpected view output: %s", view)
 	}
 }
@@ -127,7 +127,7 @@ func TestPlanDetailViewUsesReadableSelectedAndModuleLines(t *testing.T) {
 	}
 
 	view := planDetailView(model, 72, 20)
-	for _, needle := range []string{"/tmp/cache-a", "2.0 MB", "Planned", "REVIEW", "trash", "From     Chrome code cache", "Module", "Chrome code cache", "2/2 included", "m toggles current module"} {
+	for _, needle := range []string{"/tmp/cache-a", "2.0 MB", "Planned", "REVIEW", "trash", "Status   review item ready", "Scope    Chrome code cache", "2/2 included", "Next     space toggles this item", "m toggles current module", "From     Chrome code cache"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in review detail view, got %s", needle, view)
 		}
@@ -241,13 +241,13 @@ func TestStatusViewContainsRecentScan(t *testing.T) {
 	view := model.View()
 	for _, needle := range []string{
 		"STATUS",
-		"OVERVIEW",
-		"Signal",
-		"Now",
-		"Risk",
+		"OBSERVATORY",
+		"Observatory",
+		"Status",
+		"Watch",
 		"alert load",
 		"thermal warm 30.6°C",
-		"Recent",
+		"Session",
 		"87 / HEALTHY",
 		"Battery 84% charging",
 		"ARM64",
@@ -262,15 +262,14 @@ func TestStatusViewContainsRecentScan(t *testing.T) {
 		"42W system",
 		"30.6°C",
 		"Pressure steady",
-		"Code",
+		"Top",
 		"Processes 128",
-		"STORAGE",
+		"STORAGE RAIL",
 		"Disk 0.0% used",
 		"Net rate",
 		"Interfaces en0, utun4",
 		"Battery 84% charging",
 		"Proxy enabled=true",
-		"Highlights",
 		"ANALYZE / SAFE",
 		"EXECUTION",
 		"V9.9.9 ready",
@@ -346,7 +345,7 @@ func TestStatusViewCompactsWithinSmallTerminal(t *testing.T) {
 		height:       24,
 	}
 	view := model.View()
-	for _, needle := range []string{"STATUS", "OVERVIEW", "SYSTEM", "ACTIVITY"} {
+	for _, needle := range []string{"STATUS", "OBSERVATORY", "LIVE RAIL", "SESSION RAIL"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in compact status view, got %s", needle, view)
 		}
@@ -369,8 +368,8 @@ func TestStatusViewCompactsWithinSmallTerminal(t *testing.T) {
 	if !strings.Contains(view, "GPU 57%") {
 		t.Fatalf("expected compact gpu summary, got %s", view)
 	}
-	if !strings.Contains(view, "Risk") {
-		t.Fatalf("expected compact risk line, got %s", view)
+	if !strings.Contains(view, "Watch") {
+		t.Fatalf("expected compact watch line, got %s", view)
 	}
 	if got := len(strings.Split(view, "\n")); got > model.height {
 		t.Fatalf("expected compact status view to stay within %d lines, got %d", model.height, got)
@@ -457,9 +456,9 @@ func TestStatusViewRenderMatrix(t *testing.T) {
 		height  int
 		needles []string
 	}{
-		{name: "80x24", width: 80, height: 24, needles: []string{"STATUS", "OVERVIEW", "SYSTEM", "ACTIVITY"}},
-		{name: "100x30", width: 100, height: 30, needles: []string{"STATUS", "OVERVIEW", "Now", "Risk", "Recent", "Next", "SYSTEM"}},
-		{name: "144x40", width: 144, height: 40, needles: []string{"STATUS", "OVERVIEW", "Now", "Risk", "Host", "Next", "ACTIVITY", "STORAGE"}},
+		{name: "80x24", width: 80, height: 24, needles: []string{"STATUS", "OBSERVATORY", "LIVE RAIL", "SESSION RAIL"}},
+		{name: "100x30", width: 100, height: 30, needles: []string{"STATUS", "OBSERVATORY", "Status", "Watch", "Session", "Next", "LIVE RAIL"}},
+		{name: "144x40", width: 144, height: 40, needles: []string{"STATUS", "OBSERVATORY", "Status", "Watch", "Host", "Next", "SESSION RAIL", "STORAGE RAIL"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			model := base
@@ -599,7 +598,7 @@ func TestStatusViewEmptyStateMentionsHistory(t *testing.T) {
 		height: 32,
 	}
 	view := model.View()
-	if !strings.Contains(view, "OVERVIEW") || !strings.Contains(view, "No scan history yet.") {
+	if !strings.Contains(view, "OBSERVATORY") || !strings.Contains(view, "No scan history yet.") {
 		t.Fatalf("unexpected empty status view: %s", view)
 	}
 }
@@ -836,7 +835,7 @@ func TestResultViewContainsSummaryAndReason(t *testing.T) {
 		height: 56,
 	}
 	view := model.View()
-	for _, needle := range []string{"DONE  1", "Warning", "Run", `sift uninstall "Example"`, "RECLAIM  2", "protected_path", "/tmp/b", "Recovery", "Current", "m opens current module", "Chrome code cache", "1 issue across 1 module", "Summary", "Scope   Clean review", "Track   2 sections", "Next    m reopens current module"} {
+	for _, needle := range []string{"SETTLED RAIL", "OUTCOME DECK", "Warning", "Run", `sift uninstall "Example"`, "RECLAIM  2", "protected_path", "/tmp/b", "Recovery", "Current", "m opens current module", "Chrome code cache", "1 issue across 1 module", "Result", "Scope   Clean review", "Status   1 issue", "Rail    2 sections", "Next    m reopens current module"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in result view, got %s", needle, view)
 		}
@@ -1279,7 +1278,7 @@ func TestProgressViewShowsCurrentStage(t *testing.T) {
 		height:       32,
 	}
 	view := model.View()
-	for _, needle := range []string{"STAGE", "BROWSER DATA", "Chrome code cache", "Summary  clean stage 1/2", "Status   moving item to trash", "Step     reclaim queue", "Freed", "Flow", "Now", "Next", "pnpm store"} {
+	for _, needle := range []string{"PROGRESS RAIL", "ACTION DECK", "BROWSER DATA", "Chrome code cache", "Progress", "33%", "1/3 settled", "Meter", "Phase", "RECLAIM", "Current", "moving item to trash", "Next", "pnpm store", "Status", "1 reclaimed", "Flow", "Now"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in progress view, got %s", needle, view)
 		}
@@ -1329,7 +1328,7 @@ func TestUninstallProgressViewShowsTargetFlow(t *testing.T) {
 		height:       32,
 	}
 	view := model.View()
-	for _, needle := range []string{"target 2/3", "Summary  uninstall target 2/3", "Flow", "Example remnants", "Builder remnants"} {
+	for _, needle := range []string{"PROGRESS RAIL", "ACTION DECK", "Progress", "33%", "Phase", "REMNANT", "Current", "moving item to trash", "Next", "Builder remnants", "Status", "1 native", "Flow", "Example remnants"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in uninstall progress view, got %s", needle, view)
 		}
@@ -1364,7 +1363,7 @@ func TestOptimizeDetailViewShowsTaskBoardMetadata(t *testing.T) {
 	}
 
 	view := planDetailView(model, 64, 20)
-	for _, needle := range []string{"Task    REPAIR  •  Drops reclaimable inactive pages to relieve memory pressure.", "Suggested  Memory pressure, Swap pressure", "Verify", "Check memory pressure again in `sift status`", "Task Board", "1 task", "Flow", "Phase", "Runs purge to drop reclaimable inactive memory pages. • 1/1 ready • 0 B", "m toggles current phase"} {
+	for _, needle := range []string{"Task    REPAIR  •  Drops reclaimable inactive pages to relieve memory pressure.", "Status   task review ready", "Scope    Runs purge to drop reclaimable inactive memory pages. • 1/1 ready • 0 B", "Next     space toggles this task • m toggles current phase", "Suggested  Memory pressure, Swap pressure", "Verify", "Check memory pressure again in `sift status`", "Task Board", "1 task", "Flow"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in optimize detail view, got %s", needle, view)
 		}
@@ -1373,7 +1372,7 @@ func TestOptimizeDetailViewShowsTaskBoardMetadata(t *testing.T) {
 		t.Fatalf("expected optimize decision subtitle to use task board language, got %q", subtitle)
 	}
 	decision := decisionView(model, 80)
-	for _, needle := range []string{"Scope   Optimize", "Run     y runs maintenance + verify", "Task Board", "1 task", "Flow", "Phases", "1 phase"} {
+	for _, needle := range []string{"Status   task gate ready", "Scope    Optimize", "Next     y runs maintenance + verify", "Gate     space toggles this task • m toggles current phase", "Task Board", "1 task", "Flow", "Phases", "1 phase"} {
 		if !strings.Contains(decision, needle) {
 			t.Fatalf("expected %q in optimize decision view, got %s", needle, decision)
 		}
@@ -1398,9 +1397,30 @@ func TestCleanDecisionViewShowsScopeAndOutcome(t *testing.T) {
 	}
 
 	view := decisionView(model, 84)
-	for _, needle := range []string{"Scope   Quick Clean", "2 modules", "3.0 MB", "Run     y runs cleanup • esc returns"} {
+	for _, needle := range []string{"Status   review gate ready", "Scope    Quick Clean", "2 modules", "3.0 MB", "Next     y runs cleanup • esc returns", "Gate     space toggles this item • m toggles current module"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in clean decision view, got %s", needle, view)
+		}
+	}
+}
+
+func TestAnalyzeDecisionViewUsesTraceAndReclaimLanguage(t *testing.T) {
+	t.Parallel()
+
+	model := planModel{
+		plan: domain.ExecutionPlan{
+			Command: "analyze",
+			Totals:  domain.Totals{Bytes: 2 * 1024 * 1024},
+			Items: []domain.Finding{
+				{ID: "a", DisplayPath: "/tmp/cache", Category: domain.CategoryBrowserData, Action: domain.ActionTrash, Status: domain.StatusPlanned},
+			},
+		},
+	}
+
+	view := decisionView(model, 84)
+	for _, needle := range []string{"Status   trace gate ready", "Scope    Staged Cleanup", "Next     y trashes staged paths", "Gate     space toggles this trace • m toggles current trace", "2.0 MB"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in analyze decision view, got %s", needle, view)
 		}
 	}
 }
@@ -1424,7 +1444,9 @@ func TestDecisionViewShowsPermissionSummaryWhenNeeded(t *testing.T) {
 
 	view := decisionView(model, 84)
 	for _, needle := range []string{
-		"Access  •  1 admin  •  1 dialog  •  1 native",
+		"Status   handoff gate ready",
+		"Gate     space toggles this target • m toggles current target",
+		"Removal access  •  1 admin  •  1 dialog  •  1 native",
 		"Need    Reset LaunchServices  •  Finder prompt  •  Example",
 	} {
 		if !strings.Contains(view, needle) {

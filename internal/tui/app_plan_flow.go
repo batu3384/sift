@@ -25,6 +25,13 @@ func (m appModel) executeCurrentReview() (tea.Model, tea.Cmd) {
 			preflight.width = m.width
 			preflight.height = m.height
 			m.preflight = preflight
+			if m.reviewReturnRoute == RouteAnalyze {
+				m.analyzeFlow.markPermissions(preflight)
+			} else if effectivePlan.Command == "clean" {
+				m.cleanFlow.markPermissions(preflight)
+			} else if effectivePlan.Command == "uninstall" {
+				m.uninstallFlow.markPermissions(preflight)
+			}
 			if preflight.needsAdmin && m.permissionWarmup != nil {
 				m.loadingLabel = "warm admin access"
 				return m, batchWithUITick(m.permissionWarmup(preflight))
@@ -37,6 +44,13 @@ func (m appModel) executeCurrentReview() (tea.Model, tea.Cmd) {
 		preflight.width = m.width
 		preflight.height = m.height
 		m.preflight = preflight
+		if m.reviewReturnRoute == RouteAnalyze {
+			m.analyzeFlow.markPermissions(preflight)
+		} else if effectivePlan.Command == "clean" {
+			m.cleanFlow.markPermissions(preflight)
+		} else if effectivePlan.Command == "uninstall" {
+			m.uninstallFlow.markPermissions(preflight)
+		}
 		m.route = RoutePreflight
 		return m, nil
 	}
@@ -50,6 +64,18 @@ func (m appModel) executePreparedPreflight() (tea.Model, tea.Cmd) {
 func (m appModel) executePreparedPlan(plan domain.ExecutionPlan, focusPath string, preflight permissionPreflightModel) (tea.Model, tea.Cmd) {
 	m.helpVisible = false
 	m.preflight = permissionPreflightModel{}
+	if m.reviewReturnRoute == RouteAnalyze {
+		m.analyzeFlow.markReclaiming(plan, preflight)
+	} else if plan.Command == "clean" {
+		m.cleanFlow.markReclaiming(plan, preflight)
+	} else if plan.Command == "uninstall" {
+		m.uninstallFlow.markRemoving(plan, preflight)
+	}
+	if m.reviewReturnRoute == RouteAnalyze {
+		m.activeExecutionSourceRoute = RouteAnalyze
+	} else {
+		m.activeExecutionSourceRoute = ""
+	}
 	if m.callbacks.ExecutePlanWithProgress == nil {
 		m.loadingLabel = "execution"
 		return m, batchWithUITick(executePlanCmd(m.callbacks.ExecutePlan, plan))
@@ -213,6 +239,7 @@ func (m *appModel) applyLoadedAnalyzePlan(plan domain.ExecutionPlan) tea.Cmd {
 	m.analyze.syncPreviewWindow()
 	m.analyze.loading = false
 	m.analyze.errMsg = ""
+	m.analyzeFlow.markInspecting(plan)
 	m.route = RouteAnalyze
 	m.analyzeReturnRoute = m.pendingReviewReturn
 	m.resetPendingPlanLoadState()

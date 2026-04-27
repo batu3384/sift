@@ -4,6 +4,7 @@ dist/
 /sift
 /sift.exe
 /sift_new
+/cleaner
 /mole
 .DS_Store
 coverage.out

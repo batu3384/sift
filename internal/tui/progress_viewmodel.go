@@ -9,117 +9,80 @@ import (
 )
 
 func progressSummaryLine(progress progressModel, stage stageInfo) string {
-	if stage.Total == 0 {
-		return "Summary  waiting for the first approved item"
-	}
-	switch progress.plan.Command {
-	case "clean":
-		freed := progressFreedBytes(progress)
-		total := progressTotalBytes(progress.plan)
-		bytesLabel := fmt.Sprintf("%s / %s freed", domain.HumanBytes(freed), domain.HumanBytes(total))
-		mods := planModuleCount(progress.plan)
-		return fmt.Sprintf(
-			"Summary  clean stage %d/%d  •  %d/%d settled  •  %d %s  •  %s",
-			stage.Index,
-			stage.Total,
-			len(progress.items),
-			len(progress.plan.Items),
-			mods, pl(mods, "module", "modules"),
-			bytesLabel,
-		)
-	case "uninstall":
-		targets := uninstallTargetCount(progress.plan)
-		if targets == 0 {
-			targets = planModuleCount(progress.plan)
-		}
-		return fmt.Sprintf(
-			"Summary  uninstall target %d/%d  •  %d/%d settled  •  %d %s  •  %s remnants",
-			stage.Index,
-			stage.Total,
-			len(progress.items),
-			len(progress.plan.Items),
-			targets, pl(targets, "app", "apps"),
-			domain.HumanBytes(progressTotalBytes(progress.plan)),
-		)
-	case "optimize":
-		tasks := actionableCount(progress.plan)
-		phases := max(maintenancePhaseCount(progress.plan), 1)
-		return fmt.Sprintf(
-			"Summary  task %d/%d  •  %d/%d settled  •  %d %s  •  %d %s",
-			stage.Index,
-			stage.Total,
-			len(progress.items),
-			len(progress.plan.Items),
-			tasks, pl(tasks, "task", "tasks"),
-			phases, pl(phases, "phase", "phases"),
-		)
-	case "autofix":
-		fixes := actionableCount(progress.plan)
-		return fmt.Sprintf(
-			"Summary  fix %d/%d  •  %d/%d settled  •  %d %s  •  %d suggested",
-			stage.Index,
-			stage.Total,
-			len(progress.items),
-			len(progress.plan.Items),
-			fixes, pl(fixes, "fix", "fixes"),
-			suggestedTaskCount(progress.plan),
-		)
-	default:
-		mods := planModuleCount(progress.plan)
-		return fmt.Sprintf(
-			"Summary  stage %d/%d  •  %d/%d settled  •  %d %s  •  %s",
-			stage.Index,
-			stage.Total,
-			len(progress.items),
-			len(progress.plan.Items),
-			mods, pl(mods, "module", "modules"),
-			domain.HumanBytes(progressTotalBytes(progress.plan)),
-		)
-	}
+	freed := progressFreedBytes(progress)
+	totalBytes := progressTotalBytes(progress.plan)
+	totalItems := len(progress.plan.Items)
+	return fmt.Sprintf(
+		"Progress %s  •  %d/%d settled  •  %s / %s",
+		progressMeter(progress),
+		len(progress.items),
+		totalItems,
+		domain.HumanBytes(freed),
+		domain.HumanBytes(totalBytes),
+	)
 }
 
 func progressStatusLine(progress progressModel) string {
-	status := progressCurrentLine(progress)
 	settled := strings.TrimPrefix(progressExecutionRail(progress), "Settled  •  ")
-	if settled == "" {
-		return "Status   " + status
+	if settled == progressExecutionRail(progress) {
+		settled = strings.TrimPrefix(progressExecutionRail(progress), "Settled")
+		settled = strings.TrimSpace(strings.TrimPrefix(settled, "•"))
 	}
-	return "Status   " + status + "  •  " + settled
+	return "Status   " + settled
+}
+
+func progressPhaseLine(progress progressModel, stage stageInfo) string {
+	if stage.Total == 0 {
+		return "Phase    waiting for first approved lane"
+	}
+	label := stage.Group
+	if strings.TrimSpace(label) == "" {
+		label = sectionTitle(progress.plan, stage.Category)
+	}
+	token := strings.TrimSpace(strings.TrimSuffix(progressRouteSignalLabel(progress), " RAIL"))
+	if token == "" {
+		token = strings.ToUpper(progressStageDetailLabel(progress))
+	}
+	phase := progressPhaseSubtitle(progress.currentPhase)
+	return fmt.Sprintf("Phase    %s %d/%d  •  %s  •  %s", token, stage.Index, stage.Total, label, phase)
 }
 
 func progressStepLine(progress progressModel) string {
 	if progress.current == nil {
-		return "Step     waiting for first item"
+		return "Current  waiting for first approved item"
 	}
 	item := *progress.current
 	label := strings.TrimSpace(progress.currentDetail)
 	if label == "" {
 		label = progressCurrentActionLabel(progress)
 	}
-	switch progress.plan.Command {
-	case "clean":
-		return "Step     reclaim " + progressStepLabel(progress, item) + "  •  " + label
-	case "uninstall":
-		if item.Action == domain.ActionNative {
-			return "Step     handoff  •  " + label
-		}
-		if phase := strings.TrimSpace(item.TaskPhase); phase != "" {
-			return "Step     " + phase + "  •  " + label
-		}
-		return "Step     remnants  •  " + label
-	case "optimize":
-		if phase := progressActiveTaskPhase(progress); phase != "" {
-			return "Step     " + phase + "  •  " + label
-		}
-		return "Step     maintenance  •  " + label
-	case "autofix":
-		if phase := progressActiveTaskPhase(progress); phase != "" {
-			return "Step     " + phase + "  •  " + label
-		}
-		return "Step     fix  •  " + label
-	default:
-		return "Step     " + progressStepLabel(progress, item) + "  •  " + label
+	_ = item
+	return "Current  " + label
+}
+
+func progressNextLine(progress progressModel) string {
+	if progress.cancelRequested {
+		return "Next     result review after active work settles"
 	}
+	order, buckets := progressStageBuckets(progress)
+	stage := progressStageInfo(progress)
+	if len(order) == 0 || stage.Total == 0 {
+		return "Next     first approved item starts this lane"
+	}
+	currentIdx := max(stage.Index-1, 0)
+	if currentIdx+1 < len(order) {
+		if bucket := buckets[order[currentIdx+1]]; bucket != nil {
+			label := bucket.label
+			if strings.TrimSpace(label) == "" {
+				label = sectionTitle(progress.plan, bucket.category)
+			}
+			return "Next     " + label + " lane is queued next"
+		}
+	}
+	if progressPhaseActive(progress.currentPhase) {
+		return "Next     result review after this lane settles"
+	}
+	return "Next     settled review is ready"
 }
 
 func progressCurrentLine(progress progressModel) string {
@@ -157,41 +120,6 @@ func progressCurrentActionLabel(progress progressModel) string {
 		return "reviewing advisory step  •  " + label
 	default:
 		return "moving item to trash  •  " + label
-	}
-}
-
-func progressStepLabel(progress progressModel, item domain.Finding) string {
-	step := strings.TrimSpace(progress.currentStep)
-	switch {
-	case step == "":
-		switch progress.currentPhase {
-		case domain.ProgressPhaseStarting:
-			return "queue"
-		case domain.ProgressPhasePreparing:
-			return "check"
-		case domain.ProgressPhaseRunning:
-			return "run"
-		case domain.ProgressPhaseVerifying:
-			return "verify"
-		case domain.ProgressPhaseFinished:
-			return "settle"
-		default:
-			return "run"
-		}
-	case step == "trash":
-		return "trash"
-	case step == "delete":
-		return "delete"
-	case step == "check":
-		return "check"
-	case step == "queue":
-		return "queue"
-	case step == "verify":
-		return "verify"
-	case item.Action == domain.ActionNative && step == "launch":
-		return "handoff"
-	default:
-		return step
 	}
 }
 
@@ -706,16 +634,6 @@ func progressModuleFlowLines(progress progressModel, width int) []string {
 		appendLine("Next", order[currentIdx+1], false, mutedStyle.Render)
 	}
 	return lines
-}
-
-func progressTone(completed, failed, skipped int) string {
-	if failed > 0 {
-		return "high"
-	}
-	if completed > 0 || skipped > 0 {
-		return "safe"
-	}
-	return "review"
 }
 
 func progressElapsed(startedAt time.Time) string {

@@ -16,26 +16,56 @@ import (
 func homeMenuView(actions []homeAction, cursor int, width int, maxLines int) string {
 	lines := make([]string, 0, len(actions))
 	for i, action := range actions {
-		marker := selectionPrefix(i == cursor)
+		marker := "> "
 		if !action.Enabled {
-			marker = "· "
+			marker = "- "
 		}
-		title := truncateText(action.Title, 22)
-		line := fmt.Sprintf("%s%s  %s", marker, title, renderToneToken(action.Tone))
-		if width >= 70 {
-			line += "  " + mutedStyle.Render(truncateText(menuListSummary(action), max(width-26, 18)))
+
+		// Bold, uppercase title with tone-based color
+		toneStyle := getToneStyle(action.Tone)
+		title := strings.ToUpper(truncateText(action.Title, 20))
+		titleRendered := toneStyle.Bold(true).Render(title)
+
+		// Marker + title
+		line := fmt.Sprintf("%s%s", marker, titleRendered)
+
+		// Add tone badge if enabled
+		if action.Enabled {
+			badgeText := strings.ToUpper(action.Tone)
+			badge := toneStyle.Render(fmt.Sprintf(" [%s]", badgeText))
+			line += badge
+		} else {
+			line += "  " + highStyle.Render("[SETUP]")
 		}
-		if !action.Enabled {
-			line += "  " + highStyle.Render("setup")
-		}
+
 		line = singleLine(line, width)
+
+		// Colored left border when selected
 		if i == cursor {
-			line = selectedLine.Render(line)
+			leftBorder := toneStyle.Render("# ")
+			line = leftBorder + line
+		} else {
+			line = "  " + line
 		}
+
 		lines = append(lines, line)
 	}
 	lines = viewportLines(lines, cursor, maxLines)
 	return strings.Join(lines, "\n")
+}
+
+// Helper function to get tone-based style
+func getToneStyle(tone string) lipgloss.Style {
+	switch tone {
+	case "safe":
+		return safeTokenStyle
+	case "review":
+		return reviewTokenStyle
+	case "high":
+		return highTokenStyle
+	default:
+		return mutedStyle
+	}
 }
 
 func homeDetailView(actions []homeAction, cursor int, live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, diagnostics []platform.Diagnostic, cfg config.Config, width int, maxLines int) string {
@@ -47,11 +77,12 @@ func homeDetailView(actions []homeAction, cursor int, live *engine.SystemSnapsho
 		renderToneBadge(action.Tone) + " " + headerStyle.Render(action.Title),
 		wrapText(truncateText(action.Description, width), width),
 	}
+	lines = append(lines, mutedStyle.Render("Status   ")+wrapText(homeDetailStatusLine(action, live, diagnostics, cfg), width))
 	if next := homeDetailNextLine(action); next != "" {
 		lines = append(lines, mutedStyle.Render("Next     ")+wrapText(next, width))
 	}
 	if action.Safety != "" {
-		lines = append(lines, mutedStyle.Render("Guard    ")+wrapText(truncateText(action.Safety, width), width))
+		lines = append(lines, mutedStyle.Render("Gate     ")+wrapText(truncateText(action.Safety, width), width))
 	}
 	if action.ID == "status" && live != nil {
 		lines = append(lines, mutedStyle.Render(homeHealthLine(live)))
@@ -60,7 +91,7 @@ func homeDetailView(actions []homeAction, cursor int, live *engine.SystemSnapsho
 		lines = append(lines, mutedStyle.Render(homeDetailStateLine(cfg, diagnostics)))
 	}
 	if (action.ID == "clean" || action.ID == "optimize") && lastExecution != nil {
-		lines = append(lines, mutedStyle.Render("Last     ")+homeExecutionLine(lastExecution))
+		lines = append(lines, mutedStyle.Render("Carry    ")+homeExecutionLine(lastExecution))
 	}
 	if action.ID == "optimize" && len(cfg.PurgeSearchPaths) == 0 {
 		lines = append(lines, highStyle.Render("Setup    add purge_search_paths"))
@@ -78,8 +109,9 @@ func homeDetailCompactView(actions []homeAction, cursor int, live *engine.System
 		renderToneBadge(action.Tone) + " " + headerStyle.Render(action.Title),
 		mutedStyle.Render(truncateText(action.Description, width)),
 	}
+	lines = append(lines, mutedStyle.Render("Status  ")+truncateText(homeDetailStatusLine(action, live, diagnostics, cfg), width))
 	if next := homeDetailNextLine(action); next != "" {
-		lines = append(lines, mutedStyle.Render("Next  ")+truncateText(next, width))
+		lines = append(lines, mutedStyle.Render("Next    ")+truncateText(next, width))
 	}
 	switch action.ID {
 	case "status":
@@ -103,28 +135,25 @@ func homeDetailCompactView(actions []homeAction, cursor int, live *engine.System
 
 func homeSpotlightView(actions []homeAction, cursor int, live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, diagnostics []platform.Diagnostic, update *engine.UpdateNotice, cfg config.Config, motion motionState, width int, maxLines int) string {
 	lines := make([]string, 0, 8)
-	compact := width < 96 || maxLines <= 5
 	showMascot := width >= 120 && maxLines >= 6
 	textWidth := width
 	if showMascot {
 		textWidth = width - 11
 	}
-	lines = append(lines, mutedStyle.Render(singleLine("Signal   "+signalRailLabelForMotion(motion)+"  •  "+homeSignalStateLabel(motion), textWidth)))
+	signature := routeSignalSignatureForRoute("home")
+	lead := signature.Mascot
+	if signature.Doctrine != "" {
+		lead += "  •  " + signature.Doctrine
+	}
+	lines = append(lines, mutedStyle.Render(singleLine(lead+"  •  Command  "+signalRailLabelForMotion(motion)+"  •  "+homeSignalStateLabel(motion), textWidth)))
+	lines = append(lines, mutedStyle.Render(singleLine("Status   "+homeSpotlightStatusLine(actions, cursor, live, diagnostics, cfg), textWidth)))
 	if cursor >= 0 && cursor < len(actions) {
 		action := actions[cursor]
-		focusParts := []string{}
-		focusParts = append(focusParts, action.Title)
-		if command := strings.TrimSpace(action.Command); command != "" {
-			focusParts = append(focusParts, command)
-		}
-		lines = append(lines, mutedStyle.Render(singleLine("Focus    "+strings.Join(focusParts, "  •  ")+"  "+renderToneToken(action.Tone), textWidth)))
+		lines = append(lines, mutedStyle.Render(singleLine("Focus    "+homeFocusLine(actions, cursor)+"  "+renderToneToken(action.Tone), textWidth)))
 	}
 	lines = append(lines, mutedStyle.Render(singleLine(homeWatchLine(live, diagnostics, update), textWidth)))
 	lines = append(lines, mutedStyle.Render(singleLine(homeStateSummaryLine(lastExecution, cfg, diagnostics), textWidth)))
-	if !compact && live != nil {
-		lines = append(lines, mutedStyle.Render(singleLine(homeHealthLine(live), textWidth)))
-	}
-	lines = append(lines, mutedStyle.Render(singleLine(homeNextLine(actions, cursor, live, lastExecution, diagnostics, update), textWidth)))
+	lines = append(lines, mutedStyle.Render(singleLine("Next     "+homeNextLine(actions, cursor, live, lastExecution, diagnostics, update), textWidth)))
 	lines = viewportLines(lines, 0, maxLines)
 	content := strings.Join(lines, "\n")
 	if showMascot {
@@ -150,7 +179,8 @@ func renderStorageCard(stats *StorageStats, cardWidth int) string {
 
 	barWidth := 20
 	filled := int(usedPercent / 100 * float64(barWidth))
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	// ASCII-friendly progress bar
+	bar := strings.Repeat("#", filled) + strings.Repeat(".", barWidth-filled)
 
 	var tone string
 	switch {

@@ -16,11 +16,11 @@ func homeSubtitle(executable bool, _ config.Config) string {
 	if executable {
 		mode = "review mode"
 	}
-	return mode + "  •  t opens tools"
+	return "command deck  •  " + mode + "  •  t opens tools"
 }
 
 func homeHealthLine(live *engine.SystemSnapshot) string {
-	return fmt.Sprintf("Live %d (%s)  •  CPU %.1f%%  •  Mem %.1f%%  •  Free %s",
+	return fmt.Sprintf("Pulse %d (%s)  •  CPU %.1f%%  •  Mem %.1f%%  •  Free %s",
 		live.HealthScore,
 		strings.ToUpper(live.HealthLabel),
 		live.CPUPercent,
@@ -105,13 +105,6 @@ func homeSessionRailLine(live *engine.SystemSnapshot, lastExecution *store.Execu
 	return "Last  •  no recent execution"
 }
 
-func menuListSummary(action homeAction) string {
-	if len(action.Modules) > 0 {
-		return strings.Join(action.Modules[:min(len(action.Modules), 2)], "  •  ")
-	}
-	return action.Description
-}
-
 func homeDetailSubtitle(actions []homeAction, cursor int) string {
 	if cursor < 0 || cursor >= len(actions) {
 		return ""
@@ -146,6 +139,32 @@ func homeDetailNextLine(action homeAction) string {
 	}
 }
 
+func homeDetailStatusLine(action homeAction, live *engine.SystemSnapshot, diagnostics []platform.Diagnostic, cfg config.Config) string {
+	if !action.Enabled {
+		return "setup required"
+	}
+	switch action.ID {
+	case "clean":
+		return "sweep rail ready"
+	case "uninstall":
+		return "handoff rail ready"
+	case "analyze":
+		return "trace rail ready"
+	case "status":
+		if live != nil {
+			return "observatory live"
+		}
+		return "waiting for observatory"
+	case "optimize":
+		if diagnosticIssueCount(diagnostics) > 0 || len(cfg.PurgeSearchPaths) == 0 {
+			return "repair rail needs review"
+		}
+		return "repair rail ready"
+	default:
+		return "route ready"
+	}
+}
+
 func homeDetailStateLine(cfg config.Config, diagnostics []platform.Diagnostic) string {
 	nFamilies := len(cfg.ProtectedFamilies)
 	parts := []string{
@@ -168,7 +187,7 @@ func homeSpotlightSubtitle(actions []homeAction, cursor int, live *engine.System
 	if cursor >= 0 && cursor < len(actions) {
 		actionTitle = strings.ToLower(actions[cursor].Title)
 	}
-	parts := []string{"focus " + actionTitle}
+	parts := []string{"route " + actionTitle}
 	if issues := diagnosticIssueCount(diagnostics); issues > 0 {
 		parts = append(parts, fmt.Sprintf("%d %s", issues, pl(issues, "issue", "issues")))
 	}
@@ -198,7 +217,7 @@ func homeWatchLine(live *engine.SystemSnapshot, diagnostics []platform.Diagnosti
 	if len(parts) == 0 {
 		parts = append(parts, "system steady")
 	}
-	return "Alerts   " + strings.Join(parts, "  •  ")
+	return "Watch    " + strings.Join(parts, "  •  ")
 }
 
 func homeStateSummaryLine(lastExecution *store.ExecutionSummary, cfg config.Config, _ []platform.Diagnostic) string {
@@ -216,7 +235,7 @@ func homeStateSummaryLine(lastExecution *store.ExecutionSummary, cfg config.Conf
 	if roots := len(cfg.PurgeSearchPaths); roots > 0 {
 		parts = append(parts, fmt.Sprintf("%d purge %s", roots, pl(roots, "root", "roots")))
 	}
-	return "Activity " + strings.Join(parts, "  •  ")
+	return "Carry    " + strings.Join(parts, "  •  ")
 }
 
 func homeNextLine(actions []homeAction, cursor int, live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, diagnostics []platform.Diagnostic, update *engine.UpdateNotice) string {
@@ -233,7 +252,32 @@ func homeNextLine(actions []homeAction, cursor int, live *engine.SystemSnapshot,
 	default:
 		parts = append(parts, "open status")
 	}
-	return "Next     " + strings.Join(parts, "  •  ")
+	return strings.Join(parts, "  •  ")
+}
+
+func homeSpotlightStatusLine(actions []homeAction, cursor int, live *engine.SystemSnapshot, diagnostics []platform.Diagnostic, cfg config.Config) string {
+	mode := "command deck ready"
+	if cursor >= 0 && cursor < len(actions) {
+		action := actions[cursor]
+		status := homeDetailStatusLine(action, live, diagnostics, cfg)
+		return mode + "  •  " + status
+	}
+	return mode
+}
+
+func homeFocusLine(actions []homeAction, cursor int) string {
+	if cursor < 0 || cursor >= len(actions) {
+		return "no route selected"
+	}
+	action := actions[cursor]
+	parts := []string{action.Title}
+	if command := strings.TrimSpace(action.Command); command != "" {
+		parts = append(parts, command)
+	}
+	if !action.Enabled {
+		parts = append(parts, "setup required")
+	}
+	return strings.Join(parts, "  •  ")
 }
 
 func homeSignalStateLabel(motion motionState) string {
@@ -266,13 +310,13 @@ func homeStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummar
 
 	if live != nil {
 		stats = append(stats,
-			renderStatCard("live", fmt.Sprintf("%d / %s", live.HealthScore, strings.ToUpper(live.HealthLabel)), toneForHealth(live.HealthScore), cardWidth),
-			renderStatCard("disk", domain.HumanBytes(int64(live.DiskFreeBytes)), "safe", cardWidth),
+			renderRouteStatCard("home", "pulse", fmt.Sprintf("%d / %s", live.HealthScore, strings.ToUpper(live.HealthLabel)), toneForHealth(live.HealthScore), cardWidth),
+			renderRouteStatCard("home", "disk", domain.HumanBytes(int64(live.DiskFreeBytes)), "safe", cardWidth),
 		)
 	} else {
 		stats = append(stats,
-			renderStatCard("live", "loading", "review", cardWidth),
-			renderStatCard("disk", "unknown", "review", cardWidth),
+			renderRouteStatCard("home", "pulse", "loading", "review", cardWidth),
+			renderRouteStatCard("home", "disk", "unknown", "review", cardWidth),
 		)
 	}
 	warnings := diagnosticIssueCount(diagnostics)
@@ -282,7 +326,7 @@ func homeStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummar
 		recentValue = fmt.Sprintf("%d deleted", lastExecution.Deleted)
 		recentTone = "safe"
 	}
-	stats = append(stats, renderStatCard("last", recentValue, recentTone, cardWidth))
+	stats = append(stats, renderRouteStatCard("home", "last", recentValue, recentTone, cardWidth))
 	watchValue := fmt.Sprintf("%d active", warnings)
 	watchTone := toneForIssues(warnings)
 	if update != nil && update.Available {
@@ -292,7 +336,7 @@ func homeStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummar
 		watchValue = live.OperatorAlerts[0]
 		watchTone = "review"
 	}
-	stats = append(stats, renderStatCard("alerts", watchValue, watchTone, cardWidth))
+	stats = append(stats, renderRouteStatCard("home", "watch", watchValue, watchTone, cardWidth))
 	return stats
 }
 

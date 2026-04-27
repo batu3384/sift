@@ -8,7 +8,7 @@ import (
 )
 
 // TestMascotExpressionIdleKnipsBothEyes checks that idle mode shows relaxed
-// eyes (◡◡) by default and alternates left/right blinks on frames 1 and 3.
+// eyes (* *) by default and alternates left/right blinks on frames 1 and 3.
 func TestMascotExpressionIdleKnipsBothEyes(t *testing.T) {
 	t.Parallel()
 
@@ -17,18 +17,18 @@ func TestMascotExpressionIdleKnipsBothEyes(t *testing.T) {
 		e1    string
 		e2    string
 	}{
-		{0, "◡", "◡"},
-		{2, "◡", "◡"},
-		{1, "─", "◡"}, // left blinks
-		{3, "◡", "─"}, // right blinks
+		{0, "*", "*"},
+		{2, "*", "*"},
+		{1, "-", "*"}, // left blinks
+		{3, "*", "-"}, // right blinks
 	}
 	for _, tc := range cases {
 		e1, e2, mouth, tone := mascotExpression(tc.frame, motionModeIdle)
 		if e1 != tc.e1 || e2 != tc.e2 {
 			t.Errorf("idle frame %d: expected %q/%q, got %q/%q", tc.frame, tc.e1, tc.e2, e1, e2)
 		}
-		if mouth != "‿" {
-			t.Errorf("idle mouth: expected ‿, got %q", mouth)
+		if mouth != "u" {
+			t.Errorf("idle mouth: expected u, got %q", mouth)
 		}
 		if tone != "safe" {
 			t.Errorf("idle tone: expected safe, got %q", tone)
@@ -37,17 +37,17 @@ func TestMascotExpressionIdleKnipsBothEyes(t *testing.T) {
 }
 
 // TestMascotExpressionAlertIsFixed verifies that alert mode shows the same
-// tense expression (◈◈/∧ high) on every animation frame — no flickering.
+// tense expression (X X / ^ high) on every animation frame — no flickering.
 func TestMascotExpressionAlertIsFixed(t *testing.T) {
 	t.Parallel()
 
 	for frame := 0; frame < 4; frame++ {
 		e1, e2, mouth, tone := mascotExpression(frame, motionModeAlert)
-		if e1 != "◈" || e2 != "◈" {
-			t.Errorf("alert frame %d: expected ◈/◈, got %q/%q", frame, e1, e2)
+		if e1 != "X" || e2 != "X" {
+			t.Errorf("alert frame %d: expected X/X, got %q/%q", frame, e1, e2)
 		}
-		if mouth != "∧" {
-			t.Errorf("alert frame %d: expected mouth ∧, got %q", frame, mouth)
+		if mouth != "^" {
+			t.Errorf("alert frame %d: expected mouth ^, got %q", frame, mouth)
 		}
 		if tone != "high" {
 			t.Errorf("alert frame %d: expected tone high, got %q", frame, tone)
@@ -66,8 +66,8 @@ func TestMascotExpressionProgressAlternatesEyes(t *testing.T) {
 	if e1even == e1odd && e2even == e2odd {
 		t.Errorf("progress eyes should alternate, got identical %q/%q for frames 0 and 1", e1even, e2even)
 	}
-	if mouth != "○" {
-		t.Errorf("progress mouth: expected ○, got %q", mouth)
+	if mouth != "0" {
+		t.Errorf("progress mouth: expected 0, got %q", mouth)
 	}
 	if tone != "review" {
 		t.Errorf("progress tone: expected review, got %q", tone)
@@ -75,22 +75,22 @@ func TestMascotExpressionProgressAlternatesEyes(t *testing.T) {
 }
 
 // TestMascotExpressionLoadingHasMutedTone checks that loading mode uses a
-// calm, muted mouth tone (○ muted) — distinct from progress (○ review).
+// calm, muted mouth tone (0 muted) — distinct from progress (0 review).
 func TestMascotExpressionLoadingHasMutedTone(t *testing.T) {
 	t.Parallel()
 
 	_, _, mouth, tone := mascotExpression(0, motionModeLoading)
-	if mouth != "○" {
-		t.Errorf("loading mouth: expected ○, got %q", mouth)
+	if mouth != "0" {
+		t.Errorf("loading mouth: expected 0, got %q", mouth)
 	}
 	if tone != "muted" {
 		t.Errorf("loading tone: expected muted, got %q", tone)
 	}
 }
 
-// TestMascotExpressionReviewSwapsDiamonds confirms that review mode swaps
-// ◆/◇ between frames so the mascot appears to "think".
-func TestMascotExpressionReviewSwapsDiamonds(t *testing.T) {
+// TestMascotExpressionReviewSwapsDiamond confirms that review mode swaps
+// < > between frames so the mascot appears to "think".
+func TestMascotExpressionReviewSwapsDiamond(t *testing.T) {
 	t.Parallel()
 
 	e1even, e2even, _, _ := mascotExpression(0, motionModeReview)

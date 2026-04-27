@@ -9,89 +9,27 @@ import (
 	"github.com/batu3384/sift/internal/domain"
 )
 
-// progressStatsWithCategories returns stats cards with category breakdown (Mole-style)
+// progressStatsWithCategories returns the high-signal top cards for progress.
 func progressStatsWithCategories(progress progressModel, width int) []string {
 	cardWidth := 22
 	if width < 110 {
 		cardWidth = width - 8
 	}
-	completed, _, failed, skipped, _ := countResultStatuses(domain.ExecutionResult{Items: progress.items})
 	stage := progressStageInfo(progress)
-	motion := progressMotionState(progress)
-	state := fmt.Sprintf("%s %s", spinnerGlyph(motion), progressPhaseDisplay(progress.currentPhase, motion.Phase))
-	if progress.cancelRequested {
-		state = "Stopping"
-	}
-	if len(progress.items) == len(progress.plan.Items) && len(progress.plan.Items) > 0 {
-		state = "Wrapping up"
-	}
 	freed := progressFreedBytes(progress)
 	total := progressTotalBytes(progress.plan)
 
-	// Calculate category progress
-	categoryProgress := calculateCategoryProgress(progress)
-
 	cards := []string{
-		renderStatCard(progressStageCardLabel(progress.plan), progressStageCardValue(progress, stage), "review", cardWidth+4),
-		renderStatCard(progressSettledCardLabel(progress.plan), fmt.Sprintf("%d / %d", len(progress.items), len(progress.plan.Items)), "review", cardWidth),
-		renderStatCard("freed", fmt.Sprintf("%s / %s", domain.HumanBytes(freed), domain.HumanBytes(total)), "safe", cardWidth),
-		renderStatCard("state", state, progressTone(completed, failed, skipped), cardWidth+6),
-	}
-
-	// Add category progress cards if we have multiple categories
-	if len(categoryProgress) > 1 && width >= 140 {
-		for cat, stats := range categoryProgress {
-			progressPct := 0
-			if stats.total > 0 {
-				progressPct = int(float64(stats.completed) / float64(stats.total) * 100)
-			}
-			catLabel := string(cat)
-			if len(catLabel) > 12 {
-				catLabel = catLabel[:12] + ".."
-			}
-			catCard := renderStatCard(catLabel, fmt.Sprintf("%d%% %s", progressPct, domain.HumanBytes(stats.freed)), "safe", cardWidth)
-			cards = append(cards, catCard)
-		}
+		renderRouteStatCard("progress", "progress", progressMeter(progress), "safe", cardWidth),
+		renderRouteStatCard("progress", progressStageCardLabel(progress.plan), progressStageCardValue(progress, stage), "review", cardWidth+4),
+		renderRouteStatCard("progress", progressSettledCardLabel(progress.plan), fmt.Sprintf("%d / %d", len(progress.items), len(progress.plan.Items)), "review", cardWidth),
+		renderRouteStatCard("progress", "freed", fmt.Sprintf("%s / %s", domain.HumanBytes(freed), domain.HumanBytes(total)), "safe", cardWidth+2),
 	}
 
 	if width < 110 {
 		return cards[:min(len(cards), 3)]
 	}
 	return cards
-}
-
-// CategoryProgress holds progress info for a single category
-type CategoryProgress struct {
-	total     int
-	completed int
-	freed     int64
-}
-
-// calculateCategoryProgress calculates progress per category
-func calculateCategoryProgress(progress progressModel) map[domain.Category]CategoryProgress {
-	result := make(map[domain.Category]CategoryProgress)
-
-	// Count total items per category
-	for _, item := range progress.plan.Items {
-		stats := result[item.Category]
-		stats.total++
-		stats.freed += item.Bytes
-		result[item.Category] = stats
-	}
-
-	// Count completed items per category
-	for i := 0; i < len(progress.items) && i < len(progress.plan.Items); i++ {
-		item := progress.plan.Items[i]
-		status := progress.items[i].Status
-		if status == domain.StatusDeleted || status == domain.StatusCompleted {
-			if stats, ok := result[item.Category]; ok {
-				stats.completed++
-				result[item.Category] = stats
-			}
-		}
-	}
-
-	return result
 }
 
 // progressStats is kept for backward compatibility
@@ -111,38 +49,8 @@ func progressListViewMoleStyle(progress progressModel, width int, maxLines int) 
 	all := len(progress.plan.Items)
 	lines := make([]string, 0, all+all/3+4)
 
-	// Mole-style header with live freed bytes counter
-	if freed > 0 {
-		// Live counter animation
-		progressPct := 0
-		if total > 0 {
-			progressPct = int(float64(freed) / float64(total) * 100)
-		}
-		lines = append(lines, safeStyle.Render(fmt.Sprintf("⬆ %s freed  [%d%%]  ● %d / %d", domain.HumanBytes(freed), progressPct, done, all)))
-	} else {
-		lines = append(lines, mutedStyle.Render(fmt.Sprintf("○ %d %s queued  ● %s total", all, pl(all, "item", "items"), domain.HumanBytes(total))))
-	}
-
-	// Add category progress bars
-	categoryProgress := calculateCategoryProgress(progress)
-	if len(categoryProgress) > 1 && width >= 100 {
-		lines = append(lines, "")
-		for cat, stats := range categoryProgress {
-			catName := string(cat)
-			if len(catName) > 15 {
-				catName = catName[:15]
-			}
-			catPct := 0
-			if stats.total > 0 {
-				catPct = int(float64(stats.completed) / float64(stats.total) * 100)
-			}
-			// Draw progress bar
-			barWidth := 20
-			filled := (barWidth * catPct) / 100
-			bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
-			lines = append(lines, mutedStyle.Render(fmt.Sprintf("  %-15s [%s] %s", catName, bar, domain.HumanBytes(stats.freed))))
-		}
-	}
+	lines = append(lines, safeStyle.Render(fmt.Sprintf("Progress %s  •  %d/%d settled  •  %s / %s", progressMeter(progress), done, all, domain.HumanBytes(freed), domain.HumanBytes(total))))
+	lines = append(lines, mutedStyle.Render(progressPhaseLine(progress, stage)))
 
 	lines = append(lines, renderSectionRule(width))
 
@@ -174,26 +82,26 @@ func progressListViewMoleStyle(progress progressModel, width int, maxLines int) 
 			}
 			lines = append(lines, groupHeader)
 		}
-		icon := "·"
+		icon := "-"
 		lineStyle := mutedStyle
 		isActive := progress.current != nil && idx == progress.cursor && progressPhaseActive(progress.currentPhase)
 		if idx < len(progress.items) {
 			switch progress.items[idx].Status {
 			case domain.StatusDeleted, domain.StatusCompleted:
-				icon = "✓"
+				icon = "+"
 				lineStyle = safeStyle
 			case domain.StatusFailed:
-				icon = "✗"
+				icon = "x"
 				lineStyle = highStyle
 			case domain.StatusProtected, domain.StatusSkipped:
-				icon = "⊘"
+				icon = "s"
 				lineStyle = reviewStyle
 			default:
-				icon = "·"
+				icon = "-"
 				lineStyle = mutedStyle
 			}
 		} else if isActive {
-			icon = "⟳"
+			icon = "~"
 			lineStyle = reviewStyle
 		}
 		label := displayFindingLabel(item)
@@ -281,28 +189,20 @@ func progressDetailView(progress progressModel, width int, maxLines int) string 
 	stage := progressStageInfo(progress)
 	motion := progressMotionState(progress)
 	lines := []string{}
-	if banner := progressLiveStageBanner(progress, stage, motion, width); banner != "" {
-		lines = append(lines, banner)
+	if signal := progressRouteSignalLine(progress); signal != "" {
+		lines = append(lines, signal)
 	}
 	stepStyle := mutedStyle
 	if progressPhaseActive(progress.currentPhase) {
 		stepStyle = reviewStyle
 	}
-	completed, deleted, failed, _, _ := countResultStatuses(domain.ExecutionResult{Items: progress.items})
-	statusStyle := mutedStyle
-	if failed > 0 {
-		statusStyle = highStyle
-	} else if completed+deleted > 0 {
-		statusStyle = safeStyle
-	}
-	freed := progressFreedBytes(progress)
-	total := progressTotalBytes(progress.plan)
 	lines = append(lines,
 		wrapText(mutedStyle.Render(progressSummaryLine(progress, stage)), width),
-		wrapText(statusStyle.Render(progressStatusLine(progress)), width),
+		mutedStyle.Render("Meter     "+progressMeterLine(progress)),
+		wrapText(mutedStyle.Render(progressPhaseLine(progress, stage)), width),
 		wrapText(stepStyle.Render(progressStepLine(progress)), width),
-		safeStyle.Render(fmt.Sprintf("Freed     %s / %s", domain.HumanBytes(freed), domain.HumanBytes(total))),
-		mutedStyle.Render("Done      "+progressMeterLine(progress)),
+		wrapText(mutedStyle.Render(progressNextLine(progress)), width),
+		wrapText(mutedStyle.Render(progressStatusLine(progress)), width),
 	)
 	if !progress.startedAt.IsZero() {
 		lines = append(lines, mutedStyle.Render("Time      "+progressElapsed(progress.startedAt)))
@@ -327,7 +227,7 @@ func progressDetailView(progress progressModel, width int, maxLines int) string 
 	item := progress.plan.Items[idx]
 	lines = append(lines, renderSectionRule(width),
 		fmt.Sprintf("%s  %s", domain.HumanBytes(item.Bytes), item.DisplayPath),
-		mutedStyle.Render("Run     "+describeAction(item.Action)),
+		mutedStyle.Render("Action   "+describeAction(item.Action)),
 	)
 	if item.Action == domain.ActionNative {
 		lines = append(lines, reviewStyle.Render("Native step  vendor uninstaller will be launched"))
@@ -344,7 +244,7 @@ func progressDetailView(progress progressModel, width int, maxLines int) string 
 	if idx < len(progress.items) {
 		result := progress.items[idx]
 		lines = append(lines,
-			mutedStyle.Render("Status  "+string(result.Status)),
+			mutedStyle.Render("Result   "+string(result.Status)),
 		)
 		if result.Reason != "" {
 			lines = append(lines, highStyle.Render("Reason  "+string(result.Reason)))
@@ -366,53 +266,74 @@ func progressDetailView(progress progressModel, width int, maxLines int) string 
 	return content
 }
 
+func progressRouteSignalLine(progress progressModel) string {
+	if !routeHasNamedSignal(progress.plan.Command) {
+		return ""
+	}
+	signature := routeSignalSignatureForRoute(progress.plan.Command)
+	if strings.TrimSpace(signature.Mascot) == "" {
+		return ""
+	}
+	parts := []string{
+		railStyle.Render(signature.Mascot),
+		panelMetaStyle.Render(progressRouteSignalLabel(progress)),
+	}
+	if signature.Doctrine != "" {
+		parts = append(parts, mutedStyle.Render(signature.Doctrine))
+	}
+	return strings.Join(parts, "  ")
+}
+
 // progressLiveStageBanner returns a prominent single-line banner showing the
 // active cleanup category, item progress, and bytes for this stage — the sift
 // equivalent of Mole's animated "正在清理" display. Shown only when a stage is
 // actively running so the user always knows what category is being cleaned.
-func progressLiveStageBanner(progress progressModel, stage stageInfo, motion motionState, width int) string {
-	if stage.Total == 0 || !progressPhaseActive(progress.currentPhase) {
-		return ""
-	}
-	label := stage.Group
-	if label == "" {
-		label = sectionTitle(progress.plan, stage.Category)
-	}
-	spinner := spinnerGlyph(motion)
-	pct := 0
-	if stage.Items > 0 {
-		pct = stage.Done * 100 / stage.Items
-	}
-	barWidth := 12
-	filled := barWidth * pct / 100
-	// Animated leading-edge: cycles ▒→▓→█→▓ to create a shimmer at the fill boundary.
-	var bar string
-	if filled <= 0 {
-		bar = strings.Repeat("░", barWidth)
-	} else if filled >= barWidth {
-		bar = strings.Repeat("▓", barWidth)
-	} else {
-		edges := []string{"▒", "▓", "█", "▓"}
-		edge := edges[motion.Frame%len(edges)]
-		bar = strings.Repeat("▓", filled-1) + edge + strings.Repeat("░", barWidth-filled)
-	}
-	action := "CLEANING"
+func progressRouteSignalLabel(progress progressModel) string {
 	switch progress.plan.Command {
 	case "uninstall":
-		action = "REMOVING"
+		if item, ok := progressCurrentItem(progress); ok {
+			if item.TaskPhase == "aftercare" || progress.currentPhase == domain.ProgressPhaseFinished {
+				return "AFTERCARE RAIL"
+			}
+			if item.Action == domain.ActionNative {
+				return "HANDOFF RAIL"
+			}
+			return "REMNANT RAIL"
+		}
+		if progress.currentPhase == domain.ProgressPhaseFinished {
+			return "AFTERCARE RAIL"
+		}
+		return "TARGET RAIL"
 	case "optimize":
-		action = "APPLYING"
+		if progress.currentPhase == domain.ProgressPhaseFinished {
+			return "SETTLED RAIL"
+		}
+		return "TASK RAIL"
 	case "autofix":
-		action = "FIXING"
+		if progress.currentPhase == domain.ProgressPhaseFinished {
+			return "SETTLED RAIL"
+		}
+		return "FIX RAIL"
+	default:
+		switch progress.currentPhase {
+		case domain.ProgressPhasePreparing:
+			return "ACCESS RAIL"
+		case domain.ProgressPhaseVerifying:
+			return "VERIFY RAIL"
+		case domain.ProgressPhaseFinished:
+			return "SETTLED RAIL"
+		default:
+			return "RECLAIM RAIL"
+		}
 	}
-	bytesLabel := fmt.Sprintf("%s / %s", domain.HumanBytes(stage.Freed), domain.HumanBytes(stage.Bytes))
-	line := fmt.Sprintf("%s  %s  [%s]  %d/%d  •  %s  •  stage %d/%d",
-		reviewStyle.Render(spinner+" "+action),
-		headerStyle.Render(label),
-		reviewStyle.Render(bar),
-		stage.Done, stage.Items,
-		safeStyle.Render(bytesLabel),
-		stage.Index, stage.Total,
-	)
-	return wrapText(line, width)
+}
+
+func progressCurrentItem(progress progressModel) (domain.Finding, bool) {
+	if progress.current != nil {
+		return *progress.current, true
+	}
+	if progress.cursor >= 0 && progress.cursor < len(progress.plan.Items) {
+		return progress.plan.Items[progress.cursor], true
+	}
+	return domain.Finding{}, false
 }

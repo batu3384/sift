@@ -34,8 +34,10 @@ func TestProgressStatsAdjustForNarrowAndWideLayouts(t *testing.T) {
 		t.Fatalf("expected 4 stat cards for wide layout, got %d", len(wide))
 	}
 	joined := strings.Join(wide, "\n")
-	if !strings.Contains(joined, "Wrapping up") {
-		t.Fatalf("expected wrapping-up state in wide stats, got %s", joined)
+	for _, needle := range []string{"PROGRESS", "100%", "SETTLED", "2 / 2", "FREED"} {
+		if !strings.Contains(joined, needle) {
+			t.Fatalf("expected %q in wide stats, got %s", needle, joined)
+		}
 	}
 }
 
@@ -268,6 +270,71 @@ func TestProgressExecutionRailUsesCommandSpecificBuckets(t *testing.T) {
 	}
 }
 
+func TestProgressDetailViewShowsRouteSignalForCleanRun(t *testing.T) {
+	t.Parallel()
+
+	view := progressDetailView(progressModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{{
+				ID:          "chrome-js",
+				Name:        "Chrome Code Cache/js",
+				DisplayPath: "/tmp/chrome",
+				Path:        "/tmp/chrome",
+				Category:    domain.CategoryBrowserData,
+				Action:      domain.ActionTrash,
+				Bytes:       84 << 20,
+			}},
+		},
+		currentPhase: domain.ProgressPhaseRunning,
+		current: &domain.Finding{
+			ID:          "chrome-js",
+			Name:        "Chrome Code Cache/js",
+			DisplayPath: "/tmp/chrome",
+			Path:        "/tmp/chrome",
+			Category:    domain.CategoryBrowserData,
+			Action:      domain.ActionTrash,
+			Bytes:       84 << 20,
+		},
+	}, 120, 24)
+
+	for _, needle := range []string{"FORGE RAIL", "RECLAIM RAIL"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in clean progress detail, got %q", needle, view)
+		}
+	}
+}
+
+func TestResultDetailViewShowsRouteSignalForUninstallRun(t *testing.T) {
+	t.Parallel()
+
+	view := resultDetailView(resultModel{
+		plan: domain.ExecutionPlan{
+			Command: "uninstall",
+			Items: []domain.Finding{{
+				ID:          "native",
+				Name:        "Example App",
+				DisplayPath: "Example App",
+				Path:        "/Applications/Example App.app",
+				Action:      domain.ActionNative,
+			}},
+		},
+		result: domain.ExecutionResult{
+			Items: []domain.OperationResult{{
+				FindingID: "native",
+				Path:      "/Applications/Example App.app",
+				Status:    domain.StatusCompleted,
+			}},
+		},
+	}, 120, 24)
+
+	for _, needle := range []string{"COURIER RAIL", "AFTERCARE RAIL"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in uninstall result detail, got %q", needle, view)
+		}
+	}
+}
+
 func TestProgressCurrentLineReflectsBatchIntent(t *testing.T) {
 	t.Parallel()
 
@@ -328,23 +395,37 @@ func TestProgressSummaryStatusAndNextLinesGuideExecution(t *testing.T) {
 	}
 
 	summary := progressSummaryLine(progress, progressStageInfo(progress))
-	for _, needle := range []string{"Summary", "task 1/1", "1 task"} {
+	for _, needle := range []string{"Progress", "0%", "0/1 settled"} {
 		if !strings.Contains(summary, needle) {
 			t.Fatalf("expected %q in progress summary line, got %q", needle, summary)
 		}
 	}
 
-	status := progressStatusLine(progress)
-	for _, needle := range []string{"Status", "running task", "/tmp/a", "no completed operations yet"} {
-		if !strings.Contains(status, needle) {
-			t.Fatalf("expected %q in progress status line, got %q", needle, status)
+	phase := progressPhaseLine(progress, progressStageInfo(progress))
+	for _, needle := range []string{"Phase", "TASK", "1/1"} {
+		if !strings.Contains(phase, needle) {
+			t.Fatalf("expected %q in progress phase line, got %q", needle, phase)
 		}
 	}
 
-	step := progressStepLine(progress)
-	for _, needle := range []string{"Step", "maintenance", "running task", "/tmp/a"} {
-		if !strings.Contains(step, needle) {
-			t.Fatalf("expected %q in progress step line, got %q", needle, step)
+	current := progressStepLine(progress)
+	for _, needle := range []string{"Current", "running task", "/tmp/a"} {
+		if !strings.Contains(current, needle) {
+			t.Fatalf("expected %q in progress current line, got %q", needle, current)
+		}
+	}
+
+	next := progressNextLine(progress)
+	for _, needle := range []string{"Next", "result review"} {
+		if !strings.Contains(next, needle) {
+			t.Fatalf("expected %q in progress next line, got %q", needle, next)
+		}
+	}
+
+	status := progressStatusLine(progress)
+	for _, needle := range []string{"Status", "no completed operations yet"} {
+		if !strings.Contains(status, needle) {
+			t.Fatalf("expected %q in progress status line, got %q", needle, status)
 		}
 	}
 
@@ -366,7 +447,7 @@ func TestProgressStepLineUsesHandoffAndRemnantLanguage(t *testing.T) {
 		currentStep:   "launch",
 		currentDetail: "opening native uninstall",
 	}
-	if line := progressStepLine(native); !strings.Contains(line, "Step     handoff") || !strings.Contains(line, "opening native uninstall") {
+	if line := progressStepLine(native); !strings.Contains(line, "Current") || !strings.Contains(line, "opening native uninstall") {
 		t.Fatalf("unexpected native uninstall step line: %q", line)
 	}
 
@@ -377,12 +458,12 @@ func TestProgressStepLineUsesHandoffAndRemnantLanguage(t *testing.T) {
 		currentStep:   "trash",
 		currentDetail: "moving /tmp/example to trash",
 	}
-	if line := progressStepLine(remnant); !strings.Contains(line, "Step     remnants") || !strings.Contains(line, "moving /tmp/example to trash") {
+	if line := progressStepLine(remnant); !strings.Contains(line, "Current") || !strings.Contains(line, "moving /tmp/example to trash") {
 		t.Fatalf("unexpected remnant step line: %q", line)
 	}
 }
 
-func TestResultScopeAndFocusLinesGuideRecovery(t *testing.T) {
+func TestResultScopeAndStatusLinesGuideRecovery(t *testing.T) {
 	t.Parallel()
 
 	model := resultModel{
@@ -408,10 +489,10 @@ func TestResultScopeAndFocusLinesGuideRecovery(t *testing.T) {
 		}
 	}
 
-	focus := resultFocusLine(model)
-	for _, needle := range []string{"Focus", "1 failed", "r retries failed first"} {
-		if !strings.Contains(focus, needle) {
-			t.Fatalf("expected %q in result focus line, got %q", needle, focus)
+	status := resultStatusLine(model)
+	for _, needle := range []string{"Status", "1 issue", "lane needs review"} {
+		if !strings.Contains(status, needle) {
+			t.Fatalf("expected %q in result status line, got %q", needle, status)
 		}
 	}
 }
@@ -437,9 +518,16 @@ func TestResultSummaryAndNextLinesGuideRecovery(t *testing.T) {
 	}
 
 	summary := resultSummaryLine(model)
-	for _, needle := range []string{"Summary", "1 item", "1 module", "1 issue", "1 warning", "1 follow-up command", "1 failed"} {
+	for _, needle := range []string{"Result", "0% changed", "0/1 changed", "0 B freed"} {
 		if !strings.Contains(summary, needle) {
 			t.Fatalf("expected %q in result summary line, got %q", needle, summary)
+		}
+	}
+
+	status := resultStatusLine(model)
+	for _, needle := range []string{"Status", "1 issue", "1 warning", "1 follow-up command"} {
+		if !strings.Contains(status, needle) {
+			t.Fatalf("expected %q in result status line, got %q", needle, status)
 		}
 	}
 
@@ -451,16 +539,9 @@ func TestResultSummaryAndNextLinesGuideRecovery(t *testing.T) {
 	}
 
 	track := resultTrackLine(model)
-	for _, needle := range []string{"Track", "0 sections", "0 reclaimed", "1 open"} {
+	for _, needle := range []string{"Rail", "0 sections", "0 reclaimed", "1 open"} {
 		if !strings.Contains(track, needle) {
 			t.Fatalf("expected %q in result track line, got %q", needle, track)
-		}
-	}
-
-	outcome := resultOutcomeLine(model)
-	for _, needle := range []string{"Outcome", "0 sections settled", "0 reclaimed", "1 open"} {
-		if !strings.Contains(outcome, needle) {
-			t.Fatalf("expected %q in result outcome line, got %q", needle, outcome)
 		}
 	}
 }
@@ -478,7 +559,7 @@ func TestProgressSummaryAndResultSummaryUseCommandSpecificLanguage(t *testing.T)
 		},
 	}
 	summary := progressSummaryLine(uninstallProgress, progressStageInfo(uninstallProgress))
-	for _, needle := range []string{"Summary", "uninstall target 1/1", "1 app"} {
+	for _, needle := range []string{"Progress", "0%", "0/1 settled"} {
 		if !strings.Contains(summary, needle) {
 			t.Fatalf("expected %q in uninstall progress summary, got %q", needle, summary)
 		}
@@ -498,7 +579,7 @@ func TestProgressSummaryAndResultSummaryUseCommandSpecificLanguage(t *testing.T)
 		},
 	}
 	line := resultSummaryLine(optimizeResult)
-	for _, needle := range []string{"1 item", "1 task", "1 changed"} {
+	for _, needle := range []string{"Result", "100% changed", "1/1 changed"} {
 		if !strings.Contains(line, needle) {
 			t.Fatalf("expected %q in optimize result summary, got %q", needle, line)
 		}
@@ -616,15 +697,15 @@ func TestResultTrackLineUsesCommandSpecificBuckets(t *testing.T) {
 	}
 
 	line := resultTrackLine(model)
-	for _, needle := range []string{"Track", "1 native", "1 removed", "1 aftercare"} {
+	for _, needle := range []string{"Rail", "1 native", "1 removed", "1 aftercare"} {
 		if !strings.Contains(line, needle) {
 			t.Fatalf("expected %q in uninstall result track line, got %q", needle, line)
 		}
 	}
-	outcome := resultOutcomeLine(model)
-	for _, needle := range []string{"Outcome", "1 handoff", "1 remnant removed", "1 aftercare done"} {
-		if !strings.Contains(outcome, needle) {
-			t.Fatalf("expected %q in uninstall result outcome line, got %q", needle, outcome)
+	status := resultStatusLine(model)
+	for _, needle := range []string{"Status", "lane settled cleanly"} {
+		if !strings.Contains(status, needle) {
+			t.Fatalf("expected %q in uninstall result status line, got %q", needle, status)
 		}
 	}
 }
@@ -668,8 +749,8 @@ func TestResultTrackLineUsesSectionAndPhaseLabels(t *testing.T) {
 	if line := resultTrackLine(optimizeModel); !strings.Contains(line, "repair 1 • refresh 1") {
 		t.Fatalf("expected optimize result track to include phase breakdown, got %q", line)
 	}
-	if line := resultOutcomeLine(optimizeModel); !strings.Contains(line, "Outcome") || !strings.Contains(line, "repair 1 • refresh 1") || !strings.Contains(line, "2 applied") {
-		t.Fatalf("expected optimize result outcome to include phase breakdown, got %q", line)
+	if line := resultStatusLine(optimizeModel); !strings.Contains(line, "Status") || !strings.Contains(line, "lane settled cleanly") {
+		t.Fatalf("expected optimize result status to show settled summary, got %q", line)
 	}
 }
 

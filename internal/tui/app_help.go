@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -23,12 +22,16 @@ func (m appModel) routeBindings() routeHelp {
 			},
 		}
 	case RouteClean:
+		sections := []helpSection{
+			{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter}},
+		}
+		if history := m.routeHistoryBindings(false); len(history) > 0 {
+			sections = append(sections, helpSection{title: "History", bindings: history})
+		}
+		sections = append(sections, helpSection{title: "Back", bindings: []key.Binding{m.keys.Back, m.keys.Help, m.keys.Quit}})
 		return routeHelp{
 			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Back, m.keys.Help, m.keys.Quit},
-			sections: []helpSection{
-				{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter}},
-				{title: "Back", bindings: []key.Binding{m.keys.Back, m.keys.Help, m.keys.Quit}},
-			},
+			sections: sections,
 		}
 	case RouteTools:
 		return routeHelp{
@@ -48,14 +51,18 @@ func (m appModel) routeBindings() routeHelp {
 			},
 		}
 	case RouteUninstall:
+		sections := []helpSection{
+			{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Back}},
+			{title: "Batch", bindings: []key.Binding{queue, m.keys.Review}},
+			{title: "Find", bindings: []key.Binding{m.keys.Search, m.keys.Refresh}},
+		}
+		if history := m.routeHistoryBindings(false); len(history) > 0 {
+			sections = append(sections, helpSection{title: "History", bindings: history})
+		}
+		sections = append(sections, helpSection{title: "Back", bindings: []key.Binding{m.keys.Help, m.keys.Quit}})
 		return routeHelp{
 			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Stage, m.keys.Review, m.keys.Help, m.keys.Back},
-			sections: []helpSection{
-				{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Back}},
-				{title: "Batch", bindings: []key.Binding{queue, m.keys.Review}},
-				{title: "Find", bindings: []key.Binding{m.keys.Search, m.keys.Refresh}},
-				{title: "Back", bindings: []key.Binding{m.keys.Help, m.keys.Quit}},
-			},
+			sections: sections,
 		}
 	case RouteStatus:
 		return routeHelp{
@@ -76,15 +83,19 @@ func (m appModel) routeBindings() routeHelp {
 			},
 		}
 	case RouteAnalyze:
+		sections := []helpSection{
+			{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Focus, m.keys.Enter, m.keys.Back}},
+			{title: "Mark", bindings: []key.Binding{toggle, m.keys.Review}},
+			{title: "Find", bindings: []key.Binding{m.keys.Search, m.keys.Filter, m.keys.Sort}},
+			{title: "File", bindings: []key.Binding{m.keys.Open, m.keys.Reveal, m.keys.Delete}},
+		}
+		if history := m.routeHistoryBindings(false); len(history) > 0 {
+			sections = append(sections, helpSection{title: "History", bindings: history})
+		}
+		sections = append(sections, helpSection{title: "Back", bindings: []key.Binding{m.keys.Help, m.keys.Quit}})
 		return routeHelp{
 			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Stage, m.keys.Review, m.keys.Help, m.keys.Back},
-			sections: []helpSection{
-				{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Focus, m.keys.Enter, m.keys.Back}},
-				{title: "Mark", bindings: []key.Binding{toggle, m.keys.Review}},
-				{title: "Find", bindings: []key.Binding{m.keys.Search, m.keys.Filter, m.keys.Sort}},
-				{title: "File", bindings: []key.Binding{m.keys.Open, m.keys.Reveal, m.keys.Delete}},
-				{title: "Back", bindings: []key.Binding{m.keys.Help, m.keys.Quit}},
-			},
+			sections: sections,
 		}
 	case RouteReview:
 		sections := []helpSection{
@@ -188,6 +199,6 @@ func (m appModel) helpOverlayView() string {
 	width, height := effectiveSize(m.width, m.height)
 	panelLines := bodyLineBudget(height, 16, 8)
 	body := renderHelpSections(m.routeBindings().sections, width-8, panelLines)
-	subtitle := fmt.Sprintf("%s • %s or %s closes", routeHelpLabel(m.route), m.keys.Help.Help().Key, m.keys.Back.Help().Key)
-	return renderPanel("HELP", subtitle, body, width-4, false)
+	subtitle := routeHelpSubtitle(m.route, m.keys.Help.Help().Key, m.keys.Back.Help().Key)
+	return renderPanel("CONTROL DECK", subtitle, body, width-4, false)
 }

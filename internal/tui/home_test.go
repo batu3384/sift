@@ -16,7 +16,7 @@ func TestHomeViewIncludesSummary(t *testing.T) {
 	t.Parallel()
 	model := homeModel{
 		actions: []homeAction{
-			{ID: "analyze_home", Title: "Analyze Home", Description: "Analyze your home directory.", Enabled: true},
+			{ID: "analyze_home", Title: "Analyze Home", Description: "Analyze your home directory.", Enabled: true, Tone: "review"},
 		},
 		live: &engine.SystemSnapshot{
 			HealthScore:       87,
@@ -38,7 +38,7 @@ func TestHomeViewIncludesSummary(t *testing.T) {
 		height:     28,
 	}
 	view := model.View()
-	for _, needle := range []string{"██████  ██ ███████ ████████", "review mode", "87 / HEALTHY", "LAST", "ALERTS", "HOME", "MENU", "DETAIL", "▸ Analyze Home", "focus analyze home", "Signal", "Focus", "Alerts", "Activity", "Next", "V9.9.9 ready", "thermal warm 61.5°C", "t opens check"} {
+	for _, needle := range []string{"######  ## ####### #######", "command deck", "87 / HEALTHY", "LAST", "WATCH", "COMMAND DECK", "ROUTE RAIL", "ROUTE DECK", "ANALYZE HOME", "route analyze home", "Status", "Focus", "Watch", "Carry", "Next", "V9.9.9 ready", "thermal warm 61.5°C", "t opens check"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in home view, got %s", needle, view)
 		}
@@ -85,7 +85,7 @@ func TestHomeViewCompactsWithinSmallTerminal(t *testing.T) {
 		height: 24,
 	}
 	view := model.View()
-	for _, needle := range []string{"SIFT", "HOME", "MENU", "DETAIL"} {
+	for _, needle := range []string{"SIFT", "COMMAND DECK", "ROUTE RAIL", "ROUTE DECK"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in compact home view, got %s", needle, view)
 		}
@@ -127,9 +127,9 @@ func TestHomeViewRenderMatrix(t *testing.T) {
 		height  int
 		needles []string
 	}{
-		{name: "80x24", width: 80, height: 24, needles: []string{"SIFT", "HOME", "MENU", "DETAIL"}},
-		{name: "100x30", width: 100, height: 30, needles: []string{"HOME", "MENU", "DETAIL", "Signal", "Focus", "Alerts", "Activity", "Next"}},
-		{name: "144x40", width: 144, height: 40, needles: []string{"██████", "HOME", "MENU", "DETAIL", "Signal", "Alerts", "Activity", "Live", "Next", "t opens check"}},
+		{name: "80x24", width: 80, height: 24, needles: []string{"SIFT", "COMMAND DECK", "ROUTE RAIL", "ROUTE DECK"}},
+		{name: "100x30", width: 100, height: 30, needles: []string{"COMMAND DECK", "ROUTE RAIL", "ROUTE DECK", "Status", "Focus", "Watch", "Carry", "Next"}},
+		{name: "144x40", width: 144, height: 40, needles: []string{"######", "COMMAND DECK", "ROUTE RAIL", "ROUTE DECK", "Status", "Focus", "Watch", "Carry", "Next", "t opens check"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			model := base

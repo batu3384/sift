@@ -13,12 +13,12 @@ import (
 
 func statusOverviewSubtitle(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, scans []store.RecentScan) string {
 	if lastExecution != nil {
-		return fmt.Sprintf("%s  •  live  •  alerts", statusExecutionLabel(lastExecution, scans))
+		return fmt.Sprintf("%s  •  observatory  •  watch", statusExecutionLabel(lastExecution, scans))
 	}
 	if live != nil {
-		return "live  •  alerts"
+		return "observatory  •  watch"
 	}
-	return "waiting for live data"
+	return "waiting for observatory data"
 }
 
 func statusAlertLine(model statusModel) string {
@@ -75,19 +75,19 @@ func statusCompanionGlyph(model statusModel) string {
 		frame = 0
 	}
 	if !statusCompanionEnabled(model) {
-		return []string{"◌", "◌", "◌", "◌"}[frame]
+		return []string{"o", "o", "o", "o"}[frame]
 	}
 	switch statusCompanionMood(model) {
 	case "upgrade watch":
-		return []string{"✦", "✧", "✦", "✧"}[frame]
+		return []string{"*", "*", "*", "*"}[frame]
 	case "guard watch":
-		return []string{"◉", "◎", "◉", "◎"}[frame]
+		return []string{"O", "o", "O", "o"}[frame]
 	case "heat watch":
-		return []string{"⬢", "⬡", "⬢", "⬡"}[frame]
+		return []string{"#", "@", "#", "@"}[frame]
 	case "pressure watch":
-		return []string{"◐", "◓", "◑", "◒"}[frame]
+		return []string{"<", ">", "<", ">"}[frame]
 	default:
-		return []string{"◒", "◐", "◓", "◑"}[frame]
+		return []string{">", "<", ">", "<"}[frame]
 	}
 }
 
@@ -115,28 +115,6 @@ func statusTacticLine(model statusModel) string {
 	return strings.Join(parts, "  •  ")
 }
 
-func statusHealthLine(live *engine.SystemSnapshot) string {
-	if live == nil {
-		return "Now      waiting for telemetry"
-	}
-	parts := []string{fmt.Sprintf("%d / %s", live.HealthScore, strings.ToUpper(live.HealthLabel))}
-	if pressure := statusPressureLabel(live); pressure != "" {
-		parts = append(parts, "Pressure "+pressure)
-	}
-	if live.Battery != nil {
-		parts = append(parts, fmt.Sprintf("Battery %.0f%% %s", live.Battery.Percent, strings.ToLower(live.Battery.State)))
-	} else if live.PowerSource != "" {
-		parts = append(parts, "Power "+strings.ToLower(live.PowerSource))
-	}
-	if live.SystemPowerWatts > 0 {
-		parts = append(parts, fmt.Sprintf("%.0fW system", live.SystemPowerWatts))
-	}
-	if live.ThermalState != "" && strings.ToLower(live.ThermalState) != "nominal" {
-		parts = append(parts, "Thermal "+strings.ToLower(live.ThermalState))
-	}
-	return "Now      " + strings.Join(parts, "  •  ")
-}
-
 func statusWatchLine(model statusModel, width int) string {
 	parts := []string{}
 	if alert := strings.TrimPrefix(statusAlertLine(model), "Alerts "); alert != "" {
@@ -156,7 +134,7 @@ func statusWatchLine(model statusModel, width int) string {
 	if len(parts) == 0 {
 		parts = append(parts, "no active operator issues")
 	}
-	return "Risk     " + strings.Join(parts, "  •  ")
+	return "Watch    " + strings.Join(parts, "  •  ")
 }
 
 func statusRecentLine(model statusModel, width int) string {
@@ -170,11 +148,111 @@ func statusRecentLine(model statusModel, width int) string {
 	if len(parts) == 0 {
 		parts = append(parts, "no recent activity")
 	}
-	return truncateText("Recent   "+strings.Join(parts, "  •  "), width)
+	return truncateText("Session  "+strings.Join(parts, "  •  "), width)
 }
 
 func statusNextLine(model statusModel) string {
-	return "Next     " + strings.TrimPrefix(statusTacticLine(model), "Recommended  •  ")
+	return "Response " + strings.TrimPrefix(statusTacticLine(model), "Recommended  •  ")
+}
+
+func statusOverviewStatusLine(model statusModel) string {
+	switch {
+	case model.live == nil:
+		return "waiting for observatory telemetry"
+	case model.updateNotice != nil && model.updateNotice.Available:
+		return "observatory live  •  upgrade watch active"
+	case diagnosticIssueCount(model.diagnostics) > 0:
+		return "observatory live  •  doctor watch active"
+	default:
+		return "observatory live"
+	}
+}
+
+func statusOverviewNextLine(model statusModel) string {
+	return strings.TrimPrefix(statusNextLine(model), "Response ")
+}
+
+func statusSystemStatusLine(live *engine.SystemSnapshot) string {
+	if live == nil {
+		return "waiting for live telemetry"
+	}
+	return "live system telemetry online"
+}
+
+func statusSystemNextLine(live *engine.SystemSnapshot) string {
+	if live == nil {
+		return "refresh observatory"
+	}
+	if len(live.TopProcesses) > 0 {
+		return "inspect top load and pressure"
+	}
+	return "inspect live pressure"
+}
+
+func statusStorageStatusLine(model statusModel) string {
+	if model.live == nil {
+		return "waiting for storage telemetry"
+	}
+	switch toneForPercent(model.live.DiskUsedPercent, 82, 92) {
+	case "high":
+		return "storage pressure high"
+	case "review":
+		return "storage pressure warming"
+	default:
+		return "storage pressure steady"
+	}
+}
+
+func statusStorageNextLine(model statusModel) string {
+	if model.live == nil {
+		return "refresh storage rail"
+	}
+	if model.live.DiskUsedPercent >= 82 {
+		return "open clean or analyze"
+	}
+	return "inspect reclaim candidates"
+}
+
+func statusPowerStatusLine(live *engine.SystemSnapshot) string {
+	if live == nil {
+		return "waiting for power telemetry"
+	}
+	if live.ThermalState != "" && !strings.EqualFold(live.ThermalState, "nominal") {
+		return "power and thermal watch active"
+	}
+	return "power and network rails live"
+}
+
+func statusPowerNextLine(live *engine.SystemSnapshot) string {
+	if live == nil {
+		return "refresh power rail"
+	}
+	if live.SystemPowerWatts > 0 || (live.Battery != nil && live.Battery.Percent < 25) {
+		return "inspect thermal and battery drift"
+	}
+	return "inspect network and interface drift"
+}
+
+func statusActivityStatusLine(scans []store.RecentScan, lastExecution *store.ExecutionSummary) string {
+	switch {
+	case lastExecution != nil:
+		return "session history ready"
+	case len(scans) > 0:
+		return "scan history ready"
+	default:
+		return "no recent session history"
+	}
+}
+
+func statusActivityNextLine(scans []store.RecentScan, lastExecution *store.ExecutionSummary) string {
+	switch {
+	case lastExecution != nil:
+		return "inspect settled session"
+	case len(scans) > 0:
+		return "open analyze or clean"
+	default:
+		return "run clean or analyze"
+	}
 }
 
 func statusStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSummary, scans []store.RecentScan, diagnostics []platform.Diagnostic, update *engine.UpdateNotice, width int) []string {
@@ -193,9 +271,9 @@ func statusStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSumm
 		storageTone = toneForPercent(live.DiskUsedPercent, 82, 92)
 	}
 	stats := []string{
-		renderStatCard("health", healthValue, healthTone, cardWidth),
-		renderStatCard("disk", storageValue, storageTone, cardWidth),
-		renderStatCard("alerts", statusAlertCard(live, diagnostics, update), statusAlertTone(live, diagnostics, update), cardWidth),
+		renderRouteStatCard("status", "pulse", healthValue, healthTone, cardWidth),
+		renderRouteStatCard("status", "disk", storageValue, storageTone, cardWidth),
+		renderRouteStatCard("status", "watch", statusAlertCard(live, diagnostics, update), statusAlertTone(live, diagnostics, update), cardWidth),
 	}
 	if live != nil && live.Battery != nil {
 		battValue := fmt.Sprintf("%.0f%% %s", live.Battery.Percent, live.Battery.State)
@@ -203,7 +281,7 @@ func statusStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSumm
 		if strings.ToLower(live.Battery.State) == "charging" || strings.ToLower(live.Battery.State) == "charged" {
 			battTone = "safe"
 		}
-		stats = append(stats, renderStatCard("battery", battValue, battTone, cardWidth))
+		stats = append(stats, renderRouteStatCard("status", "battery", battValue, battTone, cardWidth))
 	}
 	if live != nil && live.GPUUsagePercent > 0 {
 		gpuLabel := fmt.Sprintf("%.0f%%", live.GPUUsagePercent)
@@ -214,12 +292,12 @@ func statusStats(live *engine.SystemSnapshot, lastExecution *store.ExecutionSumm
 			}
 		}
 		gpuTone := toneForPercent(live.GPUUsagePercent, 60, 80)
-		stats = append(stats, renderStatCard("gpu", gpuLabel, gpuTone, cardWidth))
+		stats = append(stats, renderRouteStatCard("status", "gpu", gpuLabel, gpuTone, cardWidth))
 	}
 	if sessionValue, sessionTone := statusSessionCard(lastExecution, scans); sessionValue != "" {
-		stats = append(stats, renderStatCard("activity", sessionValue, sessionTone, cardWidth))
+		stats = append(stats, renderRouteStatCard("status", "session", sessionValue, sessionTone, cardWidth))
 	} else if len(scans) > 0 {
-		stats = append(stats, renderStatCard("activity", fmt.Sprintf("%d %s", len(scans), pl(len(scans), "scan", "scans")), "review", cardWidth))
+		stats = append(stats, renderRouteStatCard("status", "session", fmt.Sprintf("%d %s", len(scans), pl(len(scans), "scan", "scans")), "review", cardWidth))
 	}
 	return stats
 }

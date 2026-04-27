@@ -43,7 +43,7 @@ func TestHomeSpotlightViewIncludesCoreSummary(t *testing.T) {
 		6,
 	)
 
-	for _, needle := range []string{"Signal", "ready", "Focus", "Alerts", "Activity", "Next"} {
+	for _, needle := range []string{"SCOUT RAIL", "route launch discipline", "Status", "ready", "Focus", "Watch", "Carry", "Next"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in home spotlight view, got %q", needle, view)
 		}
@@ -79,7 +79,7 @@ func TestHomeDetailViewUsesNextGuardAndStateLines(t *testing.T) {
 		16,
 	)
 
-	for _, needle := range []string{"Optimize", "Next", "enter opens review", "Guard", "State", "2 protected", "1 family", "1 scope", "1 purge root", "1 issue", "Last"} {
+	for _, needle := range []string{"Optimize", "Status", "Next", "enter opens review", "Gate", "State", "2 protected", "1 family", "1 scope", "1 purge root", "1 issue", "Carry"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected %q in home detail view, got %q", needle, view)
 		}

@@ -31,13 +31,16 @@ type Service struct {
 // CategoryScanProgress callback is called after each category scan with the rule name and findings
 type CategoryScanProgress func(ruleID string, ruleName string, itemsFound int, bytesFound int64)
 
+// FindingScanProgress callback is called for each normalized finding during scan construction.
+type FindingScanProgress func(ruleID string, ruleName string, item domain.Finding)
+
 // CategoryScanResult holds the result of scanning a single category
 type CategoryScanResult struct {
-	RuleID    string
-	RuleName  string
-	Items     []domain.Finding
-	Bytes     int64
-	Warnings  []string
+	RuleID   string
+	RuleName string
+	Items    []domain.Finding
+	Bytes    int64
+	Warnings []string
 }
 
 type ScanOptions struct {
@@ -49,6 +52,8 @@ type ScanOptions struct {
 	AllowAdmin bool
 	// CategoryCallback is called after each category scan with progress info
 	CategoryCallback CategoryScanProgress
+	// FindingCallback is called for each normalized finding emitted by the scan.
+	FindingCallback FindingScanProgress
 }
 
 type StatusReport struct {

@@ -14,12 +14,15 @@ func (m *appModel) applyWindowSize(msg tea.WindowSizeMsg) {
 	m.syncMotionSettings()
 	m.home.width, m.home.height = msg.Width, msg.Height
 	m.clean.width, m.clean.height = msg.Width, msg.Height
+	m.cleanFlow.width, m.cleanFlow.height = msg.Width, msg.Height
 	m.tools.width, m.tools.height = msg.Width, msg.Height
 	m.protect.width, m.protect.height = msg.Width, msg.Height
 	m.uninstall.width, m.uninstall.height = msg.Width, msg.Height
+	m.uninstallFlow.width, m.uninstallFlow.height = msg.Width, msg.Height
 	m.status.width, m.status.height = msg.Width, msg.Height
 	m.doctor.width, m.doctor.height = msg.Width, msg.Height
 	m.analyze.width, m.analyze.height = msg.Width, msg.Height
+	m.analyzeFlow.width, m.analyzeFlow.height = msg.Width, msg.Height
 	m.review.width, m.review.height = msg.Width, msg.Height
 	m.preflight.width, m.preflight.height = msg.Width, msg.Height
 	m.progress.width, m.progress.height = msg.Width, msg.Height
@@ -66,8 +69,17 @@ func (m appModel) handleUITick() (tea.Model, tea.Cmd) {
 }
 
 func (m appModel) handleScanProgress(msg scanProgressMsg) (tea.Model, tea.Cmd) {
+	if msg.route == RouteClean {
+		if msg.requestID == 0 || msg.requestID != m.activeCleanPreviewRequestID {
+			return m, nil
+		}
+		m.cleanFlow.applyScanProgress(msg.ruleID, msg.ruleName, msg.itemsFound, msg.bytesFound)
+	}
 	if msg.ruleName != "" {
 		m.loadingLabel = "scanning: " + msg.ruleName
+	}
+	if m.cleanPreviewStream != nil {
+		return m, waitForPreviewStreamCmd(m.cleanPreviewStream)
 	}
 	return m, nil
 }
@@ -79,19 +91,36 @@ func (m appModel) handleMenuPreviewLoaded(msg menuPreviewLoadedMsg) (tea.Model, 
 			return m, nil
 		}
 		m.activeCleanPreviewRequestID = 0
+		m.cleanPreviewStream = nil
 		m.clean.applyPreview(msg.key, msg.plan, msg.err)
+		m.cleanFlow.applyPreview(msg.key, msg.plan, msg.err)
 	case RouteUninstall:
 		if msg.requestID == 0 || msg.requestID != m.activeUninstallPreviewRequestID {
 			return m, nil
 		}
 		m.activeUninstallPreviewRequestID = 0
 		m.uninstall.applyPreview(msg.key, msg.plan, msg.err)
+		m.uninstallFlow.applyPreview(msg.key, msg.plan, msg.err)
 	case RouteAnalyze:
 		if msg.requestID == 0 || msg.requestID != m.activeAnalyzePreviewRequestID {
 			return m, nil
 		}
 		m.activeAnalyzePreviewRequestID = 0
 		m.analyze.applyReviewPreview(msg.key, msg.plan, msg.err)
+		m.analyzeFlow.applyReviewPreview(m.analyze)
+	}
+	return m, nil
+}
+
+func (m appModel) handleScanFinding(msg scanFindingMsg) (tea.Model, tea.Cmd) {
+	if msg.route == RouteClean {
+		if msg.requestID == 0 || msg.requestID != m.activeCleanPreviewRequestID {
+			return m, nil
+		}
+		m.cleanFlow.applyScanFinding(msg.ruleID, msg.ruleName, msg.item)
+	}
+	if m.cleanPreviewStream != nil {
+		return m, waitForPreviewStreamCmd(m.cleanPreviewStream)
 	}
 	return m, nil
 }
@@ -106,6 +135,14 @@ func (m appModel) handleResultLoaded(msg resultLoadedMsg) (tea.Model, tea.Cmd) {
 	m.errorMsg = ""
 	m.clearNotice()
 	m.result = buildResultModel(msg.plan, msg.result, m.result, m.width, m.height)
+	if m.activeExecutionSourceRoute == RouteAnalyze {
+		m.analyzeFlow.markResult(msg.plan, msg.result)
+	} else if msg.plan.Command == "clean" {
+		m.cleanFlow.markResult(msg.plan, msg.result)
+	} else if msg.plan.Command == "uninstall" {
+		m.uninstallFlow.markResult(msg.plan, msg.result)
+	}
+	m.activeExecutionSourceRoute = ""
 	m.route = RouteResult
 	return m, nil
 }
@@ -113,6 +150,11 @@ func (m appModel) handleResultLoaded(msg resultLoadedMsg) (tea.Model, tea.Cmd) {
 func (m appModel) handleExecutionProgress(msg executionProgressMsg) (tea.Model, tea.Cmd) {
 	m.errorMsg = ""
 	m.progress.apply(msg.progress)
+	if m.activeExecutionSourceRoute == RouteAnalyze {
+		m.analyzeFlow.applyExecutionProgress(msg.progress)
+	} else if m.progress.plan.Command == "clean" {
+		m.cleanFlow.applyExecutionProgress(msg.progress)
+	}
 	if m.executionStream != nil {
 		return m, waitForExecutionStreamCmd(m.executionStream)
 	}
@@ -151,6 +193,14 @@ func (m appModel) handleExecutionFinished(msg executionFinishedMsg) (tea.Model, 
 		m.clearNotice()
 	}
 	m.result = buildResultModel(m.progress.plan, msg.result, m.result, m.width, m.height)
+	if m.activeExecutionSourceRoute == RouteAnalyze {
+		m.analyzeFlow.markResult(m.progress.plan, msg.result)
+	} else if m.progress.plan.Command == "clean" {
+		m.cleanFlow.markResult(m.progress.plan, msg.result)
+	} else if m.progress.plan.Command == "uninstall" {
+		m.uninstallFlow.markResult(m.progress.plan, msg.result)
+	}
+	m.activeExecutionSourceRoute = ""
 	m.route = RouteResult
 	return m, nil
 }

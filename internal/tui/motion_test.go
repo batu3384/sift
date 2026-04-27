@@ -157,7 +157,7 @@ func TestReducedMotionStateUsesStaticMotionArtifacts(t *testing.T) {
 	t.Parallel()
 
 	motion := reducedMotionState(newMotionState(3, true, motionModeLoading, "inspect", "analyze"))
-	if glyph := spinnerGlyph(motion); glyph != "•" {
+	if glyph := spinnerGlyph(motion); glyph != "*" {
 		t.Fatalf("expected reduced-motion spinner glyph, got %q", glyph)
 	}
 	if footer := footerMotionLabel(motion); footer != "live updates 15s" {
