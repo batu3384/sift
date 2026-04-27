@@ -8,7 +8,7 @@ local dry-runs and GitHub Actions releases.
 
 Local release preparation may require:
 
-- Go `1.25.0+`
+- Go `1.25.9+` for CI and release builds
 - `goreleaser`
 - `rg`
 - `zip`
