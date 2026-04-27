@@ -263,7 +263,7 @@ func TestScanEmitsFindingProgressForEachNormalizedItem(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	cacheRoot := filepath.Join(root, "cache")
+	cacheRoot := filepath.Join(root, "scratch-items")
 	if err := os.MkdirAll(cacheRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -1600,6 +1600,13 @@ func TestVerifyFingerprintRejectsModeSwap(t *testing.T) {
 	if err := os.Chtimes(file, fingerprint.ModTime, fingerprint.ModTime); err != nil {
 		t.Fatal(err)
 	}
+	changed, err := currentFingerprint(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Mode == fingerprint.Mode {
+		t.Skip("platform does not expose chmod mode changes for this file")
+	}
 	if err := verifyFingerprint(domain.Finding{Path: file, Fingerprint: fingerprint}); err == nil {
 		t.Fatal("expected mode mismatch error")
 	}
@@ -2518,7 +2525,6 @@ func TestUninstallAftermathCommandsIncludeOnlyAdvisoryFollowUps(t *testing.T) {
 }
 
 func TestServiceUpdateNoticeUsesLatestReleaseAndCache(t *testing.T) {
-	t.Parallel()
 	originalFetch := fetchLatestReleaseTag
 	originalCacheDir := updateNoticeCacheDir
 	defer func() {
