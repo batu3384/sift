@@ -16,6 +16,11 @@ Running `sift` opens the application shell. From there you can move through
 
 ## Screenshots
 
+Current captured screens are checked into `docs/assets/screenshots`. `Progress`,
+`Permissions`, and `Result` captures are still release-readiness placeholders;
+see [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture checklist before
+publishing a release page or store listing.
+
 <table>
   <tr>
     <td width="33%">
@@ -52,6 +57,20 @@ Running `sift` opens the application shell. From there you can move through
 - Explicit permission model. Admin, dialog, and native handoff requirements are shown before execution.
 - Auditable behavior. Plans, executions, diagnostics, and reports are written to local state and audit logs.
 - Task-native TUI. `clean`, `uninstall`, and staged `analyze` runs preload real preview plans so the selected work is visible before full review opens.
+
+## Current Trust Status
+
+This repository is prepared for public validation, but release claims should stay
+tied to evidence:
+
+| Area | Current status | Release gate |
+| --- | --- | --- |
+| Local tests | Passed locally for the current baseline | Re-run `go test ./...` before release tagging |
+| Remote CI | Workflows are configured, but the latest branch has not been pushed and verified remotely yet | Push and confirm GitHub Actions succeeds |
+| macOS CI-safe smoke | Available through `make smoke` | Re-run on the release candidate |
+| Windows smoke | Scripted through `make smoke-windows` | Must pass on Windows or a PowerShell-capable runner |
+| Live macOS integration | Explicit opt-in only | Must pass with `SIFT_LIVE_INTEGRATION=1` before broad macOS trust claims |
+| Release artifacts | Local dry-run path exists | Must pass manifest preflight and tagged release workflow |
 
 ## Core Workflows
 
@@ -137,11 +156,40 @@ sift autofix
 
 ## Safety Model
 
-- `clean`, `purge`, `uninstall`, `optimize`, `autofix`, `remove`, and `touchid` preview first.
+| Surface | Default posture | Explicit execution requirement |
+| --- | --- | --- |
+| `clean` | Preview plan first | TUI confirmation, or non-interactive `--dry-run=false --yes` |
+| `purge` | Scan/review before removal | Explicit rule/path plus confirmation for destructive runs |
+| `uninstall` | Plan app action and remnants first | Permission preflight plus explicit execution |
+| `optimize` | Reviewed maintenance plan | Confirmation before applying native/system changes |
+| `autofix` | Reviewed posture fixes | Confirmation before applying changes |
+| `remove` | Planned self-removal | Explicit confirmation |
+| `touchid` | Capability/preflight first | Explicit confirmation before system-level change |
+
+Additional guardrails:
+
 - Interactive destructive flows stay in the TUI and require explicit confirmation.
 - Permission preflight summarizes admin, dialog, and native handoff requirements before execution.
 - Protected paths, protected data families, and command-scoped exclusions are enforced by the same policy engine used during execution.
-- JSON and non-interactive destructive runs never proceed unless the intent is explicit.
+- JSON and non-interactive destructive runs never proceed unless intent is explicit.
+
+## Platform and Command Matrix
+
+| Command family | macOS | Windows | Notes |
+| --- | --- | --- | --- |
+| `status`, `doctor`, `history`, `stats`, `report` | Supported | Supported | Uses platform adapters for diagnostics and persistence |
+| `analyze`, `duplicates`, `largefiles` | Supported | Supported | JSON output is available for automation |
+| `clean`, `purge`, `protect` | Supported | Supported | Protection policy is shared; roots are platform-specific |
+| `uninstall` | Supported with native handoff where available | Supported through Windows adapter behavior | Always review remnants before cleanup |
+| `optimize`, `autofix` | Supported where checks are implemented | Supported where checks are implemented | Command output should describe skipped platform actions |
+| `update`, `installer`, `remove`, `completion`, `version` | Supported | Supported | Package-manager availability depends on release artifacts |
+| `touchid` | macOS-specific | Not applicable | Should report unsupported on Windows |
+
+Known validation gaps before a public release:
+
+- Remote GitHub Actions has not yet been verified for the latest branch.
+- Windows smoke remains a required release gate, not an assumed result from macOS.
+- Live macOS integration requires opt-in host validation and should not be inferred from CI-safe smoke.
 
 ## Command Surface
 
@@ -229,6 +277,13 @@ README screenshots are generated from deterministic fixture roots with:
 ./hack/capture_readme_screens.sh
 ```
 
+For docs-only changes, the minimum sanity pass is:
+
+```bash
+go test ./...
+markdown link/reference sanity check for changed Markdown files
+```
+
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md)
@@ -237,8 +292,10 @@ README screenshots are generated from deterministic fixture roots with:
 - [SECURITY.md](SECURITY.md)
 - [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- [docs/TESTING.md](docs/TESTING.md)
 - [docs/RELEASE.md](docs/RELEASE.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)
+- [docs/TESTING.md](docs/TESTING.md)
 - [docs/MOLE_GAP_REPORT.md](docs/MOLE_GAP_REPORT.md)
 
 ## License

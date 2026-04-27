@@ -34,6 +34,7 @@ type RecentScan struct {
 type ExecutionSummary struct {
 	ID               string    `json:"id"`
 	ScanID           string    `json:"scan_id"`
+	PlanDigest       string    `json:"plan_digest,omitempty"`
 	StartedAt        time.Time `json:"started_at"`
 	FinishedAt       time.Time `json:"finished_at"`
 	ItemCount        int       `json:"item_count"`
@@ -202,6 +203,11 @@ func (s *Store) GetPlan(ctx context.Context, scanID string) (domain.ExecutionPla
 }
 
 func (s *Store) SaveExecution(ctx context.Context, result domain.ExecutionResult) error {
+	if strings.TrimSpace(result.PlanDigest) == "" && strings.TrimSpace(result.ScanID) != "" {
+		if plan, err := s.GetPlan(ctx, result.ScanID); err == nil {
+			result.PlanDigest = domain.PlanDigest(plan)
+		}
+	}
 	raw, err := json.Marshal(result)
 	if err != nil {
 		return err
@@ -338,6 +344,7 @@ func (s *Store) executionSummary(ctx context.Context, query string, args ...inte
 	summary := &ExecutionSummary{
 		ID:               id,
 		ScanID:           scanID,
+		PlanDigest:       result.PlanDigest,
 		StartedAt:        result.StartedAt,
 		FinishedAt:       result.FinishedAt,
 		Warnings:         append([]string{}, result.Warnings...),

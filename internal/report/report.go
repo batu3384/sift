@@ -17,6 +17,11 @@ import (
 	"github.com/batu3384/sift/internal/store"
 )
 
+const (
+	reportArtifact      = "sift.report"
+	reportSchemaVersion = "1"
+)
+
 func Bundle(ctx context.Context, st *store.Store, plan domain.ExecutionPlan, cfg config.Config) (string, string, error) {
 	root, err := Dir()
 	if err != nil {
@@ -102,10 +107,7 @@ func BundleAt(ctx context.Context, dir string, st *store.Store, plan domain.Exec
 	if err := writeJSON(writer, "audit.json", auditRecords); err != nil {
 		return "", "", err
 	}
-	meta := map[string]string{
-		"report_id":  reportID,
-		"created_at": time.Now().UTC().Format(time.RFC3339),
-	}
+	meta := reportMetadata(reportID, plan, execution)
 	if err := writeJSON(writer, "meta.json", meta); err != nil {
 		return "", "", err
 	}
@@ -118,6 +120,23 @@ func BundleAt(ctx context.Context, dir string, st *store.Store, plan domain.Exec
 		}
 	}
 	return reportID, path, nil
+}
+
+func reportMetadata(reportID string, plan domain.ExecutionPlan, execution *store.ExecutionSummary) map[string]string {
+	meta := map[string]string{
+		"artifact":       reportArtifact,
+		"schema_version": reportSchemaVersion,
+		"report_id":      reportID,
+		"created_at":     time.Now().UTC().Format(time.RFC3339),
+		"plan_scan_id":   plan.ScanID,
+		"plan_digest":    domain.PlanDigest(plan),
+	}
+	if execution != nil {
+		meta["execution_id"] = execution.ID
+		meta["execution_scan_id"] = execution.ScanID
+		meta["execution_plan_digest"] = execution.PlanDigest
+	}
+	return meta
 }
 
 func redactPlan(plan domain.ExecutionPlan) domain.ExecutionPlan {

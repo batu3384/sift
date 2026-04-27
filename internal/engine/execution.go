@@ -168,7 +168,7 @@ func verifyFingerprint(item domain.Finding) error {
 	if err != nil {
 		return err
 	}
-	if current.Size != item.Fingerprint.Size || !current.ModTime.Equal(item.Fingerprint.ModTime) {
+	if current.Mode != item.Fingerprint.Mode || current.Size != item.Fingerprint.Size || !current.ModTime.Equal(item.Fingerprint.ModTime) {
 		return fmt.Errorf("preview hash mismatch for %s", item.Path)
 	}
 	return nil

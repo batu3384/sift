@@ -135,6 +135,7 @@ func resultDetailView(model resultModel, width int, maxLines int) string {
 	lines = append(lines,
 		wrapText(mutedStyle.Render(resultSummaryLine(model)), width),
 		wrapText(mutedStyle.Render(resultStatusLine(model)), width),
+		wrapText(mutedStyle.Render(resultNotTouchedLine(result)), width),
 		wrapText(mutedStyle.Render(resultScopeLine(model)), width),
 		wrapText(mutedStyle.Render(resultTrackLine(model)), width),
 		wrapText(mutedStyle.Render(resultNextLine(model)), width),

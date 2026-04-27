@@ -27,9 +27,10 @@ func newExecutionRunner(service *Service, ctx context.Context, plan domain.Execu
 		opts:    opts,
 		emit:    emit,
 		result: domain.ExecutionResult{
-			ID:        uuid.NewString(),
-			ScanID:    plan.ScanID,
-			StartedAt: time.Now().UTC(),
+			ID:         uuid.NewString(),
+			ScanID:     plan.ScanID,
+			PlanDigest: domain.PlanDigest(plan),
+			StartedAt:  time.Now().UTC(),
 		},
 		sectionsByIndex: buildExecutionSections(plan),
 	}

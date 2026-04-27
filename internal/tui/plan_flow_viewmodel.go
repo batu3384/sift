@@ -191,6 +191,51 @@ func planDecisionGateLine(plan domain.ExecutionPlan) string {
 	return fmt.Sprintf("space toggles this %s • %s", subject, planCurrentGroupActionLine(plan.Command))
 }
 
+func planTrustSummaryLines(plan domain.ExecutionPlan, width int) []string {
+	actionable, protected, skipped := planTrustCounts(plan)
+	lines := []string{
+		wrapText(mutedStyle.Render(fmt.Sprintf("Will touch %d approved %s", actionable, pl(actionable, "item", "items"))), width),
+	}
+	if protected > 0 || skipped > 0 {
+		lines = append(lines,
+			wrapText(mutedStyle.Render("Safe    protected and excluded items stay out of this run"), width),
+			wrapText(mutedStyle.Render("Not touched  "+planNotTouchedSummary(protected, skipped)), width),
+		)
+	}
+	return lines
+}
+
+func planTrustCounts(plan domain.ExecutionPlan) (actionable, protected, skipped int) {
+	for _, item := range plan.Items {
+		if item.Status == domain.StatusProtected {
+			protected++
+			continue
+		}
+		if item.Action == domain.ActionSkip || item.Status == domain.StatusSkipped {
+			skipped++
+			continue
+		}
+		if item.Action != domain.ActionAdvisory {
+			actionable++
+		}
+	}
+	return actionable, protected, skipped
+}
+
+func planNotTouchedSummary(protected, skipped int) string {
+	parts := make([]string, 0, 2)
+	if protected > 0 {
+		parts = append(parts, fmt.Sprintf("%d protected", protected))
+	}
+	if skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d excluded", skipped))
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, "  •  ")
+}
+
 func planReviewSubject(command string) string {
 	switch strings.TrimSpace(command) {
 	case "uninstall":

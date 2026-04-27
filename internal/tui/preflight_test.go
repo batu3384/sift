@@ -75,6 +75,31 @@ func TestPermissionPreflightViewShowsAccessAndFlowBlocks(t *testing.T) {
 	}
 }
 
+func TestPermissionPreflightExplainsUntouchedItems(t *testing.T) {
+	t.Parallel()
+
+	model := buildPermissionPreflight(domain.ExecutionPlan{
+		Command: "clean",
+		Items: []domain.Finding{
+			{Name: "Delete cache", Action: domain.ActionCommand, RequiresAdmin: true, CommandPath: "/usr/bin/sudo"},
+			{Name: "Held cache", Action: domain.ActionSkip, Status: domain.StatusSkipped},
+			{Name: "Protected folder", Action: domain.ActionTrash, Status: domain.StatusProtected, Policy: domain.PolicyDecision{Reason: domain.ProtectionProtectedPath}},
+		},
+	}, "")
+	model.width = 120
+	model.height = 30
+
+	view := model.View()
+	for _, needle := range []string{
+		"Safe    1 protected and 1 excluded stay out of scope.",
+		"Not touched  1 protected  •  1 excluded",
+	} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in permission preflight trust copy, got:\n%s", needle, view)
+		}
+	}
+}
+
 func TestPermissionPreflightManifestShowsItemLabels(t *testing.T) {
 	t.Parallel()
 

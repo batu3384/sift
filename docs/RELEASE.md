@@ -18,6 +18,8 @@ Local release preparation may require:
 ## Versioning
 
 - Releases are triggered by pushing a Git tag that matches `v*`.
+- Release preflight accepts semantic tags such as `v1.2.3` and prerelease tags
+  such as `v1.2.3-rc.1`.
 - Packaging scripts derive the short version from that tag by removing the `v`
   prefix.
 - Release URLs keep the exact tag value, for example `v1.2.3`.
@@ -75,6 +77,9 @@ Expected outputs:
 - `winget/batu3384.SIFT.installer.yaml`
 - validation marker files for each package manager
 
+Preflight also checks that Homebrew, Scoop, and Winget manifests reference the
+exact expected release URLs and SHA-256 values for the generated archives.
+
 ## CI and tagged releases
 
 ### Continuous integration
@@ -82,12 +87,21 @@ Expected outputs:
 `.github/workflows/ci.yml` validates the release path before merge by running:
 
 - the destructive pattern guard
+- `govulncheck ./...` through the official Go vulnerability action
 - `go vet ./...`
 - `go test ./...`
 - macOS race tests
 - macOS and Windows smoke coverage
 - cross-builds for supported targets
 - local package-manifest generation and preflight validation
+
+Current caveat: the workflow configuration exists in this repository, but the
+latest branch still needs to be pushed and verified in GitHub Actions before it
+is treated as release evidence.
+
+`.github/workflows/codeql.yml` runs CodeQL on pushes, pull requests, and a
+weekly schedule. `.github/workflows/scorecard.yml` publishes OpenSSF Scorecard
+SARIF on `main` pushes, a weekly schedule, and manual dispatch.
 
 ### Tagged release
 
@@ -108,6 +122,22 @@ A healthy release should include:
 - `checksums.txt`
 - validated package manifests for Homebrew, Scoop, and Winget
 - a script-installable release path via the repository root [`install.sh`](../install.sh)
+
+## Release verification matrix
+
+| Gate | Command or evidence | Required before |
+| --- | --- | --- |
+| Local unit/behavior tests | `go test ./...` | Any release candidate |
+| macOS CI-safe smoke | `make smoke` | Any release candidate |
+| Windows smoke | `make smoke-windows` | Public Windows support claim |
+| Cross-build | `make cross-build` | Packaging or platform support claim |
+| Live macOS integration | `make integration-live-macos` or `make smoke-live-macos` | Broad macOS system-integration claim |
+| Package manifests | `make package-manifests TAG=v0.0.0-ci DIST_DIR=./.tmp/package-dist OUT_DIR=./.tmp/manifests` | Package-manager publishing |
+| Manifest preflight | `make release-preflight TAG=v0.0.0-ci DIST_DIR=./.tmp/package-dist MANIFEST_DIR=./.tmp/manifests` | Package-manager publishing |
+| Remote CI | Passing GitHub Actions run for the pushed commit | Tag creation |
+
+Do not replace the Windows smoke or live macOS gates with a macOS-only build.
+Cross-builds prove compilation, not runtime behavior.
 
 ## Bootstrap install contract
 
@@ -138,6 +168,12 @@ Before creating the remote repository or opening the first public release:
 
 1. Ensure the local worktree is clean.
 2. Run `make quality-gate-full`.
-3. Confirm `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, and `SECURITY.md` are current.
-4. Confirm `.github/workflows/ci.yml` and `.github/workflows/release.yml` still match the actual build and packaging contract.
-5. Push the branch, verify Actions succeeds, then create the release tag from that validated commit.
+3. If `make quality-gate-full` skips Windows smoke or release dry-run because tooling is missing, run those gates in an environment with the required tooling before tagging.
+4. Confirm `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/ROADMAP.md`, and `docs/SCREENSHOTS.md` are current.
+5. Confirm `.github/workflows/ci.yml` and `.github/workflows/release.yml` still match the actual build and packaging contract.
+6. Enable branch protection or repository rules for `main` requiring CI and
+   CodeQL checks before merge.
+7. Require reviews from CODEOWNERS and disallow direct pushes to `main`.
+8. Verify the scheduled or manually dispatched Scorecard workflow before the
+   first public release.
+9. Push the branch, verify Actions succeeds, then create the release tag from that validated commit.

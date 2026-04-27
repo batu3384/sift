@@ -69,6 +69,37 @@ func TestProgressStageValueSummaryAndMeterForUninstall(t *testing.T) {
 	}
 }
 
+func TestProgressDetailShowsStageAndTotalCounters(t *testing.T) {
+	t.Parallel()
+
+	progress := progressModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{
+				{ID: "a", Path: "/tmp/a", DisplayPath: "/tmp/a", Category: domain.CategoryBrowserData, Source: "Chrome code cache", Action: domain.ActionTrash},
+				{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b", Category: domain.CategoryBrowserData, Source: "Chrome code cache", Action: domain.ActionTrash},
+				{ID: "c", Path: "/tmp/c", DisplayPath: "/tmp/c", Category: domain.CategoryLogs, Source: "Application logs", Action: domain.ActionTrash},
+			},
+		},
+		items: []domain.OperationResult{
+			{FindingID: "a", Path: "/tmp/a", Status: domain.StatusDeleted},
+		},
+		current:      &domain.Finding{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b", Category: domain.CategoryBrowserData, Source: "Chrome code cache", Action: domain.ActionTrash},
+		currentPhase: domain.ProgressPhaseRunning,
+		autoFollow:   true,
+	}
+
+	view := progressDetailView(progress, 120, 20)
+	for _, needle := range []string{
+		"Stage    1/2 lanes  •  1/2 in stage  •  1/3 total settled",
+		"Current  moving item to trash",
+	} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in progress detail counters, got:\n%s", needle, view)
+		}
+	}
+}
+
 func TestProgressMeterLineHandlesIdlePlans(t *testing.T) {
 	t.Parallel()
 
@@ -229,6 +260,41 @@ func TestResultDetailKeepsFollowUpCommandsNearSummaryOnShortPanes(t *testing.T) 
 	for _, needle := range []string{"Warning  review protected cache policy", "Run      sift report latest"} {
 		if !strings.Contains(view, needle) {
 			t.Fatalf("expected short result detail to keep %q visible, got:\n%s", needle, view)
+		}
+	}
+}
+
+func TestResultDetailSummarizesNotTouchedAndPermissionLimited(t *testing.T) {
+	t.Parallel()
+
+	view := resultDetailView(resultModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{
+				{ID: "a", Path: "/tmp/a", DisplayPath: "/tmp/a", Category: domain.CategoryBrowserData, Source: "Chrome code cache", Action: domain.ActionTrash},
+				{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b", Category: domain.CategoryLogs, Source: "Application logs", Action: domain.ActionTrash},
+				{ID: "c", Path: "/tmp/c", DisplayPath: "/tmp/c", Category: domain.CategoryLogs, Source: "Application logs", Action: domain.ActionTrash},
+			},
+		},
+		result: domain.ExecutionResult{
+			Warnings:         []string{"review protected cache policy"},
+			FollowUpCommands: []string{"sift clean --profile safe"},
+			Items: []domain.OperationResult{
+				{FindingID: "a", Path: "/tmp/a", Status: domain.StatusDeleted},
+				{FindingID: "b", Path: "/tmp/b", Status: domain.StatusProtected, Reason: domain.ProtectionProtectedPath},
+				{FindingID: "c", Path: "/tmp/c", Status: domain.StatusFailed, Message: "permission denied"},
+				{Path: "/tmp/skipped", Status: domain.StatusSkipped},
+			},
+		},
+	}, 130, 24)
+
+	for _, needle := range []string{
+		"Not touched  1 protected  •  1 skipped  •  1 permission-limited",
+		"Warning  review protected cache policy",
+		"Run      sift clean --profile safe",
+	} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in result trust summary, got:\n%s", needle, view)
 		}
 	}
 }

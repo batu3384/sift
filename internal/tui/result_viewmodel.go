@@ -42,6 +42,39 @@ func resultStatusLine(model resultModel) string {
 	return "Status   " + strings.Join(parts, "  •  ")
 }
 
+func resultNotTouchedLine(result domain.ExecutionResult) string {
+	_, _, _, skipped, protected := countResultStatuses(result)
+	permissionLimited := permissionLimitedResultCount(result)
+	parts := make([]string, 0, 3)
+	if protected > 0 {
+		parts = append(parts, fmt.Sprintf("%d protected", protected))
+	}
+	if skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", skipped))
+	}
+	if permissionLimited > 0 {
+		parts = append(parts, fmt.Sprintf("%d permission-limited", permissionLimited))
+	}
+	if len(parts) == 0 {
+		return "Not touched  none"
+	}
+	return "Not touched  " + strings.Join(parts, "  •  ")
+}
+
+func permissionLimitedResultCount(result domain.ExecutionResult) int {
+	count := 0
+	for _, item := range result.Items {
+		if item.Status != domain.StatusFailed {
+			continue
+		}
+		text := strings.ToLower(strings.TrimSpace(string(item.Reason) + " " + item.Message))
+		if strings.Contains(text, "permission") || strings.Contains(text, "denied") {
+			count++
+		}
+	}
+	return count
+}
+
 func resultTrackLine(model resultModel) string {
 	completed, deleted, failed, _, protected := countResultStatuses(model.result)
 	switch model.plan.Command {

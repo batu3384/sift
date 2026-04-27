@@ -169,9 +169,9 @@ The preflight script validates:
 
 - required archives exist
 - `checksums.txt` entries match generated artifacts
-- Homebrew formula output
-- Scoop manifest output
-- Winget manifests and validation markers
+- Homebrew formula output, release URLs, and SHA values
+- Scoop manifest output, release URLs, and SHA values
+- Winget manifests, release URLs, SHA values, and validation markers
 
 ## Recommended quality gate by change type
 
@@ -181,6 +181,10 @@ The preflight script validates:
 ./hack/security_check.sh
 go test ./...
 ```
+
+Also run a Markdown link/reference sanity check for changed docs. At minimum,
+confirm every relative Markdown link points at an existing file or anchor target
+that is intentionally managed by GitHub.
 
 ### Engine, rules, CLI, or config changes
 
@@ -201,11 +205,28 @@ make cross-build
 GitHub Actions already enforces most of this:
 
 - `ci.yml` runs the security guard on macOS
+- `ci.yml` runs govulncheck on Ubuntu
 - `ci.yml` runs `go vet ./...` and `go test ./...` on macOS and Windows
 - `ci.yml` runs race tests on macOS
 - `ci.yml` runs macOS and Windows smoke flows
 - `ci.yml` validates generated package manifests on macOS
+- `codeql.yml` runs CodeQL on push, pull request, and weekly schedule
+- `scorecard.yml` publishes OpenSSF Scorecard SARIF on `main` pushes, weekly, and on manual dispatch
 - `release.yml` reruns tests and executes GoReleaser for tags
+
+Until the current branch is pushed, local results remain the only evidence for
+that branch. Treat remote CI as configured but unverified for unpublished work.
+
+## Validation Matrix
+
+| Scope | Minimum command | What it proves | What it does not prove |
+| --- | --- | --- | --- |
+| Docs-only change | `go test ./...` plus Markdown link/reference sanity | The repo still compiles/tests and docs links are coherent | Remote CI, screenshots, or release artifacts |
+| TUI rendering change | Focused `internal/tui` test sweep | Route snapshots and reduced-motion render contracts | Live terminal behavior on every OS |
+| CLI/engine behavior change | `make quality-gate` | Security guard, lint, tests, vet, smoke, completions, cross-build | Tagged release publishing |
+| Windows behavior change | `make smoke-windows` | Runtime behavior through the Windows smoke script | macOS native prompt behavior |
+| macOS native integration change | `make integration-live-macos` or `make smoke-live-macos` | Host-service and prompt-sensitive behavior | Windows behavior |
+| Packaging/release change | `make quality-gate-full` | Full local gate plus release dry-run when GoReleaser is available | Remote Actions success until pushed |
 
 ## Troubleshooting
 

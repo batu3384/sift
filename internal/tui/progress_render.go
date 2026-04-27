@@ -214,6 +214,7 @@ func progressDetailView(progress progressModel, width int, maxLines int) string 
 		wrapText(mutedStyle.Render(progressSummaryLine(progress, stage)), width),
 		mutedStyle.Render("Meter     "+progressMeterLine(progress)),
 		wrapText(mutedStyle.Render(progressPhaseLine(progress, stage)), width),
+		wrapText(mutedStyle.Render(progressStageCounterLine(progress, stage)), width),
 		wrapText(stepStyle.Render(progressStepLine(progress)), width),
 		wrapText(mutedStyle.Render(progressNextLine(progress)), width),
 		wrapText(mutedStyle.Render(progressStatusLine(progress)), width),

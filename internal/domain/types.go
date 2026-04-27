@@ -1,6 +1,11 @@
 package domain
 
-import "time"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"time"
+)
 
 type Category string
 
@@ -23,24 +28,24 @@ const (
 	CategoryDeviceBackups  Category = "device_backups"
 	CategoryTimeMachine    Category = "time_machine"
 	// Additional categories from Mole
-	CategoryMavenCache     Category = "maven_cache"
-	CategoryIPFS           Category = "ipfs_node"
-	CategorySystemCaches   Category = "system_caches"
-	CategoryTrash          Category = "trash"
+	CategoryMavenCache   Category = "maven_cache"
+	CategoryIPFS         Category = "ipfs_node"
+	CategorySystemCaches Category = "system_caches"
+	CategoryTrash        Category = "trash"
 	// New comprehensive categories
-	CategoryFontCache      Category = "font_cache"
-	CategoryPrintSpooler   Category = "print_spooler"
-	CategoryXcode          Category = "xcode"
-	CategoryUnity          Category = "unity"
-	CategoryUnreal         Category = "unreal"
-	CategoryAndroid        Category = "android"
-	CategoryRust           Category = "rust"
-	CategoryNode           Category = "node_modules"
-	CategoryPython         Category = "python_cache"
-	CategoryGo             Category = "go_cache"
-	CategoryFonts          Category = "fonts"
-	CategoryDiagnostics    Category = "diagnostics"
-	CategoryMedia          Category = "media_cache"
+	CategoryFontCache    Category = "font_cache"
+	CategoryPrintSpooler Category = "print_spooler"
+	CategoryXcode        Category = "xcode"
+	CategoryUnity        Category = "unity"
+	CategoryUnreal       Category = "unreal"
+	CategoryAndroid      Category = "android"
+	CategoryRust         Category = "rust"
+	CategoryNode         Category = "node_modules"
+	CategoryPython       Category = "python_cache"
+	CategoryGo           Category = "go_cache"
+	CategoryFonts        Category = "fonts"
+	CategoryDiagnostics  Category = "diagnostics"
+	CategoryMedia        Category = "media_cache"
 )
 
 type Risk string
@@ -129,10 +134,10 @@ type ProtectionExplanation struct {
 }
 
 type Fingerprint struct {
-	Mode         uint32    `json:"mode"`
-	Size         int64     `json:"size"`
-	ModTime      time.Time `json:"mod_time"`
-	ContentHash  string    `json:"content_hash,omitempty"`
+	Mode        uint32    `json:"mode"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"mod_time"`
+	ContentHash string    `json:"content_hash,omitempty"`
 }
 
 type DirectoryPreviewFile struct {
@@ -253,11 +258,21 @@ const (
 type ExecutionResult struct {
 	ID               string            `json:"id"`
 	ScanID           string            `json:"scan_id"`
+	PlanDigest       string            `json:"plan_digest,omitempty"`
 	StartedAt        time.Time         `json:"started_at"`
 	FinishedAt       time.Time         `json:"finished_at"`
 	Items            []OperationResult `json:"items"`
 	Warnings         []string          `json:"warnings"`
 	FollowUpCommands []string          `json:"follow_up_commands,omitempty"`
+}
+
+func PlanDigest(plan ExecutionPlan) string {
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 type ProtectionPolicy struct {

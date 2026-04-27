@@ -298,6 +298,18 @@ func TestBundleAtUsesExecutionAndAuditRecordsForPlanScan(t *testing.T) {
 	if status.LastExecution == nil || status.LastExecution.ScanID != "scan-1" {
 		t.Fatalf("expected status summary execution to match requested scan, got %+v", status.LastExecution)
 	}
+
+	var meta map[string]string
+	readBundleJSON(t, bundlePath, "meta.json", &meta)
+	if meta["schema_version"] == "" || meta["artifact"] != "sift.report" {
+		t.Fatalf("expected versioned report metadata, got %+v", meta)
+	}
+	if meta["plan_scan_id"] != "scan-1" || meta["execution_id"] != "exec-scan-1" || meta["execution_scan_id"] != "scan-1" {
+		t.Fatalf("expected report metadata to link requested plan and execution, got %+v", meta)
+	}
+	if meta["plan_digest"] == "" || meta["execution_plan_digest"] == "" || meta["plan_digest"] != meta["execution_plan_digest"] {
+		t.Fatalf("expected matching plan digests in report metadata, got %+v", meta)
+	}
 }
 
 func TestBundleAtReturnsSaveReportError(t *testing.T) {

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -1580,6 +1581,67 @@ func TestVerifyFingerprintMismatchFails(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected mismatch error")
+	}
+}
+
+func TestVerifyFingerprintRejectsModeSwap(t *testing.T) {
+	t.Parallel()
+	file := filepath.Join(t.TempDir(), "temp.txt")
+	if err := os.WriteFile(file, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := currentFingerprint(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(file, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(file, fingerprint.ModTime, fingerprint.ModTime); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyFingerprint(domain.Finding{Path: file, Fingerprint: fingerprint}); err == nil {
+		t.Fatal("expected mode mismatch error")
+	}
+}
+
+func TestExecuteResultCarriesPlanDigest(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	file := filepath.Join(root, "temp.txt")
+	if err := os.WriteFile(file, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := domain.ExecutionPlan{
+		ScanID: "scan",
+		DryRun: true,
+		Items: []domain.Finding{{
+			ID:          uuid.NewString(),
+			Path:        file,
+			Action:      domain.ActionTrash,
+			Status:      domain.StatusPlanned,
+			Fingerprint: domain.Fingerprint{Mode: uint32(info.Mode()), Size: info.Size(), ModTime: info.ModTime()},
+		}},
+	}
+	result, err := (&Service{}).ExecuteWithOptions(context.Background(), plan, ExecuteOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	digest, ok := payload["plan_digest"].(string)
+	if !ok || digest == "" {
+		t.Fatalf("expected execution result to carry plan digest, got %s", raw)
 	}
 }
 

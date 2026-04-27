@@ -52,6 +52,10 @@ CLI/TUI entrypoint
 - Render files such as `status_render.go`, `progress_render.go`, and
   `result_render.go` are expected to stay presentation-focused while route
   models carry the view state.
+- `internal/tui/routes` and `internal/tui/theme` are experimental staging
+  subpackages. They are not wired into the active router yet; they exist to
+  prove route-state and shared styling seams under focused package tests before
+  the main TUI package adopts them.
 
 ### Engine and policy
 

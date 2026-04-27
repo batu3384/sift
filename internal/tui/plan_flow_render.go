@@ -140,6 +140,7 @@ func decisionView(model planModel, width int) string {
 	if gate := planDecisionGateLine(plan); gate != "" {
 		lines = append(lines, wrapText(mutedStyle.Render("Gate     "+gate), width))
 	}
+	lines = append(lines, planTrustSummaryLines(plan, width)...)
 	preflight := buildPermissionPreflight(plan, "")
 	if preflight.required() {
 		lines = append(lines, wrapText(mutedStyle.Render(preflight.accessSummaryLine()), width))

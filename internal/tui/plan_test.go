@@ -91,6 +91,30 @@ func TestPlanSummaryUsesReadableTopLine(t *testing.T) {
 	}
 }
 
+func TestDecisionViewExplainsTrustScope(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Command: "clean",
+		Items: []domain.Finding{
+			{ID: "ready", Path: "/tmp/ready", DisplayPath: "/tmp/ready", Action: domain.ActionTrash, Status: domain.StatusPlanned, Bytes: 1024, Risk: domain.RiskSafe},
+			{ID: "held", Path: "/tmp/held", DisplayPath: "/tmp/held", Action: domain.ActionSkip, Status: domain.StatusSkipped, Bytes: 2048, Risk: domain.RiskReview},
+			{ID: "protected", Path: "/tmp/protected", DisplayPath: "/tmp/protected", Action: domain.ActionTrash, Status: domain.StatusProtected, Bytes: 4096, Risk: domain.RiskReview, Policy: domain.PolicyDecision{Reason: domain.ProtectionProtectedPath}},
+		},
+	}
+
+	view := decisionView(planModel{plan: plan, requiresDecision: true}, 120)
+	for _, needle := range []string{
+		"Will touch 1 approved item",
+		"Safe    protected and excluded items stay out of this run",
+		"Not touched  1 protected  •  1 excluded",
+	} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in trust-focused decision view, got:\n%s", needle, view)
+		}
+	}
+}
+
 func TestPlanDetailViewUsesReadableSelectedAndModuleLines(t *testing.T) {
 	t.Parallel()
 

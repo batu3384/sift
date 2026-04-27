@@ -47,6 +47,19 @@ func progressPhaseLine(progress progressModel, stage stageInfo) string {
 	return fmt.Sprintf("Phase    %s %d/%d  •  %s  •  %s", token, stage.Index, stage.Total, label, phase)
 }
 
+func progressStageCounterLine(progress progressModel, stage stageInfo) string {
+	total := len(progress.plan.Items)
+	return fmt.Sprintf(
+		"Stage    %d/%d lanes  •  %d/%d in stage  •  %d/%d total settled",
+		stage.Index,
+		stage.Total,
+		stage.Done,
+		stage.Items,
+		len(progress.items),
+		total,
+	)
+}
+
 func progressStepLine(progress progressModel) string {
 	if progress.current == nil {
 		return "Current  waiting for first approved item"

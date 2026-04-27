@@ -13,19 +13,21 @@ import (
 )
 
 type permissionPreflightModel struct {
-	plan         domain.ExecutionPlan
-	focusPath    string
-	needsAdmin   bool
-	needsDialogs bool
-	needsNative  bool
-	adminItems   int
-	dialogItems  int
-	nativeItems  int
-	adminLabels  []string
-	dialogLabels []string
-	nativeLabels []string
-	width        int
-	height       int
+	plan           domain.ExecutionPlan
+	focusPath      string
+	needsAdmin     bool
+	needsDialogs   bool
+	needsNative    bool
+	adminItems     int
+	dialogItems    int
+	nativeItems    int
+	protectedItems int
+	skippedItems   int
+	adminLabels    []string
+	dialogLabels   []string
+	nativeLabels   []string
+	width          int
+	height         int
 }
 
 func buildPermissionPreflight(plan domain.ExecutionPlan, focusPath string) permissionPreflightModel {
@@ -34,6 +36,14 @@ func buildPermissionPreflight(plan domain.ExecutionPlan, focusPath string) permi
 		focusPath: strings.TrimSpace(focusPath),
 	}
 	for _, item := range plan.Items {
+		if item.Status == domain.StatusProtected {
+			model.protectedItems++
+			continue
+		}
+		if item.Action == domain.ActionSkip || item.Status == domain.StatusSkipped {
+			model.skippedItems++
+			continue
+		}
 		if item.Action == domain.ActionAdvisory || item.Action == domain.ActionSkip || item.Status == domain.StatusProtected || item.Status == domain.StatusSkipped {
 			continue
 		}
@@ -164,6 +174,12 @@ func (m permissionPreflightModel) accessLines(width int) string {
 	if len(lines) == 0 {
 		lines = append(lines, mutedStyle.Render("No extra access is needed for this run."))
 	}
+	if safe := m.safeScopeLine(); safe != "" {
+		if len(lines) > 0 {
+			lines = append(lines, renderSectionRule(width))
+		}
+		lines = append(lines, wrapText(mutedStyle.Render(safe), width))
+	}
 	return strings.Join(lines, "\n")
 }
 
@@ -184,6 +200,9 @@ func (m permissionPreflightModel) flowLines(width int) string {
 	}
 	if m.needsNative {
 		lines = append(lines, wrapText("Handoff  native app opens outside SIFT and returns to result tracking", width))
+	}
+	if untouched := m.notTouchedLine(); untouched != "" {
+		lines = append(lines, wrapText(untouched, width))
 	}
 	if !m.needsAdmin && !m.needsDialogs && !m.needsNative {
 		lines = append(lines, wrapText("State   run starts immediately with no extra prompts.", width))
@@ -263,6 +282,48 @@ func (m permissionPreflightModel) manifestSummaryLine(width int) string {
 		labels = append(labels[:3], fmt.Sprintf("%d more", len(labels)-3))
 	}
 	return wrapText("Need    "+strings.Join(labels, "  •  "), width)
+}
+
+func (m permissionPreflightModel) safeScopeLine() string {
+	if m.protectedItems == 0 && m.skippedItems == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Safe    %s stay out of scope.", preflightSafeScopeSummary(m.protectedItems, m.skippedItems))
+}
+
+func (m permissionPreflightModel) notTouchedLine() string {
+	if m.protectedItems == 0 && m.skippedItems == 0 {
+		return ""
+	}
+	return "Not touched  " + preflightNotTouchedSummary(m.protectedItems, m.skippedItems)
+}
+
+func preflightSafeScopeSummary(protected, skipped int) string {
+	parts := make([]string, 0, 2)
+	if protected > 0 {
+		parts = append(parts, fmt.Sprintf("%d protected", protected))
+	}
+	if skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d excluded", skipped))
+	}
+	if len(parts) == 0 {
+		return "nothing"
+	}
+	return strings.Join(parts, " and ")
+}
+
+func preflightNotTouchedSummary(protected, skipped int) string {
+	parts := make([]string, 0, 2)
+	if protected > 0 {
+		parts = append(parts, fmt.Sprintf("%d protected", protected))
+	}
+	if skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d excluded", skipped))
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, "  •  ")
 }
 
 func (m permissionPreflightModel) profileSignature() string {

@@ -220,9 +220,10 @@ func TestProgressDetailSnapshot(t *testing.T) {
 		"Progress 0% • 0/1 settled • 0 B / 1.0 KB +-----+",
 		"Meter [····················] 0% | O o |",
 		"Phase TASK 1/1 • MAINTENANCE • queued | 0 |",
-		"Current running task • /tmp/optimize `--+--'",
-		"Next result review after this lane settles |",
-		"Status no completed operations yet ▁▂▃▂▁",
+		"Stage 1/1 lanes • 0/1 in stage • 0/1 total settled `--+--'",
+		"Current running task • /tmp/optimize |",
+		"Next result review after this lane settles ▁▂▃▂▁",
+		"Status no completed operations yet",
 	})
 }
 
@@ -260,10 +261,10 @@ func TestResultDetailSnapshot(t *testing.T) {
 		"Run sift clean",
 		"Result 0% changed • 0/1 changed • 0 B freed",
 		"Status 1 issue • 1 warning • 1 follow-up command • lane needs review",
+		"Not touched 1 permission-limited",
 		"Scope Quick Clean • 1 module • 0 B",
 		"Rail 0 sections • 0 reclaimed • 1 open",
 		"Next r retries failed • x reopens recovery batch",
-		"────────────────────────────────────────────────",
-		"Selected …",
+		"──────────────────────────────────────────────── …",
 	})
 }

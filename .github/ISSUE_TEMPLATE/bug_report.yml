@@ -25,3 +25,25 @@ body:
       description: Include OS, shell, install method, and `sift version` output.
     validations:
       required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Affected workflow
+      options:
+        - Clean
+        - Uninstall
+        - Analyze
+        - Protect
+        - Optimize/Autofix
+        - Status/Doctor/Report
+        - Install/Update/Remove
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and execution context
+      description: State whether this was dry-run, reviewed TUI execution, or non-interactive execution with flags such as `--dry-run=false --yes`.
+    validations:
+      required: true
