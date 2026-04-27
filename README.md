@@ -65,10 +65,10 @@ tied to evidence:
 
 | Area | Current status | Release gate |
 | --- | --- | --- |
-| Local tests | Passed locally for the current baseline | Re-run `go test ./...` before release tagging |
-| Remote CI | Workflows are configured, but the latest branch has not been pushed and verified remotely yet | Push and confirm GitHub Actions succeeds |
-| macOS CI-safe smoke | Available through `make smoke` | Re-run on the release candidate |
-| Windows smoke | Scripted through `make smoke-windows` | Must pass on Windows or a PowerShell-capable runner |
+| Local tests | `go test ./...` passed for the pushed `main` baseline | Re-run before release tagging |
+| Remote CI | `ci`, `codeql`, and `scorecard` pass on protected `main` | Keep required checks green on the release candidate |
+| macOS CI-safe smoke | Runs in GitHub Actions and is available locally through `make smoke` | Re-run on the release candidate |
+| Windows smoke | Runs in GitHub Actions on `windows-latest`; local script remains `make smoke-windows` | Re-run on Windows or a PowerShell-capable runner before public Windows claims |
 | Live macOS integration | Explicit opt-in only | Must pass with `SIFT_LIVE_INTEGRATION=1` before broad macOS trust claims |
 | Release artifacts | Local dry-run path exists | Must pass manifest preflight and tagged release workflow |
 
@@ -187,8 +187,8 @@ Additional guardrails:
 
 Known validation gaps before a public release:
 
-- Remote GitHub Actions has not yet been verified for the latest branch.
-- Windows smoke remains a required release gate, not an assumed result from macOS.
+- Remote GitHub Actions is passing on `main`; release tags should still be cut only from a freshly validated commit.
+- Windows smoke is covered by GitHub Actions on `windows-latest`; rerun it for every release candidate.
 - Live macOS integration requires opt-in host validation and should not be inferred from CI-safe smoke.
 
 ## Command Surface

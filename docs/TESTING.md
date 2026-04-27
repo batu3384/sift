@@ -214,8 +214,9 @@ GitHub Actions already enforces most of this:
 - `scorecard.yml` publishes OpenSSF Scorecard SARIF on `main` pushes, weekly, and on manual dispatch
 - `release.yml` reruns tests and executes GoReleaser for tags
 
-Until the current branch is pushed, local results remain the only evidence for
-that branch. Treat remote CI as configured but unverified for unpublished work.
+Local results are necessary but not enough for a release candidate. After
+pushing, verify GitHub Actions directly before treating a commit as
+release-ready.
 
 ## Validation Matrix
 

@@ -5,7 +5,8 @@ behavior from validation still required before stronger public claims.
 
 ## Near-Term Release Gates
 
-- Push the current branch and confirm GitHub Actions passes on macOS and Windows.
+- Keep the protected `main` branch green in GitHub Actions across `ci`, CodeQL,
+  OpenSSF Scorecard, macOS smoke, and Windows smoke.
 - Re-run `go test ./...` on the release candidate.
 - Run `make smoke` on macOS with CI-safe behavior.
 - Run `make smoke-windows` on Windows or a PowerShell-capable runner.
@@ -15,9 +16,11 @@ behavior from validation still required before stronger public claims.
 
 ## Known Limitations
 
-- Remote CI status is not a substitute for local release-candidate verification until the current branch has been pushed and Actions has passed.
+- Remote CI is passing on `main`, but every release candidate still needs a
+  fresh local and remote verification pass before tagging.
 - macOS CI-safe smoke intentionally skips live prompts and admin-managed follow-up commands.
-- Windows support must be validated with Windows smoke or a Windows runner; a macOS cross-build only proves compilation.
+- Windows support is validated in GitHub Actions on a Windows runner; local
+  Windows smoke is still required when changing platform-specific behavior.
 - Live macOS integration can interact with host services and should be run only on a prepared test machine.
 - Package-manager install paths depend on validated release artifacts. Do not claim Homebrew, Scoop, or Winget availability until the corresponding manifests have passed preflight for the release.
 - Screenshot coverage is incomplete until Permissions, Progress, and Result captures are added.

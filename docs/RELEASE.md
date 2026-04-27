@@ -87,7 +87,7 @@ exact expected release URLs and SHA-256 values for the generated archives.
 `.github/workflows/ci.yml` validates the release path before merge by running:
 
 - the destructive pattern guard
-- `govulncheck ./...` through the official Go vulnerability action
+- `govulncheck ./...` directly on the pinned Go toolchain
 - `go vet ./...`
 - `go test ./...`
 - macOS race tests
@@ -95,9 +95,9 @@ exact expected release URLs and SHA-256 values for the generated archives.
 - cross-builds for supported targets
 - local package-manifest generation and preflight validation
 
-Current caveat: the workflow configuration exists in this repository, but the
-latest branch still needs to be pushed and verified in GitHub Actions before it
-is treated as release evidence.
+The protected `main` branch requires the CI, CodeQL, govulncheck, and OpenSSF
+Scorecard checks before merge. Treat a tagged release as valid only when those
+checks pass on the exact commit being tagged.
 
 `.github/workflows/codeql.yml` runs CodeQL on pushes, pull requests, and a
 weekly schedule. `.github/workflows/scorecard.yml` publishes OpenSSF Scorecard
@@ -171,9 +171,10 @@ Before creating the remote repository or opening the first public release:
 3. If `make quality-gate-full` skips Windows smoke or release dry-run because tooling is missing, run those gates in an environment with the required tooling before tagging.
 4. Confirm `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/ROADMAP.md`, and `docs/SCREENSHOTS.md` are current.
 5. Confirm `.github/workflows/ci.yml` and `.github/workflows/release.yml` still match the actual build and packaging contract.
-6. Enable branch protection or repository rules for `main` requiring CI and
-   CodeQL checks before merge.
-7. Require reviews from CODEOWNERS and disallow direct pushes to `main`.
+6. Confirm branch protection or repository rules for `main` still require CI,
+   CodeQL, govulncheck, and Scorecard before merge.
+7. Require reviews from CODEOWNERS and disallow force pushes or branch deletion
+   on `main`.
 8. Verify the scheduled or manually dispatched Scorecard workflow before the
    first public release.
 9. Push the branch, verify Actions succeeds, then create the release tag from that validated commit.
