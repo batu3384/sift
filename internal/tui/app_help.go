@@ -30,7 +30,7 @@ func (m appModel) routeBindings() routeHelp {
 		}
 		sections = append(sections, helpSection{title: "Back", bindings: []key.Binding{m.keys.Back, m.keys.Help, m.keys.Quit}})
 		return routeHelp{
-			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Back, m.keys.Help, m.keys.Quit},
+			short:    []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Back, m.keys.Help, m.keys.Quit},
 			sections: sections,
 		}
 	case RouteTools:
@@ -61,7 +61,7 @@ func (m appModel) routeBindings() routeHelp {
 		}
 		sections = append(sections, helpSection{title: "Back", bindings: []key.Binding{m.keys.Help, m.keys.Quit}})
 		return routeHelp{
-			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Stage, m.keys.Review, m.keys.Help, m.keys.Back},
+			short:    []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Stage, m.keys.Review, m.keys.Help, m.keys.Back},
 			sections: sections,
 		}
 	case RouteStatus:
@@ -94,7 +94,7 @@ func (m appModel) routeBindings() routeHelp {
 		}
 		sections = append(sections, helpSection{title: "Back", bindings: []key.Binding{m.keys.Help, m.keys.Quit}})
 		return routeHelp{
-			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Stage, m.keys.Review, m.keys.Help, m.keys.Back},
+			short:    []key.Binding{m.keys.Up, m.keys.Down, m.keys.Enter, m.keys.Stage, m.keys.Review, m.keys.Help, m.keys.Back},
 			sections: sections,
 		}
 	case RouteReview:
@@ -116,13 +116,19 @@ func (m appModel) routeBindings() routeHelp {
 			},
 		}
 	case RouteProgress:
+		sections := []helpSection{
+			{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down}},
+		}
+		if history := m.routeHistoryBindings(false); len(history) > 0 {
+			sections = append(sections, helpSection{title: "History", bindings: history})
+		}
+		sections = append(sections,
+			helpSection{title: "Do", bindings: []key.Binding{m.keys.Stop}},
+			helpSection{title: "Back", bindings: []key.Binding{m.keys.Help}},
+		)
 		return routeHelp{
-			short: []key.Binding{m.keys.Up, m.keys.Down, m.keys.Stop, m.keys.Help},
-			sections: []helpSection{
-				{title: "Move", bindings: []key.Binding{m.keys.Up, m.keys.Down}},
-				{title: "Do", bindings: []key.Binding{m.keys.Stop}},
-				{title: "Back", bindings: []key.Binding{m.keys.Help}},
-			},
+			short:    []key.Binding{m.keys.Up, m.keys.Down, m.keys.Stop, m.keys.Help},
+			sections: sections,
 		}
 	case RouteResult:
 		sections := []helpSection{

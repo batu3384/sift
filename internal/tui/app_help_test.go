@@ -170,6 +170,35 @@ func TestAnalyzeHelpOverlayIncludesHistorySectionWhenTraceScrollable(t *testing.
 	}
 }
 
+func TestProgressFooterAndHelpShowHistoryNavigation(t *testing.T) {
+	t.Parallel()
+
+	model := newTestAppModel(RouteProgress)
+	model.width = 160
+	model.height = 36
+	model.progress.plan = domain.ExecutionPlan{
+		Command: "clean",
+		Items: []domain.Finding{
+			{ID: "a", Path: "/tmp/a", DisplayPath: "/tmp/a"},
+			{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b"},
+		},
+	}
+
+	footer := model.footerContent()
+	for _, snippet := range []string{"History:", "pgup/pgdn page history", "home/end oldest/live"} {
+		if !strings.Contains(footer, snippet) {
+			t.Fatalf("expected progress footer to contain %q, got %q", snippet, footer)
+		}
+	}
+
+	view := strings.Join(strings.Fields(model.helpOverlayView()), " ")
+	for _, snippet := range []string{"HISTORY", "pgup/pgdn page history", "home/end oldest/live"} {
+		if !strings.Contains(view, snippet) {
+			t.Fatalf("expected progress help overlay to contain %q, got:\n%s", snippet, view)
+		}
+	}
+}
+
 func TestStatusFooterUsesConfiguredCompanionHint(t *testing.T) {
 	t.Parallel()
 

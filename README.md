@@ -118,9 +118,17 @@ sift clean safe
 # Analyze a path and stage items into cleanup review
 sift analyze ~/Downloads
 
+# Focused analysis helpers
+sift duplicates ~/Downloads --json
+sift largefiles ~/Downloads --min-size 100MB
+
 # Live status in plain text or JSON
 sift status --plain
 sift status --json
+
+# Local audit history and aggregate cleanup stats
+sift history
+sift stats --json
 
 # Posture audit and reviewed autofix flow
 sift check
@@ -139,6 +147,8 @@ sift autofix
 
 ```text
 sift analyze [targets...]
+sift duplicates [path]
+sift largefiles [path] [--min-size 100MB]
 sift check
 sift clean [profile]
 sift clean --whitelist [list|add <path>|remove <path>]
@@ -162,6 +172,8 @@ sift optimize --whitelist [list|add <path>|remove <path>]
 sift update
 sift remove
 sift status
+sift history
+sift stats
 sift doctor
 sift report [scan-id]
 sift version

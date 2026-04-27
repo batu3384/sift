@@ -74,14 +74,14 @@ jobs:
           chmod +x ./hack/generate_package_manifests.sh ./hack/generate_homebrew_formula.sh ./hack/generate_scoop_manifest.sh ./hack/generate_winget_manifest.sh ./hack/release_preflight.sh
           mkdir -p .tmp/package-dist
           cp .tmp/cross/sift-darwin-amd64 .tmp/package-dist/sift
-          (cd .tmp/package-dist && tar -czf sift_v0.0.0-ci_darwin_amd64.tar.gz sift)
+          (cd .tmp/package-dist && tar -czf sift_0.0.0-ci_darwin_amd64.tar.gz sift)
           cp .tmp/cross/sift-darwin-arm64 .tmp/package-dist/sift
-          (cd .tmp/package-dist && tar -czf sift_v0.0.0-ci_darwin_arm64.tar.gz sift)
+          (cd .tmp/package-dist && tar -czf sift_0.0.0-ci_darwin_arm64.tar.gz sift)
           cp .tmp/cross/sift-windows-amd64.exe .tmp/package-dist/sift.exe
-          (cd .tmp/package-dist && zip -q sift_v0.0.0-ci_windows_amd64.zip sift.exe)
+          (cd .tmp/package-dist && zip -q sift_0.0.0-ci_windows_amd64.zip sift.exe)
           cp .tmp/cross/sift-windows-arm64.exe .tmp/package-dist/sift.exe
-          (cd .tmp/package-dist && zip -q sift_v0.0.0-ci_windows_arm64.zip sift.exe)
-          (cd .tmp/package-dist && shasum -a 256 sift_v0.0.0-ci_darwin_amd64.tar.gz sift_v0.0.0-ci_darwin_arm64.tar.gz sift_v0.0.0-ci_windows_amd64.zip sift_v0.0.0-ci_windows_arm64.zip > checksums.txt)
+          (cd .tmp/package-dist && zip -q sift_0.0.0-ci_windows_arm64.zip sift.exe)
+          (cd .tmp/package-dist && shasum -a 256 sift_0.0.0-ci_darwin_amd64.tar.gz sift_0.0.0-ci_darwin_arm64.tar.gz sift_0.0.0-ci_windows_amd64.zip sift_0.0.0-ci_windows_arm64.zip > checksums.txt)
           ./hack/generate_package_manifests.sh v0.0.0-ci ./.tmp/package-dist ./.tmp/manifests
           ./hack/release_preflight.sh v0.0.0-ci ./.tmp/package-dist ./.tmp/manifests
       - name: Upload package manifests (macOS)
@@ -107,3 +107,8 @@ jobs:
           go build -o .tmp/cross/sift-darwin-amd64 ./cmd/sift
           $env:GOARCH = 'arm64'
           go build -o .tmp/cross/sift-darwin-arm64 ./cmd/sift
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          go build -o .tmp/cross/sift-windows-amd64.exe ./cmd/sift
+          $env:GOARCH = 'arm64'
+          go build -o .tmp/cross/sift-windows-arm64.exe ./cmd/sift

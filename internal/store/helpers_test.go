@@ -44,6 +44,38 @@ func TestRecentAuditRecordsReturnsLatestLimitedRecords(t *testing.T) {
 	}
 }
 
+func TestAuditRecordsForScanFiltersAndLimitsAfterFiltering(t *testing.T) {
+	t.Parallel()
+
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	st, err := OpenAt(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.appendAuditRecord("plan", "scan-1", map[string]int{"index": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.appendAuditRecord("plan", "scan-2", map[string]int{"index": 2}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.appendAuditRecord("execution", "scan-1", map[string]int{"index": 3}); err != nil {
+		t.Fatal(err)
+	}
+
+	records, err := st.AuditRecordsForScan(time.Now().UTC(), "scan-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected 1 audit record, got %d", len(records))
+	}
+	if records[0].ScanID != "scan-1" || records[0].Kind != "execution" {
+		t.Fatalf("expected latest scan-1 execution audit record, got %+v", records[0])
+	}
+}
+
 func TestBuildStatusSummaryCalculatesDeltaBetweenLatestScans(t *testing.T) {
 	t.Parallel()
 

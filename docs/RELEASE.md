@@ -8,7 +8,7 @@ local dry-runs and GitHub Actions releases.
 
 Local release preparation may require:
 
-- Go `1.24.1+`
+- Go `1.25.0+`
 - `goreleaser`
 - `rg`
 - `zip`
@@ -20,7 +20,10 @@ Local release preparation may require:
 - Releases are triggered by pushing a Git tag that matches `v*`.
 - Packaging scripts derive the short version from that tag by removing the `v`
   prefix.
-- Checksums and package manifests must agree with the exact tag value.
+- Release URLs keep the exact tag value, for example `v1.2.3`.
+- Archive names use the short version without the `v` prefix, for example
+  `sift_1.2.3_darwin_arm64.tar.gz`.
+- Checksums and package manifests must agree with the generated archive names.
 
 ## Local dry-run
 

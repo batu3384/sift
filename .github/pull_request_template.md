@@ -9,6 +9,8 @@
 - [ ] `go build -o ./sift ./cmd/sift`
 - [ ] `make smoke`
 - [ ] `./hack/security_check.sh`
+- [ ] `make package-manifests TAG=v0.0.0-ci DIST_DIR=./.tmp/package-dist OUT_DIR=./.tmp/manifests` when packaging scripts or metadata changed
+- [ ] `make release-preflight TAG=v0.0.0-ci DIST_DIR=./.tmp/package-dist MANIFEST_DIR=./.tmp/manifests` when packaging scripts or metadata changed
 
 ## Risk Notes
 

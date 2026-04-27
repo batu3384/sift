@@ -14,8 +14,8 @@ PUBLISHER="batu3384"
 LICENSE="MIT"
 SHORT_VERSION="${TAG#v}"
 
-amd64_zip="$DIST_DIR/sift_${TAG}_windows_amd64.zip"
-arm64_zip="$DIST_DIR/sift_${TAG}_windows_arm64.zip"
+amd64_zip="$DIST_DIR/sift_${SHORT_VERSION}_windows_amd64.zip"
+arm64_zip="$DIST_DIR/sift_${SHORT_VERSION}_windows_arm64.zip"
 
 hash_file() {
   local file="$1"
@@ -66,7 +66,7 @@ Installers:
     NestedInstallerFiles:
       - RelativeFilePath: sift.exe
         PortableCommandAlias: sift
-    InstallerUrl: ${release_base}/sift_${TAG}_windows_amd64.zip
+    InstallerUrl: ${release_base}/sift_${SHORT_VERSION}_windows_amd64.zip
     InstallerSha256: ${amd64_sha}
   - Architecture: arm64
     InstallerType: zip
@@ -74,7 +74,7 @@ Installers:
     NestedInstallerFiles:
       - RelativeFilePath: sift.exe
         PortableCommandAlias: sift
-    InstallerUrl: ${release_base}/sift_${TAG}_windows_arm64.zip
+    InstallerUrl: ${release_base}/sift_${SHORT_VERSION}_windows_arm64.zip
     InstallerSha256: ${arm64_sha}
 ManifestType: installer
 ManifestVersion: 1.6.0

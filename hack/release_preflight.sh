@@ -10,10 +10,10 @@ MANIFEST_DIR="${3:-$DIST_DIR/manifests}"
 
 SHORT_VERSION="${TAG#v}"
 CHECKSUM_FILE="$DIST_DIR/checksums.txt"
-DARWIN_AMD64="sift_${TAG}_darwin_amd64.tar.gz"
-DARWIN_ARM64="sift_${TAG}_darwin_arm64.tar.gz"
-WINDOWS_AMD64="sift_${TAG}_windows_amd64.zip"
-WINDOWS_ARM64="sift_${TAG}_windows_arm64.zip"
+DARWIN_AMD64="sift_${SHORT_VERSION}_darwin_amd64.tar.gz"
+DARWIN_ARM64="sift_${SHORT_VERSION}_darwin_arm64.tar.gz"
+WINDOWS_AMD64="sift_${SHORT_VERSION}_windows_amd64.zip"
+WINDOWS_ARM64="sift_${SHORT_VERSION}_windows_arm64.zip"
 
 hash_file() {
   local file="$1"

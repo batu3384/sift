@@ -105,6 +105,73 @@ func TestLatestExecutionSummarizesCompletedAndProtected(t *testing.T) {
 	}
 }
 
+func TestGetExecutionForScanReturnsRequestedScanExecution(t *testing.T) {
+	t.Parallel()
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	st, err := OpenAt(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	base := time.Now().UTC().Add(-time.Hour)
+	first := domain.ExecutionResult{
+		ID:         "exec-scan-1",
+		ScanID:     "scan-1",
+		StartedAt:  base,
+		FinishedAt: base.Add(time.Minute),
+		Items: []domain.OperationResult{{
+			FindingID: "a",
+			Status:    domain.StatusCompleted,
+			Bytes:     128,
+		}},
+	}
+	second := domain.ExecutionResult{
+		ID:         "exec-scan-2",
+		ScanID:     "scan-2",
+		StartedAt:  base.Add(2 * time.Minute),
+		FinishedAt: base.Add(3 * time.Minute),
+		Items: []domain.OperationResult{{
+			FindingID: "b",
+			Status:    domain.StatusDeleted,
+			Bytes:     256,
+		}},
+	}
+	if err := st.SaveExecution(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveExecution(context.Background(), second); err != nil {
+		t.Fatal(err)
+	}
+
+	latest, err := st.LatestExecution(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest == nil || latest.ScanID != "scan-2" {
+		t.Fatalf("expected latest execution to be scan-2, got %+v", latest)
+	}
+
+	got, err := st.GetExecutionForScan(context.Background(), "scan-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil {
+		t.Fatal("expected execution summary for scan-1")
+	}
+	if got.ID != "exec-scan-1" || got.ScanID != "scan-1" || got.Completed != 1 || got.FreedBytes != 128 {
+		t.Fatalf("expected scan-1 execution summary, got %+v", got)
+	}
+
+	missing, err := st.GetExecutionForScan(context.Background(), "missing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing != nil {
+		t.Fatalf("expected nil execution for missing scan, got %+v", missing)
+	}
+}
+
 func TestSaveAndLoadAppInventory(t *testing.T) {
 	t.Parallel()
 	dbPath := filepath.Join(t.TempDir(), "state.db")

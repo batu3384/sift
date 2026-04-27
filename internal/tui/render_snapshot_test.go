@@ -256,12 +256,14 @@ func TestResultDetailSnapshot(t *testing.T) {
 
 	requireSnapshotPrefix(t, rendered, []string{
 		"FORGE RAIL SETTLED RAIL item-first reclaim discipline",
+		"Warning review",
+		"Run sift clean",
 		"Result 0% changed • 0/1 changed • 0 B freed",
 		"Status 1 issue • 1 warning • 1 follow-up command • lane needs review",
 		"Scope Quick Clean • 1 module • 0 B",
 		"Rail 0 sections • 0 reclaimed • 1 open",
 		"Next r retries failed • x reopens recovery batch",
 		"────────────────────────────────────────────────",
-		"Selected",
+		"Selected …",
 	})
 }

@@ -147,7 +147,7 @@ func progressFreedBytes(progress progressModel) int64 {
 	}
 	var freed int64
 	for _, result := range progress.items {
-		if result.Status != domain.StatusDeleted && result.Status != domain.StatusCompleted {
+		if result.Status != domain.StatusDeleted {
 			continue
 		}
 		if result.FindingID != "" {
@@ -591,7 +591,7 @@ func progressStageBuckets(progress progressModel) ([]string, map[string]*stageBu
 			continue
 		}
 		bucket.done++
-		if result.Status == domain.StatusDeleted || result.Status == domain.StatusCompleted {
+		if result.Status == domain.StatusDeleted {
 			bucket.freed += planItem.Bytes
 		}
 	}

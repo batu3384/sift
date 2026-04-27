@@ -78,6 +78,32 @@ func TestProgressMeterLineHandlesIdlePlans(t *testing.T) {
 	}
 }
 
+func TestProgressAndResultFreedBytesExcludeCompletedNonDeleteActions(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Command: "uninstall",
+		Items: []domain.Finding{
+			{ID: "native", Path: "/Applications/Example.app", Action: domain.ActionNative, Bytes: 500 << 20},
+			{ID: "remnant", Path: "/tmp/example", Action: domain.ActionTrash, Bytes: 12 << 20},
+		},
+	}
+	results := []domain.OperationResult{
+		{FindingID: "native", Path: "/Applications/Example.app", Status: domain.StatusCompleted},
+		{FindingID: "remnant", Path: "/tmp/example", Status: domain.StatusDeleted},
+	}
+
+	progressFreed := progressFreedBytes(progressModel{plan: plan, items: results})
+	resultFreed := resultFreedBytes(plan, domain.ExecutionResult{Items: results})
+	want := int64(12 << 20)
+	if progressFreed != want {
+		t.Fatalf("expected progress freed bytes to exclude native completion, got %d want %d", progressFreed, want)
+	}
+	if resultFreed != want {
+		t.Fatalf("expected result freed bytes to exclude native completion, got %d want %d", resultFreed, want)
+	}
+}
+
 func TestResultStatsAndSummaryReflectExecutionOutcome(t *testing.T) {
 	t.Parallel()
 
@@ -131,6 +157,38 @@ func TestResultListViewUsesReadableRows(t *testing.T) {
 	}
 }
 
+func TestResultAndProgressListsUseAvailableWidthForLabels(t *testing.T) {
+	t.Parallel()
+
+	longPath := "/Users/example/Library/Application Support/Google/Chrome/Default/Code Cache/js/app-long-cache-entry"
+	resultView := resultListView(resultModel{
+		result: domain.ExecutionResult{
+			Items: []domain.OperationResult{{Path: longPath, Status: domain.StatusDeleted}},
+		},
+	}, 160, 6)
+	if !strings.Contains(resultView, "app-long-cache-entry") {
+		t.Fatalf("expected wide result list to preserve useful label suffix, got:\n%s", resultView)
+	}
+
+	progressView := progressListView(progressModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{{
+				ID:          "long",
+				Path:        longPath,
+				DisplayPath: longPath,
+				Category:    domain.CategoryBrowserData,
+				Bytes:       42 << 20,
+			}},
+		},
+		cursor:     0,
+		autoFollow: true,
+	}, 160, 8)
+	if !strings.Contains(progressView, "app-long-cache-entry") {
+		t.Fatalf("expected wide progress list to preserve useful label suffix, got:\n%s", progressView)
+	}
+}
+
 func TestResultWarningAndCommandLinesCollapseSingleItems(t *testing.T) {
 	t.Parallel()
 
@@ -142,6 +200,36 @@ func TestResultWarningAndCommandLinesCollapseSingleItems(t *testing.T) {
 	commands := strings.Join(resultCommandLines([]string{"sift clean"}, 120), "\n")
 	if strings.Contains(commands, "Commands") || strings.Contains(commands, "Run\n") || !strings.Contains(commands, "Run      sift clean") {
 		t.Fatalf("expected compact command line, got %q", commands)
+	}
+}
+
+func TestResultDetailKeepsFollowUpCommandsNearSummaryOnShortPanes(t *testing.T) {
+	t.Parallel()
+
+	view := resultDetailView(resultModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{
+				{ID: "a", Path: "/tmp/a", DisplayPath: "/tmp/a", Category: domain.CategoryBrowserData, Source: "Chrome code cache"},
+				{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b", Category: domain.CategoryLogs, Source: "Application logs"},
+			},
+		},
+		result: domain.ExecutionResult{
+			Warnings:         []string{"review protected cache policy"},
+			FollowUpCommands: []string{"sift report latest"},
+			Items: []domain.OperationResult{
+				{FindingID: "a", Path: "/tmp/a", Status: domain.StatusDeleted},
+				{FindingID: "b", Path: "/tmp/b", Status: domain.StatusFailed, Message: "permission denied"},
+			},
+		},
+		width:  120,
+		height: 12,
+	}, 120, 8)
+
+	for _, needle := range []string{"Warning  review protected cache policy", "Run      sift report latest"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected short result detail to keep %q visible, got:\n%s", needle, view)
+		}
 	}
 }
 
@@ -433,6 +521,31 @@ func TestProgressSummaryStatusAndNextLinesGuideExecution(t *testing.T) {
 	for _, needle := range []string{"maintenance", "1/1", "queued"} {
 		if !strings.Contains(subtitle, needle) {
 			t.Fatalf("expected %q in progress detail subtitle, got %q", needle, subtitle)
+		}
+	}
+}
+
+func TestProgressListViewShowsHistoryHoldWhenBrowsingPastLiveItem(t *testing.T) {
+	t.Parallel()
+
+	progress := progressModel{
+		plan: domain.ExecutionPlan{
+			Command: "clean",
+			Items: []domain.Finding{
+				{ID: "a", Path: "/tmp/a", DisplayPath: "/tmp/a", Category: domain.CategoryBrowserData},
+				{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b", Category: domain.CategoryBrowserData},
+			},
+		},
+		cursor:       0,
+		autoFollow:   false,
+		current:      &domain.Finding{ID: "b", Path: "/tmp/b", DisplayPath: "/tmp/b", Category: domain.CategoryBrowserData},
+		currentPhase: domain.ProgressPhaseRunning,
+	}
+
+	view := progressListView(progress, 120, 12)
+	for _, needle := range []string{"History hold", "End returns to live item"} {
+		if !strings.Contains(view, needle) {
+			t.Fatalf("expected %q in progress history hold view, got:\n%s", needle, view)
 		}
 	}
 }

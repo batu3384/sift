@@ -191,17 +191,67 @@ func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "pgup":
+			m.browseProgressBy(-m.browsePageSize())
+		case "pgdown":
+			m.browseProgressBy(m.browsePageSize())
+		case "home":
+			m.browseOldestProgress()
+		case "end":
+			m.returnToLiveProgress()
 		case "j", "down":
-			if len(m.plan.Items) > 0 && m.cursor < len(m.plan.Items)-1 {
-				m.cursor++
-			}
+			m.browseProgressBy(1)
 		case "k", "up":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			m.browseProgressBy(-1)
 		}
 	}
 	return m, nil
+}
+
+func (m progressModel) browsePageSize() int {
+	if m.height <= 0 {
+		return 5
+	}
+	return max(m.height/3, 5)
+}
+
+func (m progressModel) shouldUseHistoryNavigation() bool {
+	return len(m.plan.Items) > 1
+}
+
+func (m *progressModel) browseProgressBy(delta int) {
+	if len(m.plan.Items) == 0 || delta == 0 {
+		return
+	}
+	m.cursor = max(0, min(m.cursor+delta, len(m.plan.Items)-1))
+	m.syncProgressAutoFollow()
+}
+
+func (m *progressModel) browseOldestProgress() {
+	if len(m.plan.Items) == 0 {
+		return
+	}
+	m.cursor = 0
+	m.autoFollow = false
+}
+
+func (m *progressModel) returnToLiveProgress() {
+	if len(m.plan.Items) == 0 {
+		return
+	}
+	if runningCursor, ok := m.runningCursor(); ok {
+		m.cursor = runningCursor
+	} else {
+		m.cursor = len(m.plan.Items) - 1
+	}
+	m.autoFollow = true
+}
+
+func (m *progressModel) syncProgressAutoFollow() {
+	m.autoFollow = false
+	if runningCursor, ok := m.runningCursor(); ok && m.cursor == runningCursor {
+		m.autoFollow = true
+	}
 }
 
 func (m *progressModel) apply(progress domain.ExecutionProgress) {
@@ -242,7 +292,7 @@ func (m *progressModel) apply(progress domain.ExecutionProgress) {
 		m.items = append(m.items, progress.Result)
 		if m.currentSectionKey != "" && progressGroupKey(item) == m.currentSectionKey {
 			m.currentSection.Done++
-			if progress.Result.Status == domain.StatusDeleted || progress.Result.Status == domain.StatusCompleted {
+			if progress.Result.Status == domain.StatusDeleted {
 				m.currentSection.Freed += item.Bytes
 			}
 		}

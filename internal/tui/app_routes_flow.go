@@ -378,22 +378,18 @@ func (m appModel) updateResult(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m appModel) updateProgress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
+	case msg.Type == tea.KeyPgUp:
+		m.progress.browseProgressBy(-m.progress.browsePageSize())
+	case msg.Type == tea.KeyPgDown:
+		m.progress.browseProgressBy(m.progress.browsePageSize())
+	case msg.Type == tea.KeyHome:
+		m.progress.browseOldestProgress()
+	case msg.Type == tea.KeyEnd:
+		m.progress.returnToLiveProgress()
 	case m.matchesUp(msg):
-		if m.progress.cursor > 0 {
-			m.progress.cursor--
-		}
-		m.progress.autoFollow = false
-		if runningCursor, ok := m.progress.runningCursor(); ok && m.progress.cursor == runningCursor {
-			m.progress.autoFollow = true
-		}
+		m.progress.browseProgressBy(-1)
 	case m.matchesDown(msg):
-		if m.progress.cursor < len(m.progress.plan.Items)-1 {
-			m.progress.cursor++
-		}
-		m.progress.autoFollow = false
-		if runningCursor, ok := m.progress.runningCursor(); ok && m.progress.cursor == runningCursor {
-			m.progress.autoFollow = true
-		}
+		m.progress.browseProgressBy(1)
 	case m.matchesStop(msg):
 		if m.executionCancel != nil {
 			m.executionCancel()

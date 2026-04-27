@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/batu3384/sift/internal/config"
+	"github.com/batu3384/sift/internal/domain"
 	"github.com/batu3384/sift/internal/engine"
 	"github.com/batu3384/sift/internal/store"
 )
@@ -449,6 +450,70 @@ func TestLargeFilesCommandStructure(t *testing.T) {
 	}
 	if flag.DefValue != "10MB" {
 		t.Errorf("min-size default = %v, want '10MB'", flag.DefValue)
+	}
+}
+
+func TestApplyFilteredCommandPlanRecomputesCommandPolicyAndTotals(t *testing.T) {
+	plan := domain.ExecutionPlan{
+		Command: "analyze",
+		Policy:  domain.ProtectionPolicy{Command: "analyze"},
+		Items: []domain.Finding{
+			{ID: "old", Bytes: 999, Risk: domain.RiskSafe},
+		},
+		Totals: domain.Totals{ItemCount: 1, Bytes: 999, SafeBytes: 999},
+	}
+	items := []domain.Finding{
+		{ID: "safe", RuleID: "analyze.large_files", Bytes: 2 * 1024 * 1024, Risk: domain.RiskSafe},
+		{ID: "review", RuleID: "analyze.large_files", Bytes: 3 * 1024 * 1024, Risk: domain.RiskReview},
+		{ID: "high", RuleID: "analyze.large_files", Bytes: 5 * 1024 * 1024, Risk: domain.RiskHigh},
+	}
+
+	applyFilteredCommandPlan(&plan, "largefiles", items)
+
+	if plan.Command != "largefiles" {
+		t.Fatalf("expected command largefiles, got %q", plan.Command)
+	}
+	if plan.Policy.Command != "largefiles" {
+		t.Fatalf("expected policy command largefiles, got %q", plan.Policy.Command)
+	}
+	if len(plan.Items) != len(items) {
+		t.Fatalf("expected %d filtered items, got %d", len(items), len(plan.Items))
+	}
+	wantBytes := int64(10 * 1024 * 1024)
+	if plan.Totals.ItemCount != 3 || plan.Totals.Bytes != wantBytes {
+		t.Fatalf("expected filtered totals item_count=3 bytes=%d, got %+v", wantBytes, plan.Totals)
+	}
+	if plan.Totals.SafeBytes != int64(2*1024*1024) ||
+		plan.Totals.ReviewBytes != int64(3*1024*1024) ||
+		plan.Totals.HighBytes != int64(5*1024*1024) {
+		t.Fatalf("expected risk totals to match filtered items, got %+v", plan.Totals)
+	}
+}
+
+func TestParseSizeFlagAcceptsHumanUnits(t *testing.T) {
+	tests := map[string]int64{
+		"1024":  1024,
+		"1KB":   1024,
+		"2 MB":  2 * 1024 * 1024,
+		"1.5GB": int64(1.5 * 1024 * 1024 * 1024),
+		"1T":    1024 * 1024 * 1024 * 1024,
+	}
+	for input, want := range tests {
+		got, err := parseSizeFlag(input)
+		if err != nil {
+			t.Fatalf("parseSizeFlag(%q) returned error: %v", input, err)
+		}
+		if got != want {
+			t.Fatalf("parseSizeFlag(%q) = %d, want %d", input, got, want)
+		}
+	}
+}
+
+func TestParseSizeFlagRejectsInvalidValues(t *testing.T) {
+	for _, input := range []string{"", "-1MB", "not-a-size"} {
+		if _, err := parseSizeFlag(input); err == nil {
+			t.Fatalf("parseSizeFlag(%q) expected error", input)
+		}
 	}
 }
 

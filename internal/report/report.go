@@ -54,12 +54,23 @@ func BundleAt(ctx context.Context, dir string, st *store.Store, plan domain.Exec
 	auditRecords := []store.AuditRecord(nil)
 	if st != nil {
 		recent, _ = st.RecentScans(ctx, 10)
-		execution, _ = st.LatestExecution(ctx)
+		if strings.TrimSpace(plan.ScanID) != "" {
+			execution, _ = st.GetExecutionForScan(ctx, plan.ScanID)
+		} else {
+			execution, _ = st.LatestExecution(ctx)
+		}
 		summary, err := st.BuildStatusSummary(ctx, plan.Platform, 10)
 		if err == nil {
 			statusSummary = &summary
+			if strings.TrimSpace(plan.ScanID) != "" {
+				statusSummary.LastExecution = execution
+			}
 		}
-		auditRecords, _ = st.RecentAuditRecords(time.Now().UTC(), 50)
+		if strings.TrimSpace(plan.ScanID) != "" {
+			auditRecords, _ = st.AuditRecordsForScan(time.Now().UTC(), plan.ScanID, 50)
+		} else {
+			auditRecords, _ = st.RecentAuditRecords(time.Now().UTC(), 50)
+		}
 	}
 	if cfg.Diagnostics.Redaction {
 		sanitizedPlan = redactPlan(plan)
@@ -102,7 +113,9 @@ func BundleAt(ctx context.Context, dir string, st *store.Store, plan domain.Exec
 		return "", "", err
 	}
 	if st != nil {
-		_ = st.SaveReport(ctx, reportID, plan.ScanID, path)
+		if err := st.SaveReport(ctx, reportID, plan.ScanID, path); err != nil {
+			return "", "", err
+		}
 	}
 	return reportID, path, nil
 }

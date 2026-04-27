@@ -47,7 +47,8 @@ func resultListView(model resultModel, width int, maxLines int) string {
 		if hasPlan && planItem.Bytes > 0 {
 			bytesLabel = domain.HumanBytes(planItem.Bytes)
 		}
-		line := selectionPrefix(visibleIdx == model.cursor) + lineStyle.Render(fmt.Sprintf("%s  %-28s  %8s", icon, truncateText(label, 28), bytesLabel))
+		labelWidth := rowLabelWidth(width, 28)
+		line := selectionPrefix(visibleIdx == model.cursor) + lineStyle.Render(fmt.Sprintf("%s  %-*s  %8s", icon, labelWidth, truncateText(label, labelWidth), bytesLabel))
 		if item.Reason != "" {
 			line = fmt.Sprintf("%s  %s", line, mutedStyle.Render(truncateText(string(item.Reason), max(width-48, 12))))
 		}
@@ -130,6 +131,7 @@ func resultDetailView(model resultModel, width int, maxLines int) string {
 	if totalBytes > 0 || freed > 0 {
 		lines = append(lines, safeStyle.Render(fmt.Sprintf("Space freed: %s / %s", domain.HumanBytes(freed), domain.HumanBytes(totalBytes))))
 	}
+	lines = append(lines, resultPriorityNoticeLines(result, width)...)
 	lines = append(lines,
 		wrapText(mutedStyle.Render(resultSummaryLine(model)), width),
 		wrapText(mutedStyle.Render(resultStatusLine(model)), width),
@@ -174,8 +176,6 @@ func resultDetailView(model resultModel, width int, maxLines int) string {
 		lines = append(lines, resultRecoveryDetailLines(model.plan, failed, width)...)
 		lines = append(lines, mutedStyle.Render(resultRetryActionLine(model.plan)))
 	}
-	lines = append(lines, resultWarningLines(result.Warnings, width)...)
-	lines = append(lines, resultCommandLines(result.FollowUpCommands, width)...)
 	lines = viewportLines(lines, 0, maxLines)
 	return strings.Join(lines, "\n")
 }
@@ -237,9 +237,11 @@ func resultCategorySummaryLines(plan domain.ExecutionPlan, result domain.Executi
 			buckets[key] = &bucket{label: label}
 		}
 		switch item.Status {
-		case domain.StatusDeleted, domain.StatusCompleted:
+		case domain.StatusDeleted:
 			buckets[key].settled++
 			buckets[key].bytes += planItem.Bytes
+		case domain.StatusCompleted:
+			buckets[key].settled++
 		default:
 			buckets[key].failed++
 		}
@@ -274,6 +276,17 @@ func resultWarningLines(warnings []string, width int) []string {
 	lines := []string{"", headerStyle.Render("Warnings")}
 	for _, warning := range warnings {
 		lines = append(lines, wrapText(mutedStyle.Render("• "+warning), width))
+	}
+	return lines
+}
+
+func resultPriorityNoticeLines(result domain.ExecutionResult, width int) []string {
+	lines := make([]string, 0, len(result.Warnings)+len(result.FollowUpCommands))
+	for _, warning := range result.Warnings {
+		lines = append(lines, wrapText(mutedStyle.Render("Warning  "+warning), width))
+	}
+	for _, command := range result.FollowUpCommands {
+		lines = append(lines, wrapText(mutedStyle.Render("Run      "+command), width))
 	}
 	return lines
 }

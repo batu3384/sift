@@ -14,8 +14,8 @@ HOMEPAGE="https://github.com/batu3384/sift"
 DESCRIPTION="Safety-first terminal cleaner for macOS and Windows"
 LICENSE="MIT"
 
-amd64_zip="$DIST_DIR/sift_${TAG}_windows_amd64.zip"
-arm64_zip="$DIST_DIR/sift_${TAG}_windows_arm64.zip"
+amd64_zip="$DIST_DIR/sift_${SHORT_VERSION}_windows_amd64.zip"
+arm64_zip="$DIST_DIR/sift_${SHORT_VERSION}_windows_arm64.zip"
 
 hash_file() {
   local file="$1"
@@ -45,11 +45,11 @@ cat > "$manifest_path" <<EOF
   "license": "${LICENSE}",
   "architecture": {
     "64bit": {
-      "url": "${release_base}/sift_${TAG}_windows_amd64.zip",
+      "url": "${release_base}/sift_${SHORT_VERSION}_windows_amd64.zip",
       "hash": "${amd64_sha}"
     },
     "arm64": {
-      "url": "${release_base}/sift_${TAG}_windows_arm64.zip",
+      "url": "${release_base}/sift_${SHORT_VERSION}_windows_arm64.zip",
       "hash": "${arm64_sha}"
     }
   },
@@ -60,10 +60,10 @@ cat > "$manifest_path" <<EOF
   "autoupdate": {
     "architecture": {
       "64bit": {
-        "url": "${release_base}/sift_${TAG}_windows_amd64.zip"
+        "url": "${release_base}/sift_${SHORT_VERSION}_windows_amd64.zip"
       },
       "arm64": {
-        "url": "${release_base}/sift_${TAG}_windows_arm64.zip"
+        "url": "${release_base}/sift_${SHORT_VERSION}_windows_arm64.zip"
       }
     }
   }

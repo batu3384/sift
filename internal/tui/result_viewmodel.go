@@ -565,7 +565,7 @@ func resultChangedCount(_ domain.ExecutionPlan, completed, deleted int) int {
 func resultFreedBytes(plan domain.ExecutionPlan, result domain.ExecutionResult) int64 {
 	var freed int64
 	for _, item := range result.Items {
-		if item.Status != domain.StatusDeleted && item.Status != domain.StatusCompleted {
+		if item.Status != domain.StatusDeleted {
 			continue
 		}
 		planItem, ok := resultPlanItem(plan, item)

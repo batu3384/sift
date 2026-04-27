@@ -18,95 +18,95 @@ const (
 // Theme styles - now using design package colors
 var (
 	// Text styles using design tokens
-	titleStyle       = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextPrimary)
-	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(design.ColorAccentSecondary)
-	panelTitleStyle  = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextSecondary)
-	panelMetaStyle   = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+	titleStyle      = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextPrimary)
+	headerStyle     = lipgloss.NewStyle().Bold(true).Foreground(design.ColorAccentSecondary)
+	panelTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextSecondary)
+	panelMetaStyle  = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
 
 	// Semantic tone styles using design tokens
-	safeStyle        = lipgloss.NewStyle().Foreground(design.ColorSuccess)
-	reviewStyle      = lipgloss.NewStyle().Foreground(design.ColorWarning)
-	highStyle        = lipgloss.NewStyle().Foreground(design.ColorDanger)
-	mutedStyle       = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
-	footerStyle      = lipgloss.NewStyle().Foreground(design.ColorTextSecondary)
+	safeStyle   = lipgloss.NewStyle().Foreground(design.ColorSuccess)
+	reviewStyle = lipgloss.NewStyle().Foreground(design.ColorWarning)
+	highStyle   = lipgloss.NewStyle().Foreground(design.ColorDanger)
+	mutedStyle  = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+	footerStyle = lipgloss.NewStyle().Foreground(design.ColorTextSecondary)
 
 	// Bar styles using design tokens
-	footerBarStyle   = lipgloss.NewStyle().
-				Foreground(design.ColorTextSecondary).
-				Background(design.ColorBackground).
-				BorderTop(true).
-				BorderForeground(design.ColorBorderMuted).
-				Padding(0, 1)
-	infoBarStyle     = lipgloss.NewStyle().
-				Foreground(design.ColorTextPrimary).
-				Background(design.ColorSurface).
-				Padding(0, 1)
-	errorBarStyle    = lipgloss.NewStyle().
-				Foreground(design.ColorDanger).
-				Background(lipgloss.Color("#241614")).
-				Padding(0, 1)
+	footerBarStyle = lipgloss.NewStyle().
+			Foreground(design.ColorTextSecondary).
+			Background(design.ColorBackground).
+			BorderTop(true).
+			BorderForeground(design.ColorBorderMuted).
+			Padding(0, 1)
+	infoBarStyle = lipgloss.NewStyle().
+			Foreground(design.ColorTextPrimary).
+			Background(design.ColorSurface).
+			Padding(0, 1)
+	errorBarStyle = lipgloss.NewStyle().
+			Foreground(design.ColorDanger).
+			Background(lipgloss.Color("#241614")).
+			Padding(0, 1)
 
 	// Selection style
-	selectedLine     = lipgloss.NewStyle().
-				Foreground(design.ColorBackground).
-				Background(design.ColorSelectionBg).
-				Bold(true)
+	selectedLine = lipgloss.NewStyle().
+			Foreground(design.ColorBackground).
+			Background(design.ColorSelectionBg).
+			Bold(true)
 
 	// Layout styles
-	appStyle         = lipgloss.NewStyle().Padding(0, 1)
-	topBarStyle      = lipgloss.NewStyle().
-				BorderBottom(true).
-				BorderForeground(design.ColorBorderMuted).
-				PaddingBottom(0)
+	appStyle    = lipgloss.NewStyle().Padding(0, 1)
+	topBarStyle = lipgloss.NewStyle().
+			BorderBottom(true).
+			BorderForeground(design.ColorBorderMuted).
+			PaddingBottom(0)
 
 	// Panel styles using design tokens
-	panelStyle       = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(design.ColorBorderDefault).
-				Background(design.ColorSurface).
-				Padding(0, 1)
+	panelStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(design.ColorBorderDefault).
+			Background(design.ColorSurface).
+			Padding(0, 1)
 	activePanelStyle = panelStyle.
 				BorderForeground(design.ColorBorderAccent).
 				Background(design.ColorOverlay)
-	cardStyle        = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(design.ColorBorderMuted).
-				Background(design.ColorSurface).
-				Padding(0, 1)
+	cardStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(design.ColorBorderMuted).
+			Background(design.ColorSurface).
+			Padding(0, 1)
 	compactCardStyle = lipgloss.NewStyle().Padding(0, 1)
 
 	// Key binding styles using design tokens
-	keyStyle         = lipgloss.NewStyle().
-				Foreground(design.ColorBackground).
-				Background(design.ColorAccentSecondary).
-				Bold(true).
-				Padding(0, 1)
-	keyTextStyle     = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
+	keyStyle = lipgloss.NewStyle().
+			Foreground(design.ColorBackground).
+			Background(design.ColorAccentSecondary).
+			Bold(true).
+			Padding(0, 1)
+	keyTextStyle = lipgloss.NewStyle().Foreground(design.ColorTextMuted)
 
 	// Brand styles
-	wordmarkStyle    = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextPrimary)
-	railStyle        = lipgloss.NewStyle().Foreground(design.ColorTextSecondary).Bold(true)
-	brandBoxStyle    = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(design.ColorBorderDefault).
-				Padding(0, 1)
+	wordmarkStyle = lipgloss.NewStyle().Bold(true).Foreground(design.ColorTextPrimary)
+	railStyle     = lipgloss.NewStyle().Foreground(design.ColorTextSecondary).Bold(true)
+	brandBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(design.ColorBorderDefault).
+			Padding(0, 1)
 
 	// Badge styles using design tokens
-	safeBadgeStyle   = lipgloss.NewStyle().
-				Foreground(design.ColorSurface).
-				Background(design.ColorSuccess).
-				Bold(true).
-				Padding(0, 1)
+	safeBadgeStyle = lipgloss.NewStyle().
+			Foreground(design.ColorSurface).
+			Background(design.ColorSuccess).
+			Bold(true).
+			Padding(0, 1)
 	reviewBadgeStyle = lipgloss.NewStyle().
 				Foreground(design.ColorSurface).
 				Background(design.ColorWarning).
 				Bold(true).
 				Padding(0, 1)
-	highBadgeStyle   = lipgloss.NewStyle().
-				Foreground(design.ColorSurface).
-				Background(design.ColorDanger).
-				Bold(true).
-				Padding(0, 1)
+	highBadgeStyle = lipgloss.NewStyle().
+			Foreground(design.ColorSurface).
+			Background(design.ColorDanger).
+			Bold(true).
+			Padding(0, 1)
 
 	// Token styles (bold tone indicators)
 	safeTokenStyle   = lipgloss.NewStyle().Foreground(design.ColorSuccess).Bold(true)
@@ -426,6 +426,13 @@ func truncateText(text string, max int) string {
 		return ansi.Truncate(text, max, "")
 	}
 	return strings.TrimSpace(ansi.Truncate(text, max, "…"))
+}
+
+func rowLabelWidth(width int, floor int) int {
+	if width <= 0 {
+		return floor
+	}
+	return max(floor, min(width-32, 128))
 }
 
 func appendInterleaved(values []string, spacer string) []string {

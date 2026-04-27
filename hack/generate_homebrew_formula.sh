@@ -16,8 +16,8 @@ HOMEPAGE="https://github.com/batu3384/sift"
 DESCRIPTION="Safety-first terminal cleaner for macOS and Windows"
 LICENSE="MIT"
 
-amd64_archive="$DIST_DIR/sift_${TAG}_darwin_amd64.tar.gz"
-arm64_archive="$DIST_DIR/sift_${TAG}_darwin_arm64.tar.gz"
+amd64_archive="$DIST_DIR/sift_${SHORT_VERSION}_darwin_amd64.tar.gz"
+arm64_archive="$DIST_DIR/sift_${SHORT_VERSION}_darwin_arm64.tar.gz"
 
 hash_file() {
   local file="$1"
@@ -48,10 +48,10 @@ class ${FORMULA_CLASS} < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "${release_base}/sift_${TAG}_darwin_arm64.tar.gz"
+      url "${release_base}/sift_${SHORT_VERSION}_darwin_arm64.tar.gz"
       sha256 "${arm64_sha}"
     else
-      url "${release_base}/sift_${TAG}_darwin_amd64.tar.gz"
+      url "${release_base}/sift_${SHORT_VERSION}_darwin_amd64.tar.gz"
       sha256 "${amd64_sha}"
     end
   end

@@ -137,6 +137,10 @@ func (m appModel) routeHistoryBindings(compact bool) []key.Binding {
 		if !m.analyzeFlow.shouldUseLedgerScroll() {
 			return nil
 		}
+	case RouteProgress:
+		if !m.progress.shouldUseHistoryNavigation() {
+			return nil
+		}
 	default:
 		return nil
 	}

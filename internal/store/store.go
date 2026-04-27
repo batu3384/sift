@@ -298,11 +298,26 @@ func (s *Store) RecentScans(ctx context.Context, limit int) ([]RecentScan, error
 }
 
 func (s *Store) LatestExecution(ctx context.Context) (*ExecutionSummary, error) {
-	var id, scanID, startedAt, finishedAt, raw string
-	rows, err := s.queryWithRetry(ctx,
+	return s.executionSummary(ctx,
 		`select id, scan_id, started_at, finished_at, result_json
 		   from executions order by datetime(finished_at) desc limit 1`,
 	)
+}
+
+func (s *Store) GetExecutionForScan(ctx context.Context, scanID string) (*ExecutionSummary, error) {
+	if strings.TrimSpace(scanID) == "" {
+		return nil, nil
+	}
+	return s.executionSummary(ctx,
+		`select id, scan_id, started_at, finished_at, result_json
+		   from executions where scan_id = ? order by datetime(finished_at) desc limit 1`,
+		scanID,
+	)
+}
+
+func (s *Store) executionSummary(ctx context.Context, query string, args ...interface{}) (*ExecutionSummary, error) {
+	var id, scanID, startedAt, finishedAt, raw string
+	rows, err := s.queryWithRetry(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -409,6 +424,26 @@ func (s *Store) RecentAuditRecords(now time.Time, limit int) ([]AuditRecord, err
 	return records, nil
 }
 
+func (s *Store) AuditRecordsForScan(now time.Time, scanID string, limit int) ([]AuditRecord, error) {
+	if strings.TrimSpace(scanID) == "" {
+		return nil, nil
+	}
+	records, err := s.RecentAuditRecords(now, 0)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]AuditRecord, 0, len(records))
+	for _, record := range records {
+		if record.ScanID == scanID {
+			filtered = append(filtered, record)
+		}
+	}
+	if limit > 0 && len(filtered) > limit {
+		filtered = filtered[len(filtered)-limit:]
+	}
+	return filtered, nil
+}
+
 type auditEnvelope struct {
 	Kind      string      `json:"kind"`
 	ScanID    string      `json:"scan_id,omitempty"`
@@ -441,8 +476,10 @@ func (s *Store) appendAuditRecord(kind, scanID string, payload interface{}) erro
 	if _, err := writer.Write(raw); err != nil {
 		return err
 	}
-	_, err = writer.WriteString("\n")
-	return err
+	if _, err := writer.WriteString("\n"); err != nil {
+		return err
+	}
+	return writer.Flush()
 }
 
 func (s *Store) auditLogPathFor(now time.Time) string {
@@ -489,25 +526,25 @@ func isBusyError(err error) bool {
 
 // ScanStats holds statistics about scans
 type ScanStats struct {
-	TotalScans       int     `json:"total_scans"`
-	TotalBytesFound  int64   `json:"total_bytes_found"`
-	TotalItemsFound  int     `json:"total_items_found"`
-	AverageBytes     int64   `json:"average_bytes"`
-	AverageItems     float64 `json:"average_items"`
-	LargestScan      int64   `json:"largest_scan"`
-	SmallestScan     int64   `json:"smallest_scan"`
+	TotalScans       int              `json:"total_scans"`
+	TotalBytesFound  int64            `json:"total_bytes_found"`
+	TotalItemsFound  int              `json:"total_items_found"`
+	AverageBytes     int64            `json:"average_bytes"`
+	AverageItems     float64          `json:"average_items"`
+	LargestScan      int64            `json:"largest_scan"`
+	SmallestScan     int64            `json:"smallest_scan"`
 	ProfileBreakdown map[string]int64 `json:"profile_breakdown"`
 }
 
 // ExecutionStats holds statistics about executions
 type ExecutionStats struct {
-	TotalExecutions  int     `json:"total_executions"`
-	TotalDeleted     int     `json:"total_deleted"`
-	TotalFailed      int     `json:"total_failed"`
-	TotalProtected   int     `json:"total_protected"`
-	TotalFreedBytes  int64   `json:"total_freed_bytes"`
-	AverageFreed     int64   `json:"average_freed_bytes"`
-	SuccessRate      float64 `json:"success_rate"`
+	TotalExecutions int     `json:"total_executions"`
+	TotalDeleted    int     `json:"total_deleted"`
+	TotalFailed     int     `json:"total_failed"`
+	TotalProtected  int     `json:"total_protected"`
+	TotalFreedBytes int64   `json:"total_freed_bytes"`
+	AverageFreed    int64   `json:"average_freed_bytes"`
+	SuccessRate     float64 `json:"success_rate"`
 }
 
 // GetScanStats returns statistics about all scans
@@ -638,9 +675,9 @@ func (s *Store) GetWeeklyTrend(ctx context.Context, days int) ([]map[string]inte
 			return nil, err
 		}
 		results = append(results, map[string]interface{}{
-			"date":   day,
-			"bytes":  bytes,
-			"items":  items,
+			"date":  day,
+			"bytes": bytes,
+			"items": items,
 		})
 	}
 	return results, nil
@@ -671,9 +708,9 @@ func (s *Store) GetMonthlyTrend(ctx context.Context, weeks int) ([]map[string]in
 			return nil, err
 		}
 		results = append(results, map[string]interface{}{
-			"week":   week,
-			"bytes":  bytes,
-			"items":  items,
+			"week":  week,
+			"bytes": bytes,
+			"items": items,
 		})
 	}
 	return results, nil

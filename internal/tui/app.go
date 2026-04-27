@@ -616,7 +616,6 @@ func (m appModel) wantsUITick() bool {
 		return m.noticeTicks > 0 || m.uninstall.messageTicks > 0 || m.protect.messageTicks > 0
 	}
 	return m.currentLoadingLabel() != "" || m.route == RouteProgress || m.route == RouteResult ||
-		m.route == RouteHome || m.route == RouteStatus || m.route == RouteDoctor ||
 		(m.route == RouteClean && m.cleanFlow.wantsAnimation()) ||
 		(m.route == RouteUninstall && m.uninstallFlow.wantsAnimation()) ||
 		(m.route == RouteAnalyze && m.analyzeFlow.wantsAnimation())

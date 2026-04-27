@@ -51,6 +51,9 @@ func progressListViewMoleStyle(progress progressModel, width int, maxLines int) 
 
 	lines = append(lines, safeStyle.Render(fmt.Sprintf("Progress %s  •  %d/%d settled  •  %s / %s", progressMeter(progress), done, all, domain.HumanBytes(freed), domain.HumanBytes(total))))
 	lines = append(lines, mutedStyle.Render(progressPhaseLine(progress, stage)))
+	if hold := progressHistoryHoldLine(progress); hold != "" {
+		lines = append(lines, reviewStyle.Render(hold))
+	}
 
 	lines = append(lines, renderSectionRule(width))
 
@@ -107,7 +110,7 @@ func progressListViewMoleStyle(progress progressModel, width int, maxLines int) 
 		label := displayFindingLabel(item)
 		bytesLabel := domain.HumanBytes(item.Bytes)
 		// Mole-style: ✓ item name  size (compact format)
-		line := selectionPrefix(idx == progress.cursor) + lineStyle.Render(fmt.Sprintf("%s %s  %s", icon, truncateText(label, 32), bytesLabel))
+		line := selectionPrefix(idx == progress.cursor) + lineStyle.Render(fmt.Sprintf("%s %s  %s", icon, truncateText(label, rowLabelWidth(width, 32)), bytesLabel))
 		if idx < len(progress.items) && progress.items[idx].Message != "" {
 			line = fmt.Sprintf("%s  %s", line, mutedStyle.Render(truncateText(progress.items[idx].Message, max(width-48, 12))))
 		} else if isActive && idx >= len(progress.items) {
@@ -134,6 +137,17 @@ func progressListViewMoleStyle(progress progressModel, width int, maxLines int) 
 // progressListView is kept for backward compatibility
 func progressListView(progress progressModel, width int, maxLines int) string {
 	return progressListViewMoleStyle(progress, width, maxLines)
+}
+
+func progressHistoryHoldLine(progress progressModel) string {
+	if progress.autoFollow || len(progress.plan.Items) == 0 {
+		return ""
+	}
+	runningCursor, ok := progress.runningCursor()
+	if !ok || progress.cursor == runningCursor {
+		return ""
+	}
+	return "History hold  •  End returns to live item"
 }
 
 // progressFeedViewport is a tail-biased viewport: the cursor sits at the top

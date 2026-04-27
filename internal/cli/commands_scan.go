@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -593,12 +594,7 @@ func newDuplicatesCommand(state *runtimeState) *cobra.Command {
 					dupItems = append(dupItems, item)
 				}
 			}
-			plan.Items = dupItems
-			plan.Totals.Bytes = 0
-			plan.Totals.ItemCount = len(dupItems)
-			for _, item := range dupItems {
-				plan.Totals.Bytes += item.Bytes
-			}
+			applyFilteredCommandPlan(&plan, "duplicates", dupItems)
 			return state.runPlanFlow(cmd.Context(), plan)
 		},
 	}
@@ -622,6 +618,10 @@ func newLargeFilesCommand(state *runtimeState) *cobra.Command {
 				}
 				targets = []string{home}
 			}
+			minBytes, err := parseSizeFlag(minSize)
+			if err != nil {
+				return fmt.Errorf("invalid --min-size %q: %w", minSize, err)
+			}
 			plan, err := state.service.Scan(cmd.Context(), engine.ScanOptions{
 				Command:    "analyze",
 				Profile:    "safe",
@@ -635,19 +635,76 @@ func newLargeFilesCommand(state *runtimeState) *cobra.Command {
 			// Filter to only large files
 			var largeItems []domain.Finding
 			for _, item := range plan.Items {
-				if item.RuleID == "analyze.large_files" {
+				if item.RuleID == "analyze.large_files" && item.Bytes >= minBytes {
 					largeItems = append(largeItems, item)
 				}
 			}
-			plan.Items = largeItems
-			plan.Totals.Bytes = 0
-			plan.Totals.ItemCount = len(largeItems)
-			for _, item := range largeItems {
-				plan.Totals.Bytes += item.Bytes
-			}
+			applyFilteredCommandPlan(&plan, "largefiles", largeItems)
 			return state.runPlanFlow(cmd.Context(), plan)
 		},
 	}
 	cmd.Flags().StringVar(&minSize, "min-size", "10MB", "minimum file size (e.g., 100MB, 1GB)")
 	return cmd
+}
+
+func applyFilteredCommandPlan(plan *domain.ExecutionPlan, command string, items []domain.Finding) {
+	plan.Command = command
+	plan.Policy.Command = command
+	plan.Items = items
+	plan.Totals = filteredTotals(items)
+}
+
+func filteredTotals(items []domain.Finding) domain.Totals {
+	var totals domain.Totals
+	for _, item := range items {
+		totals.ItemCount++
+		totals.Bytes += item.Bytes
+		switch item.Risk {
+		case domain.RiskSafe:
+			totals.SafeBytes += item.Bytes
+		case domain.RiskReview:
+			totals.ReviewBytes += item.Bytes
+		case domain.RiskHigh:
+			totals.HighBytes += item.Bytes
+		}
+	}
+	return totals
+}
+
+func parseSizeFlag(value string) (int64, error) {
+	normalized := strings.TrimSpace(strings.ToUpper(value))
+	if normalized == "" {
+		return 0, fmt.Errorf("empty size")
+	}
+	units := []struct {
+		suffix     string
+		multiplier int64
+	}{
+		{"TB", 1024 * 1024 * 1024 * 1024},
+		{"T", 1024 * 1024 * 1024 * 1024},
+		{"GB", 1024 * 1024 * 1024},
+		{"G", 1024 * 1024 * 1024},
+		{"MB", 1024 * 1024},
+		{"M", 1024 * 1024},
+		{"KB", 1024},
+		{"K", 1024},
+		{"B", 1},
+	}
+	number := normalized
+	multiplier := int64(1)
+	for _, unit := range units {
+		if strings.HasSuffix(normalized, unit.suffix) {
+			multiplier = unit.multiplier
+			number = strings.TrimSpace(strings.TrimSuffix(normalized, unit.suffix))
+			break
+		}
+	}
+	parsed, err := strconv.ParseFloat(number, 64)
+	if err != nil {
+		return 0, err
+	}
+	if parsed < 0 {
+		return 0, fmt.Errorf("size must be non-negative")
+	}
+	return int64(parsed * float64(multiplier)), nil
 }

@@ -213,3 +213,139 @@ func TestBundleAtWritesZip(t *testing.T) {
 		t.Fatalf("expected status_summary.json and audit.json, got %v files", len(reader.File))
 	}
 }
+
+func TestBundleAtUsesExecutionAndAuditRecordsForPlanScan(t *testing.T) {
+	t.Parallel()
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	st, err := store.OpenAt(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	base := time.Now().UTC().Add(-time.Hour)
+	requestedPlan := domain.ExecutionPlan{
+		ScanID:    "scan-1",
+		Command:   "clean",
+		Platform:  "darwin",
+		CreatedAt: base,
+	}
+	latestPlan := domain.ExecutionPlan{
+		ScanID:    "scan-2",
+		Command:   "clean",
+		Platform:  "darwin",
+		CreatedAt: base.Add(10 * time.Minute),
+	}
+	if err := st.SavePlan(context.Background(), requestedPlan); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveExecution(context.Background(), domain.ExecutionResult{
+		ID:         "exec-scan-1",
+		ScanID:     "scan-1",
+		StartedAt:  base.Add(time.Minute),
+		FinishedAt: base.Add(2 * time.Minute),
+		Items: []domain.OperationResult{{
+			FindingID: "old",
+			Status:    domain.StatusCompleted,
+			Bytes:     100,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SavePlan(context.Background(), latestPlan); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveExecution(context.Background(), domain.ExecutionResult{
+		ID:         "exec-scan-2",
+		ScanID:     "scan-2",
+		StartedAt:  base.Add(11 * time.Minute),
+		FinishedAt: base.Add(12 * time.Minute),
+		Items: []domain.OperationResult{{
+			FindingID: "new",
+			Status:    domain.StatusDeleted,
+			Bytes:     200,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.Diagnostics.Redaction = false
+	_, bundlePath, err := BundleAt(context.Background(), filepath.Join(t.TempDir(), "reports"), st, requestedPlan, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var execution store.ExecutionSummary
+	readBundleJSON(t, bundlePath, "latest_execution.json", &execution)
+	if execution.ScanID != "scan-1" || execution.ID != "exec-scan-1" || execution.FreedBytes != 100 {
+		t.Fatalf("expected requested scan execution in bundle, got %+v", execution)
+	}
+
+	var records []store.AuditRecord
+	readBundleJSON(t, bundlePath, "audit.json", &records)
+	if len(records) == 0 {
+		t.Fatal("expected scan-scoped audit records")
+	}
+	for _, record := range records {
+		if record.ScanID != "scan-1" {
+			t.Fatalf("expected only scan-1 audit records, got %+v", records)
+		}
+	}
+
+	var status store.StatusSummary
+	readBundleJSON(t, bundlePath, "status_summary.json", &status)
+	if status.LastExecution == nil || status.LastExecution.ScanID != "scan-1" {
+		t.Fatalf("expected status summary execution to match requested scan, got %+v", status.LastExecution)
+	}
+}
+
+func TestBundleAtReturnsSaveReportError(t *testing.T) {
+	t.Parallel()
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	st, err := store.OpenAt(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = BundleAt(context.Background(), filepath.Join(t.TempDir(), "reports"), st, domain.ExecutionPlan{
+		ScanID:    "scan-1",
+		Command:   "clean",
+		Platform:  "darwin",
+		CreatedAt: time.Now().UTC(),
+	}, config.Default())
+	if err == nil {
+		t.Fatal("expected SaveReport error to be returned")
+	}
+}
+
+func readBundleJSON(t *testing.T, bundlePath, name string, dest any) {
+	t.Helper()
+	reader, err := zip.OpenReader(bundlePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	for _, file := range reader.File {
+		if file.Name != name {
+			continue
+		}
+		rc, err := file.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, dest); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	t.Fatalf("expected %s in %s", name, bundlePath)
+}

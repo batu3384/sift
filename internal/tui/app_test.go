@@ -876,6 +876,49 @@ func TestProgressManualBrowseStopsAutoFollow(t *testing.T) {
 	}
 }
 
+func TestProgressHistoryKeysPageBrowseAndReturnToLive(t *testing.T) {
+	t.Parallel()
+
+	items := make([]domain.Finding, 12)
+	for idx := range items {
+		path := fmt.Sprintf("/tmp/item-%02d", idx)
+		items[idx] = domain.Finding{ID: fmt.Sprintf("item-%02d", idx), Path: path, DisplayPath: path}
+	}
+	current := items[9]
+	model := newTestAppModel(RouteProgress)
+	model.height = 24
+	model.progress = progressModel{
+		plan:       domain.ExecutionPlan{Command: "clean", Items: items},
+		cursor:     9,
+		autoFollow: true,
+		current:    &current,
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	pagedUp := next.(appModel)
+	if pagedUp.progress.cursor >= model.progress.cursor || pagedUp.progress.autoFollow {
+		t.Fatalf("expected PageUp to browse older progress history, got cursor=%d autoFollow=%v", pagedUp.progress.cursor, pagedUp.progress.autoFollow)
+	}
+
+	next, _ = pagedUp.Update(tea.KeyMsg{Type: tea.KeyHome})
+	oldest := next.(appModel)
+	if oldest.progress.cursor != 0 || oldest.progress.autoFollow {
+		t.Fatalf("expected Home to jump to oldest progress item, got cursor=%d autoFollow=%v", oldest.progress.cursor, oldest.progress.autoFollow)
+	}
+
+	next, _ = oldest.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	pagedDown := next.(appModel)
+	if pagedDown.progress.cursor <= oldest.progress.cursor || pagedDown.progress.autoFollow {
+		t.Fatalf("expected PageDown to browse toward live progress, got cursor=%d autoFollow=%v", pagedDown.progress.cursor, pagedDown.progress.autoFollow)
+	}
+
+	next, _ = pagedDown.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	live := next.(appModel)
+	if live.progress.cursor != 9 || !live.progress.autoFollow {
+		t.Fatalf("expected End to return to live progress item, got cursor=%d autoFollow=%v", live.progress.cursor, live.progress.autoFollow)
+	}
+}
+
 func TestExecutionProgressKeepsWaitingForStream(t *testing.T) {
 	t.Parallel()
 
@@ -2601,6 +2644,37 @@ func TestReducedMotionSkipsAnimationButStillClearsNotices(t *testing.T) {
 	}
 	if ticked.noticeMsg != "" || ticked.noticeTicks != 0 {
 		t.Fatalf("expected reduced-motion tick to still clear notices, got %q (%d)", ticked.noticeMsg, ticked.noticeTicks)
+	}
+}
+
+func TestIdleDashboardRoutesDoNotKeepUITickAlive(t *testing.T) {
+	t.Parallel()
+
+	for _, route := range []Route{RouteHome, RouteStatus, RouteDoctor} {
+		model := newTestAppModel(route)
+		model.clearDashboardLoading()
+		if model.wantsUITick() {
+			t.Fatalf("expected idle %s route not to keep ui tick alive", route)
+		}
+	}
+}
+
+func TestDashboardLoadingKeepsUITickAlive(t *testing.T) {
+	t.Parallel()
+
+	for _, route := range []Route{RouteHome, RouteStatus, RouteDoctor} {
+		model := newTestAppModel(route)
+		switch route {
+		case RouteHome:
+			model.setHomeLoading("dashboard")
+		case RouteStatus:
+			model.setStatusLoading("dashboard")
+		case RouteDoctor:
+			model.setDoctorLoading("doctor")
+		}
+		if !model.wantsUITick() {
+			t.Fatalf("expected loading %s route to keep ui tick alive", route)
+		}
 	}
 }
 

@@ -54,7 +54,7 @@ func TestProgressFreedBytesMatchesByIDAndPath(t *testing.T) {
 			{ID: "id-c", Path: "/c/path", Bytes: 50},
 		},
 	}
-	// id-a matched by ID, id-c matched by path only (no FindingID on result)
+	// id-a matched by ID; completed non-delete actions do not count as freed.
 	progress := progressModel{
 		plan: plan,
 		items: []domain.OperationResult{
@@ -64,13 +64,12 @@ func TestProgressFreedBytesMatchesByIDAndPath(t *testing.T) {
 		},
 	}
 	got := progressFreedBytes(progress)
-	// 100 (id-a, deleted) + 50 (id-c, completed by path) = 150
-	if got != 150 {
-		t.Fatalf("expected 150 freed bytes, got %d", got)
+	if got != 100 {
+		t.Fatalf("expected 100 freed bytes, got %d", got)
 	}
 }
 
-func TestResultFreedBytesCountsDeletedAndCompleted(t *testing.T) {
+func TestResultFreedBytesCountsDeletedOnly(t *testing.T) {
 	t.Parallel()
 
 	plan := domain.ExecutionPlan{
@@ -88,8 +87,8 @@ func TestResultFreedBytesCountsDeletedAndCompleted(t *testing.T) {
 		},
 	}
 	got := resultFreedBytes(plan, result)
-	if got != 1200 {
-		t.Fatalf("expected 1200 freed bytes, got %d", got)
+	if got != 1000 {
+		t.Fatalf("expected 1000 freed bytes, got %d", got)
 	}
 }
 
