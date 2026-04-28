@@ -178,8 +178,8 @@ func TestActiveNetworkInterfacesFiltersLoopbackAndDown(t *testing.T) {
 }
 
 func TestSafeCPUPercentWithContextRecoversFromPanic(t *testing.T) {
-	t.Parallel()
-
+	// This test temporarily replaces a package-level probe hook. Keep it
+	// sequential so parallel snapshot tests do not race the global function.
 	original := cpuPercentWithContext
 	cpuPercentWithContext = func(context.Context, time.Duration, bool) ([]float64, error) {
 		panic("boom")
