@@ -60,6 +60,10 @@ func (r *runtimeState) wantsJSONOutput(command string, writer io.Writer) bool {
 	return r.outputModeForCommand(command, writer) == outputModeJSON
 }
 
+func (r *runtimeState) shouldShowLinearScanPrelude(command string, writer io.Writer) bool {
+	return r.outputModeForCommand(command, writer) == outputModePlain
+}
+
 func (r *runtimeState) requiresYesFlagForExecution(plan domain.ExecutionPlan, writer io.Writer) bool {
 	if !shouldExecutePlan(plan) {
 		return false
@@ -135,6 +139,7 @@ func printPlan(out *os.File, plan domain.ExecutionPlan, platformDebug bool, diag
 	}
 	nItems := len(plan.Items)
 	itemWord := map[bool]string{true: "item", false: "items"}[nItems == 1]
+	summary := summarizePlanActions(plan)
 
 	// Print header with better formatting
 	commandTitle := strings.ToUpper(plan.Command)
@@ -143,7 +148,10 @@ func printPlan(out *os.File, plan domain.ExecutionPlan, platformDebug bool, diag
 	}
 	_, _ = fmt.Fprintf(out, "\n")
 	_, _ = fmt.Fprintf(out, "╭──────────────────────────────────────────────────────────╮\n")
-	_, _ = fmt.Fprintf(out, "│ %s  •  %s reclaimable  •  %d %s  •  %s\n", commandTitle, domain.HumanBytes(plan.Totals.Bytes), nItems, itemWord, plan.Platform)
+	_, _ = fmt.Fprintf(out, "│ %s  •  %s actionable  •  %d %s  •  %s\n", commandTitle, domain.HumanBytes(summary.actionableBytes), nItems, itemWord, plan.Platform)
+	if summary.reviewOnlyCount > 0 || summary.protectedCount > 0 {
+		_, _ = fmt.Fprintf(out, "│ %d review-only  •  %d protected\n", summary.reviewOnlyCount, summary.protectedCount)
+	}
 	_, _ = fmt.Fprintf(out, "╰──────────────────────────────────────────────────────────╯\n\n")
 
 	// Print table header
@@ -156,19 +164,22 @@ func printPlan(out *os.File, plan domain.ExecutionPlan, platformDebug bool, diag
 			currentCategory = item.Category
 			_, _ = fmt.Fprintf(out, "\n→ %s\n", domain.CategoryTitle(item.Category))
 		}
-		icon := "~"
+		status := "CHECK"
 		iconColor := color.New()
 		if item.Status == domain.StatusProtected {
-			icon = "⊘"
+			status = "LOCK"
 			iconColor = color.New(color.FgYellow)
+		} else if item.Status == domain.StatusAdvisory || item.Action == domain.ActionAdvisory {
+			status = "REVIEW"
+			iconColor = color.New(color.FgCyan)
 		} else if item.Risk == domain.RiskSafe {
-			icon = "✓"
+			status = "SAFE"
 			iconColor = color.New(color.FgGreen)
 		} else if item.Risk == domain.RiskReview {
-			icon = "◉"
+			status = "CHECK"
 			iconColor = color.New(color.FgCyan)
 		} else if item.Risk == domain.RiskHigh {
-			icon = "!"
+			status = "HIGH"
 			iconColor = color.New(color.FgRed)
 		}
 		label := strings.TrimSpace(item.DisplayPath)
@@ -181,6 +192,8 @@ func printPlan(out *os.File, plan domain.ExecutionPlan, platformDebug bool, diag
 			suffix = "  [native]"
 		} else if item.Action == domain.ActionCommand {
 			suffix = "  [task]"
+		} else if item.Action == domain.ActionAdvisory {
+			suffix = "  [manual review only]"
 		}
 		if item.Status == domain.StatusProtected && item.Policy.Reason != "" {
 			suffix += "  [" + string(item.Policy.Reason) + "]"
@@ -194,7 +207,7 @@ func printPlan(out *os.File, plan domain.ExecutionPlan, platformDebug bool, diag
 			}
 		}
 
-		_, _ = iconColor.Fprintf(out, "%-6s ", icon)
+		_, _ = iconColor.Fprintf(out, "%-6s ", status)
 		_, _ = fmt.Fprintf(out, "%-40s %12s%s\n", label, bytesLabel, suffix)
 	}
 	if len(plan.Warnings) > 0 {
@@ -252,9 +265,10 @@ func printAnalyzePlan(out *os.File, plan domain.ExecutionPlan, platformDebug boo
 
 func confirm(plan domain.ExecutionPlan) (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
-	nActions := actionableItemCount(plan)
+	summary := summarizePlanActions(plan)
+	nActions := summary.actionableCount
 	actionWord := map[bool]string{true: "planned action", false: "planned actions"}[nActions == 1]
-	_, _ = fmt.Fprintf(os.Stdout, "Execute %d %s (%s reclaimable)? [y/N]: ", nActions, actionWord, domain.HumanBytes(plan.Totals.Bytes))
+	_, _ = fmt.Fprintf(os.Stdout, "Execute %d %s (%s actionable)? [y/N]: ", nActions, actionWord, domain.HumanBytes(summary.actionableBytes))
 	raw, err := reader.ReadString('\n')
 	if err != nil {
 		return false, err
@@ -273,15 +287,37 @@ func looksLikePath(value string) bool {
 	return strings.Contains(value, string(os.PathSeparator))
 }
 
-func actionableItemCount(plan domain.ExecutionPlan) int {
-	count := 0
+type planActionSummary struct {
+	actionableCount int
+	actionableBytes int64
+	reviewOnlyCount int
+	reviewOnlyBytes int64
+	protectedCount  int
+	protectedBytes  int64
+}
+
+func summarizePlanActions(plan domain.ExecutionPlan) planActionSummary {
+	var summary planActionSummary
 	for _, item := range plan.Items {
-		if item.Status == domain.StatusProtected || item.Action == domain.ActionAdvisory {
+		switch {
+		case item.Status == domain.StatusProtected:
+			summary.protectedCount++
+			summary.protectedBytes += item.Bytes
+		case item.Status == domain.StatusAdvisory || item.Action == domain.ActionAdvisory:
+			summary.reviewOnlyCount++
+			summary.reviewOnlyBytes += item.Bytes
+		case item.Status == domain.StatusSkipped || item.Action == domain.ActionSkip:
 			continue
+		default:
+			summary.actionableCount++
+			summary.actionableBytes += item.Bytes
 		}
-		count++
 	}
-	return count
+	return summary
+}
+
+func actionableItemCount(plan domain.ExecutionPlan) int {
+	return summarizePlanActions(plan).actionableCount
 }
 
 func shouldExecutePlan(plan domain.ExecutionPlan) bool {
@@ -321,6 +357,7 @@ func formatFloatSeries(values []float64, limit int) string {
 // ProgressOutput provides CLI progress feedback like Mole
 type ProgressOutput struct {
 	out           *os.File
+	profile       string
 	totalBytes    int64
 	showProgress  bool
 	categoryCount int
@@ -418,6 +455,7 @@ func (p *ProgressOutput) OnScanStart(profile string) {
 	if !p.showProgress {
 		return
 	}
+	p.profile = strings.TrimSpace(strings.ToLower(profile))
 	p.startTime = nowUnix()
 	p.currentIndex = 0
 	p.totalBytes = 0
@@ -456,11 +494,18 @@ func (p *ProgressOutput) OnScanComplete(totalBytes int64, totalItems int) {
 	// Print enhanced summary
 	_, _ = fmt.Fprintf(p.out, "\n")
 	_, _ = safeStyle.Fprintf(p.out, "✓ Scan complete")
-	_, _ = fmt.Fprintf(p.out, ": %s reclaimable from %d items", domain.HumanBytes(totalBytes), totalItems)
+	_, _ = fmt.Fprintf(p.out, ": %s %s from %d items", domain.HumanBytes(totalBytes), p.completionNoun(), totalItems)
 	if durationStr != "" {
 		_, _ = fmt.Fprintf(p.out, " in %s", durationStr)
 	}
 	_, _ = fmt.Fprintf(p.out, "\n")
+}
+
+func (p *ProgressOutput) completionNoun() string {
+	if p != nil && p.profile == "analyze" {
+		return "inspected"
+	}
+	return "candidate cleanup"
 }
 
 // PrintRunningAppWarning prints a warning if an app is running

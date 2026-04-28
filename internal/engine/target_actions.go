@@ -94,9 +94,7 @@ func (s *Service) buildTargetActionPlan(ctx context.Context, command string, tar
 	if len(items) == 0 {
 		plan.PlanState = "empty"
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, plan)
-	}
+	s.persistPlan(ctx, &plan)
 	return plan, nil
 }
 

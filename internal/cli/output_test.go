@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/batu3384/sift/internal/config"
 	"github.com/batu3384/sift/internal/domain"
 	"github.com/batu3384/sift/internal/platform"
 )
@@ -81,6 +82,25 @@ func TestOutputModeForCommand(t *testing.T) {
 	}
 }
 
+func TestLinearScanPreludeOnlyRendersForPlainOutput(t *testing.T) {
+	t.Setenv("SIFT_FORCE_TUI", "1")
+	state := &runtimeState{cfg: config.Default()}
+	if state.shouldShowLinearScanPrelude("clean", os.Stdout) {
+		t.Fatal("expected TUI mode to suppress pre-TUI linear scan output")
+	}
+
+	state.flags.Plain = true
+	if !state.shouldShowLinearScanPrelude("clean", os.Stdout) {
+		t.Fatal("expected plain clean output to keep linear scan feedback")
+	}
+
+	state.flags.Plain = false
+	state.flags.JSON = true
+	if state.shouldShowLinearScanPrelude("clean", os.Stdout) {
+		t.Fatal("expected JSON output to suppress human scan feedback")
+	}
+}
+
 func TestRequiresYesFlagForExecutionModes(t *testing.T) {
 	t.Parallel()
 
@@ -119,12 +139,77 @@ func TestActionableItemCountSkipsAdvisoryAndProtected(t *testing.T) {
 		Items: []domain.Finding{
 			{Status: domain.StatusProtected, Action: domain.ActionTrash},
 			{Status: domain.StatusAdvisory, Action: domain.ActionAdvisory},
+			{Status: domain.StatusSkipped, Action: domain.ActionTrash},
+			{Status: domain.StatusPlanned, Action: domain.ActionSkip},
 			{Status: domain.StatusPlanned, Action: domain.ActionTrash},
 			{Status: domain.StatusPlanned, Action: domain.ActionCommand},
 		},
 	}
 	if got := actionableItemCount(plan); got != 2 {
 		t.Fatalf("expected 2 actionable items, got %d", got)
+	}
+}
+
+func TestPlanActionSummarySeparatesActionableReviewAndProtected(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Items: []domain.Finding{
+			{Status: domain.StatusPlanned, Action: domain.ActionTrash, Bytes: 1024},
+			{Status: domain.StatusPlanned, Action: domain.ActionCommand, Bytes: 2048},
+			{Status: domain.StatusAdvisory, Action: domain.ActionAdvisory, Bytes: 4096},
+			{Status: domain.StatusProtected, Action: domain.ActionTrash, Bytes: 8192},
+			{Status: domain.StatusSkipped, Action: domain.ActionTrash, Bytes: 16384},
+		},
+	}
+
+	summary := summarizePlanActions(plan)
+	if summary.actionableCount != 2 || summary.actionableBytes != 3072 {
+		t.Fatalf("expected actionable count/bytes to be 2/3072, got %+v", summary)
+	}
+	if summary.reviewOnlyCount != 1 || summary.reviewOnlyBytes != 4096 {
+		t.Fatalf("expected review-only count/bytes to be 1/4096, got %+v", summary)
+	}
+	if summary.protectedCount != 1 || summary.protectedBytes != 8192 {
+		t.Fatalf("expected protected count/bytes to be 1/8192, got %+v", summary)
+	}
+}
+
+func TestProgressOutputUsesModeSpecificCompletionCopy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		profile string
+		want    string
+		block   string
+	}{
+		{name: "analyze", profile: "analyze", want: "inspected from 1 items", block: "reclaimable"},
+		{name: "clean", profile: "safe", want: "candidate cleanup from 1 items", block: "reclaimable"},
+	}
+	for _, tt := range tests {
+		tmp, err := os.CreateTemp(t.TempDir(), "progress-output")
+		if err != nil {
+			t.Fatal(err)
+		}
+		progress := NewProgressOutput(tmp)
+		progress.OnScanStart(tt.profile)
+		progress.OnScanComplete(1024, 1)
+		if _, err := tmp.Seek(0, 0); err != nil {
+			t.Fatal(err)
+		}
+		var out bytes.Buffer
+		if _, err := out.ReadFrom(tmp); err != nil {
+			t.Fatal(err)
+		}
+		view := out.String()
+		if !strings.Contains(view, tt.want) {
+			t.Fatalf("%s: expected %q in progress output, got %s", tt.name, tt.want, view)
+		}
+		if strings.Contains(view, tt.block) {
+			t.Fatalf("%s: did not expect %q in progress output, got %s", tt.name, tt.block, view)
+		}
+		_ = tmp.Close()
 	}
 }
 
@@ -187,7 +272,8 @@ func TestPrintPlanMarksNativeAndProtectedItems(t *testing.T) {
 	view := out.String()
 	for _, needle := range []string{
 		"UNINSTALL",
-		"4.0 KB reclaimable",
+		"2.0 KB actionable",
+		"1 protected",
 		"darwin",
 		"/Applications/Example.app",
 		"[native]",

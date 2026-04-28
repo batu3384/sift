@@ -23,21 +23,18 @@ func newAnalyzeCommand(state *runtimeState) *cobra.Command {
 			"  sift analyze ~/Downloads\n" +
 			"  sift analyze ~/Downloads | jq",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Check if we should output JSON (before any output)
-			isJSONMode := state.wantsJSONOutput("analyze", os.Stdout)
+			showLinearProgress := state.shouldShowLinearScanPrelude("analyze", os.Stdout)
 
-			// Show target being scanned (only in non-JSON mode)
 			targets := args
 			if len(targets) == 0 {
 				targets = []string{"~"}
 			}
-			if !isJSONMode {
+			if showLinearProgress {
 				fmt.Printf("Scanning: %s\n", strings.Join(targets, ", "))
 			}
 
-			// Create progress output for CLI feedback
 			progress := NewProgressOutput(os.Stdout)
-			if isJSONMode {
+			if !showLinearProgress {
 				progress.Disable()
 			}
 
@@ -122,10 +119,9 @@ func newCleanCommand(state *runtimeState) *cobra.Command {
 				profile = args[0]
 			}
 
-			// Create progress output for CLI feedback (like Mole) - but not in JSON mode
+			showLinearProgress := state.shouldShowLinearScanPrelude("clean", os.Stdout)
 			progress := NewProgressOutput(os.Stdout)
-			isJSONMode := state.wantsJSONOutput("clean", os.Stdout)
-			if isJSONMode {
+			if !showLinearProgress {
 				progress.Disable()
 			}
 
@@ -136,9 +132,7 @@ func newCleanCommand(state *runtimeState) *cobra.Command {
 			cfg := state.cfg
 			progress.SetCategoryCount(config.ProfileCategoryCount(profile, cfg))
 
-			// Check for running apps that might interfere with cleanup (like Mole)
-			// Only in non-JSON mode
-			if !isJSONMode {
+			if showLinearProgress {
 				runningApps := []string{
 					"Google Chrome",
 					"Firefox",

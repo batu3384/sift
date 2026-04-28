@@ -138,6 +138,7 @@ type Fingerprint struct {
 	Size        int64     `json:"size"`
 	ModTime     time.Time `json:"mod_time"`
 	ContentHash string    `json:"content_hash,omitempty"`
+	Identity    string    `json:"identity,omitempty"`
 }
 
 type DirectoryPreviewFile struct {

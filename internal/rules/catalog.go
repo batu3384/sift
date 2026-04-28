@@ -213,13 +213,13 @@ func Catalog() []Definition {
 			Name:        "Cloud & Office",
 			Category:    domain.CategoryCloudOffice,
 			Risk:        domain.RiskReview,
-			Action:      domain.ActionTrash,
+			Action:      domain.ActionAdvisory,
 			Description: "Cloud storage and office app caches (Dropbox, OneDrive, iCloud, Teams, Slack).",
 			Roots: func(adapter platform.Adapter, _ []string) []string {
 				return adapter.CuratedRoots().CloudOffice
 			},
 			Scanner: func(ctx context.Context, adapter platform.Adapter, _ []string) ([]domain.Finding, []string, error) {
-				return scanRootEntries(ctx, adapter, adapter.CuratedRoots().CloudOffice, domain.CategoryCloudOffice, domain.RiskReview, domain.ActionTrash, "Cloud & Office cache")
+				return scanRootEntries(ctx, adapter, adapter.CuratedRoots().CloudOffice, domain.CategoryCloudOffice, domain.RiskReview, domain.ActionAdvisory, "Cloud & Office review")
 			},
 		},
 		{
@@ -227,13 +227,13 @@ func Catalog() []Definition {
 			Name:        "Virtualization",
 			Category:    domain.CategoryVirtualization,
 			Risk:        domain.RiskReview,
-			Action:      domain.ActionTrash,
+			Action:      domain.ActionAdvisory,
 			Description: "Virtualization app caches (Docker, VMware, Parallels, VirtualBox).",
 			Roots: func(adapter platform.Adapter, _ []string) []string {
 				return adapter.CuratedRoots().Virtualization
 			},
 			Scanner: func(ctx context.Context, adapter platform.Adapter, _ []string) ([]domain.Finding, []string, error) {
-				return scanRootEntries(ctx, adapter, adapter.CuratedRoots().Virtualization, domain.CategoryVirtualization, domain.RiskReview, domain.ActionTrash, "Virtualization cache")
+				return scanRootEntries(ctx, adapter, adapter.CuratedRoots().Virtualization, domain.CategoryVirtualization, domain.RiskReview, domain.ActionAdvisory, "Virtualization review")
 			},
 		},
 		{
@@ -335,6 +335,9 @@ func Catalog() []Definition {
 			Action:      domain.ActionPermanent,
 			Description: ".DS_Store files scattered across the home directory.",
 			Roots: func(_ platform.Adapter, _ []string) []string {
+				if home := userHomeDir(); home != "" {
+					return []string{home}
+				}
 				return nil
 			},
 			Scanner: func(ctx context.Context, adapter platform.Adapter, _ []string) ([]domain.Finding, []string, error) {

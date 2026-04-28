@@ -116,10 +116,10 @@ func (r *runtimeState) runInteractive(ctx context.Context, route tui.Route, plan
 			})
 		},
 		LoadUninstallPlan: func(app string) (domain.ExecutionPlan, error) {
-			return r.service.BuildUninstallPlan(ctx, app, r.flags.DryRun, true)
+			return r.service.BuildUninstallPlan(ctx, app, r.flags.DryRun, r.flags.Admin)
 		},
 		LoadUninstallBatchPlan: func(apps []string) (domain.ExecutionPlan, error) {
-			return r.service.BuildBatchUninstallPlan(ctx, apps, r.flags.DryRun, true)
+			return r.service.BuildBatchUninstallPlan(ctx, apps, r.flags.DryRun, r.flags.Admin)
 		},
 		LoadReviewForPaths: func(paths []string) (domain.ExecutionPlan, error) {
 			return r.service.Scan(ctx, engine.ScanOptions{

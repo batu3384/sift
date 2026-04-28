@@ -15,8 +15,7 @@ func newUninstallCommand(state *runtimeState) *cobra.Command {
 		Short: "Plan or execute app bundle removal",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Use admin to properly find all app files including system apps
-			plan, err := state.service.BuildUninstallPlan(cmd.Context(), args[0], state.flags.DryRun, true)
+			plan, err := state.service.BuildUninstallPlan(cmd.Context(), args[0], state.flags.DryRun, state.flags.Admin)
 			if err != nil {
 				return err
 			}

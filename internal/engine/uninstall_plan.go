@@ -122,6 +122,7 @@ func (s *Service) BuildUninstallPlan(ctx context.Context, appName string, dryRun
 		if normalized != domain.NormalizePath(app.BundlePath) {
 			item.Source = targetLabel + " remnants"
 		}
+		item = attachFingerprintIdentity(item)
 		items = append(items, item)
 	}
 	// Build list of allowed roots for uninstall - include the app bundle path
@@ -167,9 +168,7 @@ func (s *Service) BuildUninstallPlan(ctx context.Context, appName string, dryRun
 	if len(items) == 0 {
 		plan.PlanState = "empty"
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, plan)
-	}
+	s.persistPlan(ctx, &plan)
 	return plan, nil
 }
 

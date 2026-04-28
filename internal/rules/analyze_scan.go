@@ -632,26 +632,26 @@ func analyzeDuplicatesLoader(ctx context.Context, targets []string) ([]domain.Fi
 		}
 
 		findings = append(findings, domain.Finding{
-			ID:           uuid.NewString(),
-			RuleID:       "analyze.duplicates",
-			Name:         filepath.Base(paths[0]),
-			Category:     "duplicates",
-			Path:         paths[0],
-			DisplayPath:  fmt.Sprintf("%d duplicate files", len(paths)),
-			Risk:         domain.RiskReview,
-			Bytes:        totalDupSize,
-			Action:       domain.ActionAdvisory,
-			Recovery:     domain.RecoveryHint{Message: fmt.Sprintf("Found %d identical files", len(paths))},
-			Status:       domain.StatusAdvisory,
-			Fingerprint:  domain.Fingerprint{ContentHash: hash},
-			Source:       "Duplicate files found",
+			ID:          uuid.NewString(),
+			RuleID:      "analyze.duplicates",
+			Name:        filepath.Base(paths[0]),
+			Category:    "duplicates",
+			Path:        paths[0],
+			DisplayPath: fmt.Sprintf("%d duplicate files", len(paths)),
+			Risk:        domain.RiskReview,
+			Bytes:       totalDupSize,
+			Action:      domain.ActionAdvisory,
+			Recovery:    domain.RecoveryHint{Message: fmt.Sprintf("Found %d identical files", len(paths))},
+			Status:      domain.StatusAdvisory,
+			Fingerprint: domain.Fingerprint{ContentHash: hash},
+			Source:      "Duplicate files found",
 		})
 	}
 
 	return findings, warnings, nil
 }
 
-// quickHash returns a hash of the first 64KB of a file
+// quickHash returns a full-file content hash.
 func quickHash(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -659,16 +659,9 @@ func quickHash(path string) (string, error) {
 	}
 	defer f.Close()
 
-	// Read first 64KB
-	buf := make([]byte, 65536)
-	n, err := f.Read(buf)
-	if err != nil && err != io.EOF {
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
-	buf = buf[:n]
-
-	// Simple hash using stdlib
-	h := sha256.New()
-	h.Write(buf)
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

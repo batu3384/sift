@@ -179,24 +179,17 @@ func progressFreedBytes(progress progressModel) int64 {
 }
 
 func progressTotalBytes(plan domain.ExecutionPlan) int64 {
-	if plan.Totals.Bytes > 0 {
-		return plan.Totals.Bytes
-	}
-	var total int64
-	for _, item := range plan.Items {
-		total += item.Bytes
-	}
-	return total
+	return planDisplayBytes(plan)
 }
 
 func progressSummary(progress progressModel) string {
 	switch progress.plan.Command {
 	case "clean":
 		mods := planModuleCount(progress.plan)
-		return fmt.Sprintf("Reclaimed %d of %d  •  %d %s  •  %s", len(progress.items), len(progress.plan.Items), mods, pl(mods, "module", "modules"), domain.HumanBytes(progress.plan.Totals.Bytes))
+		return fmt.Sprintf("Reclaimed %d of %d  •  %d %s  •  %s", len(progress.items), len(progress.plan.Items), mods, pl(mods, "module", "modules"), domain.HumanBytes(planDisplayBytes(progress.plan)))
 	case "uninstall":
 		apps := resultScopeCount(progress.plan)
-		return fmt.Sprintf("Settled %d of %d  •  %d %s  •  %s remnants", len(progress.items), len(progress.plan.Items), apps, pl(apps, "app", "apps"), domain.HumanBytes(progress.plan.Totals.Bytes))
+		return fmt.Sprintf("Settled %d of %d  •  %d %s  •  %s remnants", len(progress.items), len(progress.plan.Items), apps, pl(apps, "app", "apps"), domain.HumanBytes(planDisplayBytes(progress.plan)))
 	case "optimize":
 		tasks := actionableCount(progress.plan)
 		phases := max(maintenancePhaseCount(progress.plan), 1)
@@ -211,7 +204,7 @@ func progressSummary(progress progressModel) string {
 		len(progress.plan.Items),
 		mods,
 		pl(mods, "module", "modules"),
-		domain.HumanBytes(progress.plan.Totals.Bytes),
+		domain.HumanBytes(planDisplayBytes(progress.plan)),
 	)
 }
 

@@ -442,8 +442,6 @@ func (s *Service) BuildBatchUninstallPlan(ctx context.Context, appNames []string
 	if len(merged.Items) == 0 {
 		merged.PlanState = "empty"
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, merged)
-	}
+	s.persistPlan(ctx, &merged)
 	return merged, nil
 }

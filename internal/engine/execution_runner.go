@@ -49,9 +49,7 @@ func (r *executionRunner) run() (domain.ExecutionResult, error) {
 	}
 	r.result.Warnings = dedupe(r.result.Warnings)
 	r.result.FollowUpCommands = dedupe(r.result.FollowUpCommands)
-	if r.service.Store != nil {
-		_ = r.service.Store.SaveExecution(r.ctx, r.result)
-	}
+	r.persistExecution()
 	return r.result, nil
 }
 
@@ -66,9 +64,7 @@ func (r *executionRunner) ensureContext() error {
 
 func (r *executionRunner) cancel(err error) (domain.ExecutionResult, error) {
 	r.result.FinishedAt = time.Now().UTC()
-	if r.service.Store != nil {
-		_ = r.service.Store.SaveExecution(r.ctx, r.result)
-	}
+	r.persistExecution()
 	return r.result, err
 }
 

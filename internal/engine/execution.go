@@ -168,10 +168,25 @@ func verifyFingerprint(item domain.Finding) error {
 	if err != nil {
 		return err
 	}
+	if item.Fingerprint.Identity != "" && current.Identity != item.Fingerprint.Identity {
+		return fmt.Errorf("preview identity mismatch for %s", item.Path)
+	}
 	if current.Mode != item.Fingerprint.Mode || current.Size != item.Fingerprint.Size || !current.ModTime.Equal(item.Fingerprint.ModTime) {
 		return fmt.Errorf("preview hash mismatch for %s", item.Path)
 	}
 	return nil
+}
+
+func attachFingerprintIdentity(item domain.Finding) domain.Finding {
+	if item.Path == "" || item.Fingerprint.Identity != "" {
+		return item
+	}
+	info, err := os.Lstat(item.Path)
+	if err != nil {
+		return item
+	}
+	item.Fingerprint.Identity = fileIdentity(info)
+	return item
 }
 
 func currentFingerprint(path string) (domain.Fingerprint, error) {
@@ -185,15 +200,17 @@ func currentFingerprint(path string) (domain.Fingerprint, error) {
 			return domain.Fingerprint{}, err
 		}
 		return domain.Fingerprint{
-			Mode:    uint32(info.Mode()),
-			Size:    size,
-			ModTime: newest,
+			Mode:     uint32(info.Mode()),
+			Size:     size,
+			ModTime:  newest,
+			Identity: fileIdentity(info),
 		}, nil
 	}
 	return domain.Fingerprint{
-		Mode:    uint32(info.Mode()),
-		Size:    info.Size(),
-		ModTime: info.ModTime(),
+		Mode:     uint32(info.Mode()),
+		Size:     info.Size(),
+		ModTime:  info.ModTime(),
+		Identity: fileIdentity(info),
 	}, nil
 }
 

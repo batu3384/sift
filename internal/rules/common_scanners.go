@@ -120,21 +120,30 @@ func measureEntry(ctx context.Context, path string, info fs.FileInfo) (int64, ti
 }
 
 func newFinding(name, path string, category domain.Category, risk domain.Risk, action domain.Action, size int64, newest time.Time, mode fs.FileMode, source string) domain.Finding {
+	status := domain.StatusPlanned
+	recovery := domain.RecoveryHint{
+		Message:  "Recover from Trash/Recycle Bin if needed.",
+		Location: "system trash",
+	}
+	if action == domain.ActionAdvisory {
+		status = domain.StatusAdvisory
+		recovery = domain.RecoveryHint{
+			Message:  "Manual review only; SIFT will not delete this item automatically.",
+			Location: "manual review",
+		}
+	}
 	return domain.Finding{
-		ID:          uuid.NewString(),
-		RuleID:      string(category),
-		Name:        name,
-		Category:    category,
-		Path:        path,
-		DisplayPath: path,
-		Risk:        risk,
-		Bytes:       size,
-		Action:      action,
-		Recovery: domain.RecoveryHint{
-			Message:  "Recover from Trash/Recycle Bin if needed.",
-			Location: "system trash",
-		},
-		Status:       domain.StatusPlanned,
+		ID:           uuid.NewString(),
+		RuleID:       string(category),
+		Name:         name,
+		Category:     category,
+		Path:         path,
+		DisplayPath:  path,
+		Risk:         risk,
+		Bytes:        size,
+		Action:       action,
+		Recovery:     recovery,
+		Status:       status,
 		LastModified: newest,
 		Fingerprint: domain.Fingerprint{
 			Mode:    uint32(mode),

@@ -116,7 +116,7 @@ func calculatePlanTotals(items []domain.Finding) domain.Totals {
 	var totals domain.Totals
 	for _, item := range items {
 		totals.ItemCount++
-		if item.Action == domain.ActionSkip {
+		if !actionableDisplayItem(item) {
 			continue
 		}
 		totals.Bytes += item.Bytes
@@ -132,10 +132,17 @@ func calculatePlanTotals(items []domain.Finding) domain.Totals {
 	return totals
 }
 
+func actionableDisplayItem(item domain.Finding) bool {
+	if item.Status == domain.StatusProtected || item.Status == domain.StatusAdvisory || item.Status == domain.StatusSkipped {
+		return false
+	}
+	return item.Action != domain.ActionAdvisory && item.Action != domain.ActionSkip
+}
+
 func planModuleCount(plan domain.ExecutionPlan) int {
 	seen := map[string]struct{}{}
 	for _, item := range plan.Items {
-		if item.Action == domain.ActionAdvisory {
+		if !actionableDisplayItem(item) {
 			continue
 		}
 		key := progressGroupKey(item)

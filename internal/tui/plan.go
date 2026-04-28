@@ -191,7 +191,7 @@ func (m planModel) View() string {
 	leftWidth, rightWidth := splitColumns(contentWidth-2, 0.58, 46, 32)
 	panelLines := bodyLineBudget(height, 18, 7)
 	body := joinPanels(
-		renderPanel("REVIEW RAIL", fmt.Sprintf("%d %s • %s", plan.Totals.ItemCount, pl(plan.Totals.ItemCount, "item", "items"), domain.HumanBytes(plan.Totals.Bytes)), planListView(plan, m.cursor, leftWidth-4, panelLines), leftWidth, true),
+		renderPanel("REVIEW RAIL", fmt.Sprintf("%d %s • %s actionable", plan.Totals.ItemCount, pl(plan.Totals.ItemCount, "item", "items"), domain.HumanBytes(planDisplayBytes(plan))), planListView(plan, m.cursor, leftWidth-4, panelLines), leftWidth, true),
 		renderPanel("FOCUS DECK", planDetailSubtitle(plan, m.cursor), planDetailView(m, rightWidth-4, panelLines), rightWidth, false),
 		width-4,
 	)

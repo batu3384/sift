@@ -2,6 +2,7 @@ package rules
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -229,6 +230,57 @@ func TestInstallerScannerIncludesExpandedArchiveTypesAndIncompleteDownloads(t *t
 		if !seen {
 			t.Fatalf("expected installer finding for %s, got %+v", path, findings)
 		}
+	}
+}
+
+func TestCloudOfficeAndVirtualizationAreAdvisoryOnly(t *testing.T) {
+	defs := ByIDs([]string{"cloud_office", "virtualization"})
+	if len(defs) != 2 {
+		t.Fatalf("expected two definitions, got %d", len(defs))
+	}
+	for _, def := range defs {
+		if def.Action != domain.ActionAdvisory {
+			t.Fatalf("%s should be advisory-only because it can include user data, got %s", def.ID, def.Action)
+		}
+	}
+}
+
+func TestFinderMetadataRuleDeclaresHomeRootForPolicy(t *testing.T) {
+	defs := ByIDs([]string{"finder_metadata"})
+	if len(defs) != 1 {
+		t.Fatalf("expected finder metadata definition")
+	}
+	roots := defs[0].Roots(stubAdapter{name: "darwin"}, nil)
+	if len(roots) == 0 {
+		t.Fatal("expected finder metadata rule to declare an allowed root so findings do not become protected spam")
+	}
+}
+
+func TestDuplicateScannerRequiresFullFileHash(t *testing.T) {
+	resetAnalyzeScanState()
+	root := t.TempDir()
+	prefix := bytes.Repeat([]byte("a"), 64*1024)
+	first := append(append([]byte{}, prefix...), []byte("tail-A")...)
+	second := append(append([]byte{}, prefix...), []byte("tail-B")...)
+	if len(first) != len(second) {
+		t.Fatal("test fixtures must have identical size")
+	}
+	if err := os.WriteFile(filepath.Join(root, "first.bin"), first, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "second.bin"), second, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	findings, warnings, err := analyzeDuplicatesLoader(context.Background(), []string{root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected files with matching first 64KB but different tails not to be duplicates, got %+v", findings)
 	}
 }
 

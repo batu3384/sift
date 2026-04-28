@@ -137,6 +137,15 @@ Safety constraints are part of the architecture, not a UI convention:
 - admin access is managed through a reusable session warmup + keepalive layer
 - native uninstall execution is explicit and now continues into remnant cleanup
   and aftercare within the same reviewed run
+- review, progress, and result summaries distinguish actionable bytes from
+  advisory-only or protected bytes so UI totals do not overstate automatic
+  cleanup
+- advisory-only findings remain visible for human review but are skipped by
+  execution and toggle logic
+- execution verifies the approved file fingerprint again before destructive
+  removal, including a platform file identity when available
+- plan and execution persistence failures are surfaced as warnings in the
+  returned plan/result so audit issues are visible to the user
 - shell-driven deletion patterns are guarded by `hack/security_check.sh`
 
 ## Testing strategy

@@ -171,6 +171,11 @@ Additional guardrails:
 - Interactive destructive flows stay in the TUI and require explicit confirmation.
 - Permission preflight summarizes admin, dialog, and native handoff requirements before execution.
 - Protected paths, protected data families, and command-scoped exclusions are enforced by the same policy engine used during execution.
+- Review and progress totals separate actionable cleanup from advisory-only and protected findings, so manual-review bytes are not presented as automatically reclaimable.
+- Advisory-only categories such as cloud-office sync stores and virtualization payloads are surfaced for review but are not deleted automatically.
+- Duplicate analysis uses full-file hashing after size grouping, avoiding first-chunk-only matches for same-size files.
+- Execution re-checks approved item fingerprints before removal and records audit persistence failures as plan/result warnings instead of hiding them.
+- Package-manager update guidance uses direct managed commands instead of shell command chains.
 - JSON and non-interactive destructive runs never proceed unless intent is explicit.
 
 ## Platform and Command Matrix

@@ -71,9 +71,7 @@ func (s *Service) BuildOptimizePlan(ctx context.Context, dryRun, allowAdmin bool
 	if len(items) == 0 {
 		plan.PlanState = "empty"
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, plan)
-	}
+	s.persistPlan(ctx, &plan)
 	return plan, nil
 }
 

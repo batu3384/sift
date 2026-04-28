@@ -80,9 +80,7 @@ func (s *Service) BuildRemovePlan(ctx context.Context) (domain.ExecutionPlan, er
 		Policy:               policy,
 		Warnings:             dedupe(warnings),
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, plan)
-	}
+	s.persistPlan(ctx, &plan)
 	return plan, nil
 }
 

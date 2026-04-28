@@ -79,12 +79,14 @@ func TestPlanSummaryUsesReadableTopLine(t *testing.T) {
 			ReviewBytes: 1024,
 		},
 		Items: []domain.Finding{
-			{Action: domain.ActionTrash, Status: domain.StatusPlanned},
+			{Action: domain.ActionTrash, Status: domain.StatusPlanned, Risk: domain.RiskSafe, Bytes: 2 * 1024},
+			{Action: domain.ActionAdvisory, Status: domain.StatusAdvisory, Risk: domain.RiskReview, Bytes: 4 * 1024},
+			{Action: domain.ActionTrash, Status: domain.StatusPlanned, Risk: domain.RiskReview, Bytes: 1024},
 			{Action: domain.ActionTrash, Status: domain.StatusProtected},
 		},
 	})
 
-	for _, needle := range []string{"Ready 1", "Protected 1", "Safe 2.0 KB", "Review 1.0 KB"} {
+	for _, needle := range []string{"Ready 2", "Protected 1", "Safe 2.0 KB", "Review 1.0 KB"} {
 		if !strings.Contains(summary, needle) {
 			t.Fatalf("expected %q in readable plan summary, got %q", needle, summary)
 		}

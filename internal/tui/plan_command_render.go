@@ -143,11 +143,35 @@ func uninstallTargetCount(plan domain.ExecutionPlan) int {
 }
 
 func planDisplayBytes(plan domain.ExecutionPlan) int64 {
+	if plan.Command == "analyze" {
+		if plan.Totals.Bytes > 0 {
+			return plan.Totals.Bytes
+		}
+		return totalItemBytes(plan.Items)
+	}
+	if len(plan.Items) > 0 {
+		var total int64
+		var rawTotal int64
+		for _, item := range plan.Items {
+			rawTotal += item.Bytes
+			if actionableDisplayItem(item) {
+				total += item.Bytes
+			}
+		}
+		if rawTotal == 0 && plan.Totals.Bytes > 0 {
+			return plan.Totals.Bytes
+		}
+		return total
+	}
 	if plan.Totals.Bytes > 0 {
 		return plan.Totals.Bytes
 	}
+	return totalItemBytes(plan.Items)
+}
+
+func totalItemBytes(items []domain.Finding) int64 {
 	var total int64
-	for _, item := range plan.Items {
+	for _, item := range items {
 		total += item.Bytes
 	}
 	return total

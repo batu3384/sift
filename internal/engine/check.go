@@ -119,9 +119,7 @@ func (s *Service) BuildAutofixPlan(ctx context.Context, dryRun, allowAdmin bool)
 		plan.PlanState = "empty"
 		plan.Warnings = append(plan.Warnings, "No autofixable findings are active right now.")
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, plan)
-	}
+	s.persistPlan(ctx, &plan)
 	return plan, nil
 }
 

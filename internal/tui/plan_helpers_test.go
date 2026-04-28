@@ -50,6 +50,48 @@ func TestPlanModuleCountIgnoresAdvisoryItems(t *testing.T) {
 	}
 }
 
+func TestCalculatePlanTotalsOnlyCountsActionableBytes(t *testing.T) {
+	t.Parallel()
+
+	totals := calculatePlanTotals([]domain.Finding{
+		{Action: domain.ActionTrash, Status: domain.StatusPlanned, Bytes: 1024, Risk: domain.RiskSafe},
+		{Action: domain.ActionCommand, Status: domain.StatusPlanned, Bytes: 2048, Risk: domain.RiskReview},
+		{Action: domain.ActionAdvisory, Status: domain.StatusAdvisory, Bytes: 4096, Risk: domain.RiskReview},
+		{Action: domain.ActionTrash, Status: domain.StatusProtected, Bytes: 8192, Risk: domain.RiskHigh},
+		{Action: domain.ActionSkip, Status: domain.StatusSkipped, Bytes: 16384, Risk: domain.RiskSafe},
+	})
+
+	if totals.ItemCount != 5 {
+		t.Fatalf("expected item count to preserve all rows, got %+v", totals)
+	}
+	if totals.Bytes != 3072 || totals.SafeBytes != 1024 || totals.ReviewBytes != 2048 || totals.HighBytes != 0 {
+		t.Fatalf("expected only actionable bytes in totals, got %+v", totals)
+	}
+}
+
+func TestPlanDisplayBytesOnlyCountsActionableCleanupBytes(t *testing.T) {
+	t.Parallel()
+
+	plan := domain.ExecutionPlan{
+		Command: "clean",
+		Totals:  domain.Totals{Bytes: 15 * 1024},
+		Items: []domain.Finding{
+			{Action: domain.ActionTrash, Status: domain.StatusPlanned, Bytes: 1024},
+			{Action: domain.ActionCommand, Status: domain.StatusPlanned, Bytes: 2048},
+			{Action: domain.ActionAdvisory, Status: domain.StatusAdvisory, Bytes: 4096},
+			{Action: domain.ActionTrash, Status: domain.StatusProtected, Bytes: 8192},
+		},
+	}
+	if got := planDisplayBytes(plan); got != 3072 {
+		t.Fatalf("expected display bytes to use actionable cleanup bytes, got %d", got)
+	}
+
+	plan.Command = "analyze"
+	if got := planDisplayBytes(plan); got != 15*1024 {
+		t.Fatalf("expected analyze display bytes to keep total inspected bytes, got %d", got)
+	}
+}
+
 func TestAnalyzeSummaryLinesIncludeTopChildAndTopFile(t *testing.T) {
 	t.Parallel()
 

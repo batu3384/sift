@@ -17,7 +17,7 @@ func planActionCounts(plan domain.ExecutionPlan) (actionable, protected int) {
 			protected++
 			continue
 		}
-		if item.Action != domain.ActionAdvisory {
+		if actionableDisplayItem(item) {
 			actionable++
 		}
 	}
@@ -31,7 +31,7 @@ func planStats(plan domain.ExecutionPlan, width int) []string {
 	}
 	actionable, protected := planActionCounts(plan)
 	return []string{
-		renderRouteStatCard("review", "reclaim", domain.HumanBytes(plan.Totals.Bytes), "safe", cardWidth),
+		renderRouteStatCard("review", "actionable", domain.HumanBytes(planDisplayBytes(plan)), "safe", cardWidth),
 		renderRouteStatCard("review", "ready", fmt.Sprintf("%d %s", actionable, pl(actionable, "item", "items")), "review", cardWidth),
 		renderRouteStatCard("review", "protected", fmt.Sprintf("%d %s", protected, pl(protected, "item", "items")), "high", cardWidth),
 	}
@@ -168,7 +168,7 @@ func decisionSubtitle(plan domain.ExecutionPlan) string {
 		scopeSingular, scopeLabel = "target", "targets"
 	}
 	mods := planModuleCount(plan)
-	return fmt.Sprintf("%d ready • %d %s • %s", actionableCount(plan), mods, pl(mods, scopeSingular, scopeLabel), domain.HumanBytes(plan.Totals.Bytes))
+	return fmt.Sprintf("%d ready • %d %s • %s", actionableCount(plan), mods, pl(mods, scopeSingular, scopeLabel), domain.HumanBytes(planDisplayBytes(plan)))
 }
 
 func planDecisionStatusLine(plan domain.ExecutionPlan) string {
@@ -271,10 +271,7 @@ func planDecisionWarningLines(warnings []string, width int) []string {
 func actionableCount(plan domain.ExecutionPlan) int {
 	count := 0
 	for _, item := range plan.Items {
-		if item.Status == domain.StatusProtected {
-			continue
-		}
-		if item.Action != domain.ActionAdvisory && item.Action != domain.ActionSkip {
+		if actionableDisplayItem(item) {
 			count++
 		}
 	}
@@ -301,13 +298,23 @@ func planSummary(plan domain.ExecutionPlan) string {
 	parts := []string{
 		fmt.Sprintf("Ready %d", actionable),
 		fmt.Sprintf("Protected %d", protected),
-		fmt.Sprintf("Safe %s", domain.HumanBytes(plan.Totals.SafeBytes)),
-		fmt.Sprintf("Review %s", domain.HumanBytes(plan.Totals.ReviewBytes)),
+		fmt.Sprintf("Safe %s", domain.HumanBytes(planActionableRiskBytes(plan, domain.RiskSafe))),
+		fmt.Sprintf("Review %s", domain.HumanBytes(planActionableRiskBytes(plan, domain.RiskReview))),
 	}
-	if plan.Totals.HighBytes > 0 {
-		parts = append(parts, fmt.Sprintf("High %s", domain.HumanBytes(plan.Totals.HighBytes)))
+	if high := planActionableRiskBytes(plan, domain.RiskHigh); high > 0 {
+		parts = append(parts, fmt.Sprintf("High %s", domain.HumanBytes(high)))
 	}
 	return strings.Join(parts, "  •  ")
+}
+
+func planActionableRiskBytes(plan domain.ExecutionPlan, risk domain.Risk) int64 {
+	var total int64
+	for _, item := range plan.Items {
+		if actionableDisplayItem(item) && item.Risk == risk {
+			total += item.Bytes
+		}
+	}
+	return total
 }
 
 func planModuleLines(plan domain.ExecutionPlan, width int, limit int) []string {
@@ -322,7 +329,7 @@ func planModuleLines(plan domain.ExecutionPlan, width int, limit int) []string {
 	order := make([]string, 0)
 	buckets := map[string]*bucket{}
 	for _, item := range plan.Items {
-		if item.Action == domain.ActionAdvisory {
+		if !actionableDisplayItem(item) {
 			continue
 		}
 		key := progressGroupKey(item)
@@ -341,7 +348,7 @@ func planModuleLines(plan domain.ExecutionPlan, width int, limit int) []string {
 		return nil
 	}
 	lines := make([]string, 0, min(len(order), limit)+1)
-	lines = append(lines, mutedStyle.Render(fmt.Sprintf("%d %s  •  %s total", len(order), planGroupCollectionSummaryLabel(plan.Command), domain.HumanBytes(plan.Totals.Bytes))))
+	lines = append(lines, mutedStyle.Render(fmt.Sprintf("%d %s  •  %s actionable", len(order), planGroupCollectionSummaryLabel(plan.Command), domain.HumanBytes(planDisplayBytes(plan)))))
 	for _, key := range order[:min(len(order), limit)] {
 		b := buckets[key]
 		lines = append(lines, wrapText(safeStyle.Render(fmt.Sprintf("✓ %-20s  %d %s  •  %s", b.label, b.items, pl(b.items, "item", "items"), domain.HumanBytes(b.bytes))), width))

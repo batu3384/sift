@@ -1737,6 +1737,15 @@ func containsString(items []string, needle string) bool {
 	return false
 }
 
+func containsSubstring(items []string, needle string) bool {
+	for _, item := range items {
+		if strings.Contains(item, needle) {
+			return true
+		}
+	}
+	return false
+}
+
 func TestPolicyAllowedRootsUseBoundaryMatch(t *testing.T) {
 	t.Parallel()
 	if isUnderAnyRoot("/tmp/protected-cache", []string{"/tmp/protected"}) {
@@ -2617,6 +2626,103 @@ func TestBuildUninstallPlanProtectsRunningApps(t *testing.T) {
 	}
 	if len(plan.Warnings) == 0 {
 		t.Fatal("expected running app warning")
+	}
+}
+
+func TestScanWarnsWhenPlanPersistenceFails(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "cache.bin"), []byte("cache"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.OpenAt(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{
+		Adapter: stubAdapter{roots: platform.CuratedRoots{Temp: []string{root}}},
+		Config:  config.Default(),
+		Store:   st,
+	}
+	plan, err := service.Scan(context.Background(), ScanOptions{
+		Command: "clean",
+		RuleIDs: []string{"temp_files"},
+		DryRun:  true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsSubstring(plan.Warnings, "audit persistence unavailable") {
+		t.Fatalf("expected plan persistence warning, got %v", plan.Warnings)
+	}
+}
+
+func TestExecuteWarnsWhenExecutionPersistenceFails(t *testing.T) {
+	st, err := store.OpenAt(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{
+		Adapter: stubAdapter{},
+		Config:  config.Default(),
+		Store:   st,
+	}
+	result, err := service.ExecuteWithOptions(context.Background(), domain.ExecutionPlan{
+		ScanID:   "scan",
+		Command:  "clean",
+		Platform: "stub",
+		DryRun:   true,
+		Items: []domain.Finding{{
+			ID:          "advisory",
+			DisplayPath: "manual review",
+			Action:      domain.ActionAdvisory,
+			Status:      domain.StatusAdvisory,
+		}},
+	}, ExecuteOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsSubstring(result.Warnings, "audit persistence unavailable") {
+		t.Fatalf("expected execution persistence warning, got %v", result.Warnings)
+	}
+}
+
+func TestVerifyFingerprintRejectsReplacedFileWithSameSizeAndModTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.bin")
+	fixedTime := time.Now().Add(-time.Hour).Round(time.Second)
+	if err := os.WriteFile(path, []byte("first"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, fixedTime, fixedTime); err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := currentFingerprint(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fingerprint.Identity == "" {
+		t.Skip("platform does not expose stable file identity")
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("first"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, fixedTime, fixedTime); err != nil {
+		t.Fatal(err)
+	}
+	err = verifyFingerprint(domain.Finding{Path: path, Fingerprint: fingerprint})
+	if err == nil {
+		t.Fatal("expected replaced file with same mode/size/modtime to fail identity verification")
+	}
+	if !strings.Contains(err.Error(), "preview identity mismatch") {
+		t.Fatalf("expected identity mismatch error, got %v", err)
 	}
 }
 

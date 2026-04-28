@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -320,6 +319,7 @@ func (s *Service) RunUpdateWithOptions(ctx context.Context, dryRun bool, opts Up
 func (s *Service) installMethodAndCommands(channel UpdateChannel, force bool) (string, []string) {
 	executable, _ := s.currentExecutable()
 	lower := strings.ToLower(filepath.Clean(executable))
+	normalizedPath := strings.ReplaceAll(lower, "\\", "/")
 	switch {
 	case strings.Contains(lower, "cellar") || strings.Contains(lower, "homebrew"):
 		commands := []string{"brew upgrade sift", "brew uninstall sift"}
@@ -330,19 +330,19 @@ func (s *Service) installMethodAndCommands(channel UpdateChannel, force bool) (s
 			commands = []string{"Nightly builds are not available for Homebrew installs", "Switch to a manual install to use nightly builds"}
 		}
 		return "homebrew", commands
-	case strings.Contains(lower, string(filepath.Separator)+"scoop"+string(filepath.Separator)):
+	case strings.Contains(normalizedPath, "/scoop/"):
 		commands := []string{"scoop update sift", "scoop uninstall sift"}
 		if force {
-			commands[0] = "scoop uninstall sift && scoop install sift"
+			commands[0] = "scoop install sift --force"
 		}
 		if channel == UpdateChannelNightly {
 			commands = []string{"Nightly builds are not available for Scoop installs", "Switch to a manual install to use nightly builds"}
 		}
 		return "scoop", commands
-	case runtime.GOOS == "windows" && strings.Contains(lower, strings.ToLower(string(filepath.Separator)+"windowsapps"+string(filepath.Separator))):
+	case strings.Contains(normalizedPath, "/windowsapps/"):
 		commands := []string{"winget upgrade SIFT", "winget uninstall SIFT"}
 		if force {
-			commands[0] = "winget uninstall SIFT && winget install SIFT"
+			commands[0] = "winget install --id SIFT --force"
 		}
 		if channel == UpdateChannelNightly {
 			commands = []string{"Nightly builds are not available for Winget installs", "Switch to a manual install to use nightly builds"}
@@ -375,7 +375,7 @@ func updateCommandForMethod(method string, channel UpdateChannel, force bool) (m
 			return managedCommand{}, false
 		}
 		if force {
-			return managedCommand{Name: "powershell", Args: []string{"-NoProfile", "-Command", "scoop uninstall sift; scoop install sift"}}, true
+			return managedCommand{Name: "scoop", Args: []string{"install", "sift", "--force"}}, true
 		}
 		return managedCommand{Name: "scoop", Args: []string{"update", "sift"}}, true
 	case "winget":

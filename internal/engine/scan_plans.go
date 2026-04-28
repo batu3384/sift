@@ -58,6 +58,7 @@ func (s *Service) Scan(ctx context.Context, opts ScanOptions) (domain.ExecutionP
 			if item.Action == "" {
 				item.Action = definition.Action
 			}
+			item = attachFingerprintIdentity(item)
 			item = applyPolicy(item, evaluatePolicy(policy, item, false))
 			if opts.FindingCallback != nil {
 				opts.FindingCallback(definition.ID, definition.Name, item)
@@ -94,9 +95,7 @@ func (s *Service) Scan(ctx context.Context, opts ScanOptions) (domain.ExecutionP
 	if len(items) == 0 {
 		plan.PlanState = "empty"
 	}
-	if s.Store != nil {
-		_ = s.Store.SavePlan(ctx, plan)
-	}
+	s.persistPlan(ctx, &plan)
 	return plan, nil
 }
 
